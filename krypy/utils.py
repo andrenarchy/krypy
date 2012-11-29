@@ -5,8 +5,9 @@ This method provides functions like inner products, norms, ...
 '''
 
 import numpy
+from scipy.sparse import issparse, isspmatrix
 from scipy.sparse.linalg import LinearOperator
-from scipy.sparse import issparse
+from scipy.sparse.sputils import upcast
 from scipy.linalg import eigh
 
 # ===================================================================
@@ -60,9 +61,9 @@ def apply( A, x ):
         return x
     elif isinstance( A, numpy.ndarray ):
         return numpy.dot( A, x )
-    elif scipy.sparse.isspmatrix(A):
+    elif isspmatrix(A):
         return A * x
-    elif isinstance( A, scipy.sparse.linalg.LinearOperator ):
+    elif isinstance( A, LinearOperator ):
         return A * x
     else:
         raise ValueError( 'Unknown operator type "%s".' % type(A) )
@@ -167,8 +168,10 @@ def get_projection(b, W, AW,
 
     # Define projection operator.
     N = len(b)
+    if x0 is None:
+        x0 = numpy.zeros((N,1))
     dtype = upcast(W.dtype, AW.dtype, b.dtype, x0.dtype)
-    P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun,
+    P = LinearOperator( [N,N], Pfun, matmat=Pfun,
                                             dtype=dtype)
     # Get updated x0.
     # cost: nW*AXPY + cost(Pfun)
