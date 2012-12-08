@@ -1,3 +1,4 @@
+# -*- coding: utf8 -*-
 '''
 Collection of standard functions.
 

@@ -1,3 +1,4 @@
+# -*- coding: utf8 -*-
 import numpy
 import warnings
 from scipy.sparse.sputils import upcast
