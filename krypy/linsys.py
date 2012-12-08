@@ -1,6 +1,7 @@
 import numpy
 import warnings
 from scipy.sparse.sputils import upcast
+from scipy.sparse import issparse, isspmatrix
 from . import utils
 
 def cg(A, b, 
@@ -503,7 +504,10 @@ def gmres( A, b,
     if not maxiter:
         maxiter = N
 
-    xtype = upcast( A.dtype, b.dtype, x0.dtype )
+    
+    xtype = upcast( b.dtype, x0.dtype )
+    if isinstance(A, numpy.ndarray) or isspmatrix(A):
+        xtype = upcast( xtype, A.dtype)
     if M is not None:
         xtype = upcast( xtype, M )
     if Ml is not None:
