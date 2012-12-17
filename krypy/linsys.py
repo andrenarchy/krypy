@@ -205,7 +205,7 @@ def minres(A, b,
         start = time.time()
 
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
-    if M is not None:
+    if isinstance(M, numpy.ndarray) or isspmatrix(M):
         xtype = upcast( xtype, M.dtype )
     if Ml is not None:
         xtype = upcast( xtype, Ml.dtype )
@@ -512,9 +512,9 @@ def gmres( A, b,
     if isinstance(M, numpy.ndarray) or isspmatrix(M):
         xtype = upcast( xtype, M.dtype )
     if Ml is not None:
-        xtype = upcast( xtype, Ml )
+        xtype = upcast( xtype, Ml.dtype )
     if Mr is not None:
-        xtype = upcast( xtype, Mr )
+        xtype = upcast( xtype, Mr.dtype )
 
     out = {}
     out['info'] = 0
