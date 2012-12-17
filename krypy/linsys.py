@@ -509,8 +509,8 @@ def gmres( A, b,
     xtype = upcast( b.dtype, x0.dtype )
     if isinstance(A, numpy.ndarray) or isspmatrix(A):
         xtype = upcast( xtype, A.dtype)
-    if M is not None:
-        xtype = upcast( xtype, M )
+    if isinstance(M, numpy.ndarray) or isspmatrix(M):
+        xtype = upcast( xtype, M.dtype )
     if Ml is not None:
         xtype = upcast( xtype, Ml )
     if Mr is not None:
