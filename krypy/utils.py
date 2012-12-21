@@ -6,6 +6,7 @@ This method provides functions like inner products, norms, ...
 '''
 
 import numpy
+import warnings
 from scipy.sparse import issparse, isspmatrix
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.sputils import upcast
