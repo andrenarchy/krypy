@@ -132,7 +132,7 @@ def cg(A, b,
                         % (k+1, relresvec[-1], tol, norm_r_upd))
                     info = 1
                 else:
-                    warnigns.warn(('Iter %d: Updated residual is below tolerance, '
+                    warnings.warn(('Iter %d: Updated residual is below tolerance, '
                                 + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
                                 + 'resup=%g)\n' ) % (k+1, relresvec[-1], tol, norm_r_upd))
 
