@@ -5,7 +5,7 @@ from scipy.sparse.sputils import upcast
 from scipy.sparse import issparse, isspmatrix
 from . import utils
 
-def cg(A, b, 
+def cg(A, b,
        x0 = None,
        tol = 1.0e-5,
        maxiter = None,
@@ -25,7 +25,7 @@ def cg(A, b,
 
     info = 0
     N = len(b)
-    
+
     if x0 is None:
         x0 = numpy.zeros((N,1))
 
@@ -132,7 +132,7 @@ def cg(A, b,
                         % (k+1, relresvec[-1], tol, norm_r_upd))
                     info = 1
                 else:
-                    warnigns.warn(('Iter %d: Updated residual is below tolerance, '
+                    warnings.warn(('Iter %d: Updated residual is below tolerance, '
                                 + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
                                 + 'resup=%g)\n' ) % (k+1, relresvec[-1], tol, norm_r_upd))
 
@@ -148,7 +148,7 @@ def cg(A, b,
     return ret
 
 # ==============================================================================
-def minres(A, b, 
+def minres(A, b,
            x0 = None,
            tol = 1e-5,
            maxiter = None,
@@ -458,7 +458,7 @@ def minres(A, b,
     return ret
 
 # ==============================================================================
-def gmres( A, b, 
+def gmres( A, b,
            x0 = None,
            tol = 1e-5,
            maxiter = None,
@@ -505,7 +505,7 @@ def gmres( A, b,
     if not maxiter:
         maxiter = N
 
-    
+
     xtype = upcast( b.dtype, x0.dtype )
     if isinstance(A, numpy.ndarray) or isspmatrix(A):
         xtype = upcast( xtype, A.dtype)
