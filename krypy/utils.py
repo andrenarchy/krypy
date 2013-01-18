@@ -13,6 +13,39 @@ from scipy.sparse.sputils import upcast
 from scipy.linalg import eigh
 
 # ===================================================================
+def find_common_type(*args):
+    '''returns common dtype of numpy and scipy objects
+
+    Recognizes ndarray, spmatrix and LinearOperator. All other objects are
+    ignored (most notably None).'''
+    dtypes = []
+    for arg in args:
+        if type(arg) is numpy.ndarray or  \
+                isspmatrix(arg) or \
+                isinstance(arg, LinearOperator):
+            dtypes.append(arg.dtype)
+    return numpy.find_common_type(dtypes, [])
+
+# ===================================================================
+def shape_vec(x):
+    '''Take a (n,) ndarray and return it as (n,1) ndarray'''
+    return numpy.reshape(arg, (x.shape[0], 1))
+
+# ===================================================================
+def shape_vecs(*args):
+    '''Reshape all ndarrays with shape (n,) to shape (n,1)
+
+    Recognizes ndarrays and ignores all others.'''
+    ret_args = []
+    all_flat = True
+    for arg in args:
+        if type(arg) is numpy.ndarray and len(arg.shape)==1:
+            arg = shape_vec(arg)
+            all_flat = False
+        ret_args.append(arg)
+    return all_flat, ret_args
+
+# ===================================================================
 def ip(X,Y):
     '''Euclidean inner product.
 
