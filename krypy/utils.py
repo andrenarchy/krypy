@@ -13,7 +13,7 @@ from scipy.sparse.sputils import upcast
 from scipy.linalg import eigh
 
 # ===================================================================
-def find_common_type(*args):
+def find_common_dtype(*args):
     '''returns common dtype of numpy and scipy objects
 
     Recognizes ndarray, spmatrix and LinearOperator. All other objects are
@@ -23,7 +23,10 @@ def find_common_type(*args):
         if type(arg) is numpy.ndarray or  \
                 isspmatrix(arg) or \
                 isinstance(arg, LinearOperator):
-            dtypes.append(arg.dtype)
+            if hasattr(arg, 'dtype'):
+                dtypes.append(arg.dtype)
+            else:
+                warnings.warn('object %s does not have a dtype.' % arg.__repr__)
     return numpy.find_common_type(dtypes, [])
 
 # ===================================================================

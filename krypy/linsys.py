@@ -29,19 +29,9 @@ def cg(A, b,
     if x0 is None:
         x0 = numpy.zeros((N,1))
 
-    xtype = upcast( A.dtype, b.dtype, x0.dtype )
-    if M is not None:
-        xtype = upcast( xtype, M.dtype )
-    if Ml is not None:
-        xtype = upcast( xtype, Ml.dtype )
-    if Mr is not None:
-        xtype = upcast( xtype, Mr.dtype )
+    cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
 
-    x = xtype(x0.copy())
-    # If len(x)==1, then xtype strips off the numpy.array frame around the value.
-    # This is needed for utils.apply, though.
-    if len(x0) == 1:
-        x = numpy.array( [x] )
+    x = x0.copy()
 
     # Compute M-norm of M*Ml*b.
     Mlb = utils.apply(Ml, b)
@@ -66,7 +56,7 @@ def cg(A, b,
         raise RuntimeError('return_basis/full_reortho not implemented for CG.')
 
     # resulting approximation is xk = x0 + Mr*yk
-    yk = numpy.zeros((N,1), dtype=xtype)
+    yk = numpy.zeros((N,1), dtype=cdtype)
 
     if maxiter is None:
         maxiter = N
