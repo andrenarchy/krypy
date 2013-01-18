@@ -26,11 +26,10 @@ def cg(A, b,
     N = len(b)
     if maxiter is None:
         maxiter = N
-    flat_vecs, (b, x0) = utils.shape_vecs(b, x0)
+    flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0, exact_solution)
     if x0 is None:
         x0 = numpy.zeros((N,1))
     cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
-    x = x0.copy()
 
     # Compute M-norm of M*Ml*b.
     Mlb = utils.apply(Ml, b)
@@ -52,9 +51,8 @@ def cg(A, b,
 
     # resulting approximation is xk = x0 + Mr*yk
     yk = numpy.zeros((N,1), dtype=cdtype)
-
-    ret = {}
-    ret['info'] = 0
+    xk = x0.copy()
+    info = 0
 
     rho_old = norm_MMlr0**2
 
@@ -107,7 +105,7 @@ def cg(A, b,
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
                         % (k+1, relresvec[-1], tol, norm_r_upd))
-                    ret['info'] = 1
+                    info = 1
                 else:
                     warnings.warn(('Iter %d: Updated residual is below tolerance, '
                                 + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
@@ -115,8 +113,10 @@ def cg(A, b,
 
         k += 1
 
-    ret['xk'] = xk if not flat_vecs else numpy.ndarray.flatten(xk)
-    ret['relresvec'] = relresvec
+    ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
+            'info': info,
+            'relresvec': relresvec
+            }
     if exact_solution is not None:
         ret['errvec'] = errvec
 
@@ -153,12 +153,13 @@ def minres(A, b,
     Stopping criterion is
     ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
     '''
-    info = 0
     N = len(b)
-    if x0 is None:
-        x0 = numpy.zeros((N,1))
     if maxiter is None:
         maxiter = N
+    flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0, exact_solution)
+    if x0 is None:
+        x0 = numpy.zeros((N,1))
+    cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
 
     if timer:
         import time
@@ -179,20 +180,11 @@ def minres(A, b,
     if timer:
         start = time.time()
 
-    xtype = upcast( A.dtype, b.dtype, x0.dtype )
-    if isinstance(M, numpy.ndarray) or isspmatrix(M):
-        xtype = upcast( xtype, M.dtype )
-    if Ml is not None:
-        xtype = upcast( xtype, Ml.dtype )
-    if Mr is not None:
-        xtype = upcast( xtype, Mr.dtype )
-
     # Compute M-norm of M*Ml*b.
     Mlb = utils.apply(Ml, b)
     MMlb = utils.apply(M, Mlb)
     norm_MMlb = utils.norm(Mlb, MMlb, inner_product = inner_product)
 
-    # --------------------------------------------------------------------------
     # Init Lanczos and MINRES
     r0 = b - utils.apply(A, x0)
     Mlr0 = utils.apply(Ml, r0)
@@ -206,18 +198,17 @@ def minres(A, b,
     if exact_solution is not None:
         errvec = [utils.norm(exact_solution - x0, inner_product = inner_product)]
 
-    # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
     if return_basis or full_reortho:
-        Vfull = numpy.c_[MMlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=xtype)]
-        Pfull = numpy.c_[Mlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=xtype)]
-        Hfull = numpy.zeros((maxiter+1,maxiter)) #scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
+        Vfull = numpy.c_[MMlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=cdtype)]
+        Pfull = numpy.c_[Mlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=cdtype)]
+        Hfull = numpy.zeros((maxiter+1,maxiter), dtype=numpy.float)
     # Last and current Lanczos vector:
-    V = numpy.c_[numpy.zeros(N), MMlr0 / norm_MMlr0]
+    V = numpy.c_[numpy.zeros(N, dtype=cdtype), MMlr0 / norm_MMlr0]
     # M*v[i] = P[1], M*v[i-1] = P[0]
-    P = numpy.c_[numpy.zeros(N), Mlr0 / norm_MMlr0]
+    P = numpy.c_[numpy.zeros(N, dtype=cdtype), Mlr0 / norm_MMlr0]
     # Necessary for efficient update of yk:
-    W = numpy.c_[numpy.zeros(N), numpy.zeros(N)]
+    W = numpy.c_[numpy.zeros(N, dtype=cdtype), numpy.zeros(N)]
     # some small helpers
     ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
     y  = [norm_MMlr0, 0] # first entry is (updated) residual
@@ -226,8 +217,9 @@ def minres(A, b,
     k = 0
 
     # resulting approximation is xk = x0 + Mr*yk
-    yk = numpy.zeros((N,1), dtype=xtype)
+    yk = numpy.zeros((N,1), dtype=cdtype)
     xk = x0.copy()
+    info = 0
 
     if timer:
         times['setup'][0] = time.time()-start
@@ -249,7 +241,6 @@ def minres(A, b,
 
         if timer:
             start = time.time()
-        # tsold = inner_product(V[:,[0]], z)[0,0]
         z  = z - tsold * P[:,[0]]
         # Should be real! (diagonal element):
         td = inner_product(V[:,[1]], z)[0,0]
@@ -259,14 +250,6 @@ def minres(A, b,
         z  = z - td * P[:,[1]]
         if timer:
             times['Lanczos'][k] = time.time()-start
-
-        ## local reorthogonalization
-        #tsold2 = inner_product(V[0], z)
-        #z   = z - tsold2 * P[0]
-        #td2 = inner_product(V[1], z)
-        #td  = td + td2
-        #z   = z - td2*P[1]
-        #tsold = tsold + tsold2
 
         if timer:
             start = time.time()
@@ -278,20 +261,11 @@ def minres(A, b,
                 # here we can (and should) orthogonalize against ALL THE
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
-                #
                 for i in range(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         warnings.warn('Iter %d: abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0)))
                     z -= ip * Pfull[:,[i]]
-            ## ortho against additional (deflation) vectors?
-            ## cost: ndeflW*(IP + AXPY)
-            #if deflW is not None:
-            #    for i in range(0,deflW.shape[1]):
-            #        ip = inner_product(deflW[:,[i]], z)[0,0]
-            #        if abs(ip) > 1.0e-9:
-            #            print('Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip)))
-            #        z = z - ip * deflW[:,[i]]
         if timer:
             times['reortho'][k] = time.time()-start
 
@@ -370,7 +344,6 @@ def minres(A, b,
         if timer:
             times['update solution'][k] = time.time()-start
 
-        # ----------------------------------------------------------------------
         # update residual
         if timer:
             start = time.time()
@@ -409,12 +382,11 @@ def minres(A, b,
 
         # limit relative residual to machine precision (an exact 0 is rare but
         # seems to occur with pyamg...).
-        relresvec[-1] = max(numpy.finfo(float).eps, relresvec[-1])
+        # relresvec[-1] = max(numpy.finfo(float).eps, relresvec[-1])
         k += 1
     # end MINRES iteration
-    # --------------------------------------------------------------------------
 
-    ret = { 'xk': xk,
+    ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
             'info': info,
             'relresvec': relresvec
             }
