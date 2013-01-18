@@ -392,7 +392,6 @@ def minres(A, b,
             }
     if exact_solution is not None:
         ret['errvec'] = errvec
-
     if return_basis:
         ret['Vfull'] = Vfull[:,0:k+1]
         ret['Pfull'] = Pfull[:,0:k+1]
@@ -415,6 +414,7 @@ def gmres( A, b,
            inner_product = utils.ip,
            explicit_residual = False,
            return_basis = False,
+           full_reortho = True,
            exact_solution = None
          ):
     '''Preconditioned GMRES
@@ -428,7 +428,8 @@ def gmres( A, b,
     Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
     If M is used the memory consumption is 2*(maxiter+1).
     '''
-    # TODO(Andre): errvec for exact_solution!=None
+    if not full_reortho:
+        raise RuntimeError('full_reortho=False not allowed in GMRES ')
     # --------------------------------------------------------------------------
     def _compute_explicit_xk(H, V, y):
         '''Compute approximation xk to the solution.'''
@@ -447,34 +448,22 @@ def gmres( A, b,
     # --------------------------------------------------------------------------
 
     N = len(b)
-    if x0 is None:
-        x0 = numpy.zeros((N,1))
     if not maxiter:
         maxiter = N
-
-    
-    xtype = upcast( b.dtype, x0.dtype )
-    if isinstance(A, numpy.ndarray) or isspmatrix(A):
-        xtype = upcast( xtype, A.dtype)
-    if isinstance(M, numpy.ndarray) or isspmatrix(M):
-        xtype = upcast( xtype, M.dtype )
-    if Ml is not None:
-        xtype = upcast( xtype, Ml.dtype )
-    if Mr is not None:
-        xtype = upcast( xtype, Mr.dtype )
-
-    out = {}
-    out['info'] = 0
+    flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0, exact_solution)
+    if x0 is None:
+        x0 = numpy.zeros((N,1))
+    cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
 
     # get memory for working variables
-    V = numpy.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
-    H = numpy.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
+    V = numpy.zeros([N, maxiter+1], dtype=cdtype) # Arnoldi basis
+    H = numpy.zeros([maxiter+1, maxiter], dtype=cdtype) # Hessenberg matrix
 
     if M is not None:
-        P = numpy.zeros([N,maxiter+1], dtype=xtype) # V=M*P
+        P = numpy.zeros([N,maxiter+1], dtype=cdtype) # V=M*P
 
     if return_basis:
-        Horig = numpy.zeros([maxiter+1,maxiter], dtype=xtype)
+        Horig = numpy.zeros([maxiter+1,maxiter], dtype=cdtype)
 
     # initialize working variables
     Mlb = utils.apply(Ml, b)
@@ -494,26 +483,25 @@ def gmres( A, b,
         MMlr0 = MMlb.copy()
         norm_MMlr0 = norm_MMlb
 
-    out['relresvec'] = numpy.empty(maxiter+1)
+    # initial relative residual norm
+    relresvec = [norm_MMlr0 / norm_MMlb]
+    info = 0
+
+    # compute error?
+    if exact_solution is not None:
+        errvec = [utils.norm(exact_solution - x0, inner_product = inner_product)]
 
     V[:, [0]] = MMlr0 / norm_MMlr0
     if M is not None:
         P[:, [0]] = Mlr0 / norm_MMlr0
-    out['relresvec'][0] = norm_MMlr0 / norm_MMlb
     # Right hand side of projected system:
-    y = numpy.zeros( (maxiter+1,1), dtype=xtype )
+    y = numpy.zeros( (maxiter+1,1), dtype=cdtype )
     y[0] = norm_MMlr0
     # Givens rotations:
     G = []
 
-    if exact_solution is not None:
-        out['errorvec'] = numpy.empty(maxiter+1)
-        out['errorvec'][0] = utils.norm(x0-exact_solution,
-                                   inner_product=inner_product
-                                   )
-
     k = 0
-    while out['relresvec'][k] > tol and k < maxiter:
+    while relresvec[-1] > tol and k < maxiter:
         # Apply operator Ml*A*Mr
         z = utils.apply(Ml, utils.apply(A, utils.apply(Mr, V[:, [k]])))
 
@@ -542,41 +530,50 @@ def gmres( A, b,
         H[k:k+2, k] = utils.apply(G[k], H[k:k+2, k])
         y[k:k+2] = utils.apply(G[k], y[k:k+2])
 
+        if exact_solution is not None:
+            xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
+            errvec.append(utils.norm(exact_solution - xk, inner_product=inner_product))
+
         # Update residual norm.
         if explicit_residual:
             xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
             Mrk, norm_Mrk = _compute_explicit_residual( xk )
-            out['relresvec'][k+1] = norm_Mrk / norm_MMlb
+            relresvec.append(norm_Mrk / norm_MMlb)
         else:
-            out['relresvec'][k+1] = abs(y[k+1]) / norm_MMlb
+            relresvec.append(abs(y[k+1,0]) / norm_MMlb)
 
         # convergence of updated residual or maxiter reached?
-        if out['relresvec'][k+1] < tol or k+1 == maxiter:
-            norm_ur = out['relresvec'][k+1]
+        if relresvec[-1] < tol or k+1 == maxiter:
+            norm_ur = relresvec[-1]
 
             if not explicit_residual:
                 xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
                 Mrk, norm_Mrk = _compute_explicit_residual( xk )
-                out['relresvec'][k+1] = norm_Mrk / norm_MMlb
+                relresvec[-1] = norm_Mrk / norm_MMlb
 
             # No convergence of expl. residual?
-            if out['relresvec'][k+1] >= tol:
+            if relresvec[-1] >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
-                        % (k+1, out['relresvec'][k+1], tol, norm_ur))
-                    out['info'] = 1
+                        % (k+1, relresvec[-1], tol, norm_ur))
+                    info = 1
                 else:
                     warnigs.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
-                        % (k+1, out['relresvec'][k+1], tol, norm_ur))
+                        % (k+1, relresvec[-1], tol, norm_ur))
 
         k += 1
 
-    out['relresvec'] = out['relresvec'][:k+1]
-    out['xk'] = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
+    xk = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
+    ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
+            'info': info,
+            'relresvec': relresvec
+            }
+    if exact_solution is not None:
+        ret['errvec'] = errvec
     if return_basis:
-        out['Vfull'] = V[:, :k+1]
-        out['Hfull'] = Horig[:k+1, :k]
+        ret['Vfull'] = V[:, :k+1]
+        ret['Hfull'] = Horig[:k+1, :k]
         if M is not None:
-            out['Pfull'] = P[:, :k+1]
-    return out
+            ret['Pfull'] = P[:, :k+1]
+    return ret
