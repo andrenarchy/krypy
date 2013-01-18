@@ -26,6 +26,8 @@ def cg(A, b,
     info = 0
     N = len(b)
     
+    flat_vecs, (b, x0) = utils.shape_vecs(b, x0)
+
     if x0 is None:
         x0 = numpy.zeros((N,1))
 
@@ -128,7 +130,7 @@ def cg(A, b,
 
         k += 1
 
-    ret = { 'xk': xk,
+    ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
             'info': info,
             'relresvec': relresvec
             }

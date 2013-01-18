@@ -32,7 +32,7 @@ def find_common_dtype(*args):
 # ===================================================================
 def shape_vec(x):
     '''Take a (n,) ndarray and return it as (n,1) ndarray'''
-    return numpy.reshape(arg, (x.shape[0], 1))
+    return numpy.reshape(x, (x.shape[0], 1))
 
 # ===================================================================
 def shape_vecs(*args):
@@ -40,13 +40,15 @@ def shape_vecs(*args):
 
     Recognizes ndarrays and ignores all others.'''
     ret_args = []
-    all_flat = True
+    flat_vecs = True
     for arg in args:
-        if type(arg) is numpy.ndarray and len(arg.shape)==1:
-            arg = shape_vec(arg)
-            all_flat = False
+        if type(arg) is numpy.ndarray:
+            if len(arg.shape)==1:
+                arg = shape_vec(arg)
+            else:
+                flat_vecs = False
         ret_args.append(arg)
-    return all_flat, ret_args
+    return flat_vecs, ret_args
 
 # ===================================================================
 def ip(X,Y):
