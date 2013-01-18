@@ -20,19 +20,16 @@ def cg(A, b,
        ):
     '''Conjugate gradient method with different inner product.
     '''
-    if return_basis:
-        raise RuntimeError('return_basis not implemented for CG.')
+    if return_basis or full_reortho:
+        raise RuntimeError('return_basis/full_reortho not yet implemented for CG.')
 
-    info = 0
     N = len(b)
-    
+    if maxiter is None:
+        maxiter = N
     flat_vecs, (b, x0) = utils.shape_vecs(b, x0)
-
     if x0 is None:
         x0 = numpy.zeros((N,1))
-
     cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
-
     x = x0.copy()
 
     # Compute M-norm of M*Ml*b.
@@ -53,30 +50,17 @@ def cg(A, b,
     if exact_solution is not None:
         errvec = [utils.norm(exact_solution - x0, inner_product = inner_product)]
 
-    # Allocate and initialize the 'large' memory blocks.
-    if return_basis or full_reortho:
-        raise RuntimeError('return_basis/full_reortho not implemented for CG.')
-
     # resulting approximation is xk = x0 + Mr*yk
     yk = numpy.zeros((N,1), dtype=cdtype)
 
-    if maxiter is None:
-        maxiter = N
-
-    out = {}
-    out['info'] = 0
+    ret = {}
+    ret['info'] = 0
 
     rho_old = norm_MMlr0**2
 
     Mlr = Mlr0.copy()
     MMlr = MMlr0.copy()
     p = MMlr.copy()
-
-    if exact_solution is not None:
-        out['errorvec'] = numpy.empty(maxiter+1)
-        out['errorvec'][0] = utils.norm_squared(x-exact_solution,
-                                           inner_product = inner_product
-                                           )
 
     k = 0
     while relresvec[k] > tol and k < maxiter:
@@ -114,7 +98,8 @@ def cg(A, b,
             norm_r_upd = relresvec[-1]
             # Compute the exact residual norm (if not yet done above)
             if not explicit_residual:
-                xk, Mlr, MMlr, norm_MMlr = utils.norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = inner_product)
+                xk, Mlr, MMlr, norm_MMlr = utils.norm_MMlr(M, Ml, A, Mr, b, x0, yk,
+                        inner_product = inner_product)
                 relresvec[-1] = norm_MMlr / norm_MMlb
             # No convergence of explicit residual?
             if relresvec[-1] > tol:
@@ -122,7 +107,7 @@ def cg(A, b,
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
                         % (k+1, relresvec[-1], tol, norm_r_upd))
-                    info = 1
+                    ret['info'] = 1
                 else:
                     warnings.warn(('Iter %d: Updated residual is below tolerance, '
                                 + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
@@ -130,10 +115,8 @@ def cg(A, b,
 
         k += 1
 
-    ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-            'info': info,
-            'relresvec': relresvec
-            }
+    ret['xk'] = xk if not flat_vecs else numpy.ndarray.flatten(xk)
+    ret['relresvec'] = relresvec
     if exact_solution is not None:
         ret['errvec'] = errvec
 
