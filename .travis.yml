@@ -3,7 +3,6 @@ python:
     - "2.7"
     - "3.2"
 before_install:
-    - "sudo apt-get install libatlas3gf-base libatlas-dev liblapack-dev gfortran"
     # install numpy for python 3.2 (currently not installed in travis)
     - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then sudo apt-get install python3-numpy 2>&1 | tail -n 2; fi"
     - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then ln -s /usr/lib/python3/dist-packages/numpy ~/virtualenv/python3.2/lib/python3.2/site-packages/; fi"

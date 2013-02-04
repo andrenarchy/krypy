@@ -1,1 +1,2 @@
-import linsys, utils
+from . import utils
+from . import linsys
