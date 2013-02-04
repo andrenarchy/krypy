@@ -3,8 +3,16 @@ python:
     - "2.7"
     - "3.2"
 before_install:
-    - sudo apt-get install libatlas3gf-base libatlas-dev liblapack-dev gfortran
+    - "sudo apt-get install libatlas3gf-base libatlas-dev liblapack-dev gfortran"
+    # install numpy for python 3.2 (currently not installed in travis)
+    - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then sudo apt-get install python3-numpy 2>&1 | tail -n 2; fi"
+    - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then ln -s /usr/lib/python3/dist-packages/numpy ~/virtualenv/python3.2/lib/python3.2/site-packages/; fi"
+    # install scipy for python 3.2
+    - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then sudo apt-get install python3-scipy 2>&1 | tail -n 2; fi"
+    - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then ln -s /usr/lib/python3/dist-packages/scipy ~/virtualenv/python3.2/lib/python3.2/site-packages/; fi"
+    # install scipy for python 2.7
+    - "if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then sudo apt-get install python-scipy 2>&1 | tail -n 2; fi"
+    - "if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then ln -s /usr/lib/python/dist-packages/scipy ~/virtualenv/python2.7/lib/python2.7/site-packages/; fi"
 install:
-    - pip install scipy
-    - python setup.py install
-script: python tests/tests.py
+    - "python setup.py install"
+script: "python tests/tests.py"
