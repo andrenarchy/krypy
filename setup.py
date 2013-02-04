@@ -7,7 +7,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup( name = 'krypy',
-       packages = ['krypy', 'tests'],
+       packages = ['krypy'],
        version = '0.1',
        description = 'Krylov subspace methods for linear algebraic systems',
        long_description = read('README.md'),
