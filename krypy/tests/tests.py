@@ -4,6 +4,18 @@ import itertools
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import csr_matrix
 
+
+def dictproduct(d):
+    '''enhance itertools product to process values of dicts
+
+    example: 
+        d = {'a':[1,2],'b':[3,4]}
+        then list(dictproduct(d)) == 
+        [{'a':1,'b':3}, {'a':1,'b':4}, {'a':2,'b':3}, {'a':2,'b':4}]
+    '''
+    for p in itertools.product(*d.values()):
+        yield dict(zip(d.keys(), p))
+
 def get_spd_matrix():
     a = numpy.array(range(1,11))
     a[-1] = 1e2
@@ -15,17 +27,28 @@ def get_spd_precon():
     return numpy.diag(a), numpy.diag(1/a)
 
 def test_linsys_cg():
-    Aorig, Ainv = get_spd_matrix()
+    A, Ainv = get_spd_matrix()
     x = numpy.ones((10,1))
-    b = numpy.dot(Aorig,x)
-    Morig, Minv = get_spd_precon()
-    As = [Aorig, LinearOperator(Aorig.shape, lambda x: numpy.dot(Aorig,x), dtype=numpy.double), csr_matrix(Aorig)]
-    x0s = [None, numpy.zeros((10,1)), numpy.ones((10,1)), x]
-    tols = [1e-14, 1e-5, 1e-2]
-    maxiters = [15]
-    exact_solutions = [None, x]
-    for A, x0, tol, maxiter, exact_solution in itertools.product(As, x0s, tols, maxiters, exact_solutions):
-        yield linsys_cg, {'A':A, 'b':b, 'x0':x0, 'tol':tol, 'maxiter': maxiter, 'exact_solution':exact_solution}
+    b = numpy.dot(A,x)
+    M, Minv = get_spd_precon()
+    params = {
+        'A': [ A, 
+                LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
+                    dtype=numpy.double), 
+                csr_matrix(A)
+                ],
+        'b': [ b, 
+                numpy.reshape(b, (b.shape[0],))],
+        'x0': [None, 
+                numpy.zeros((10,1)), 
+                numpy.ones((10,1)), 
+                x],
+        'tol': [1e-14, 1e-5, 1e-2],
+        'maxiter': [15],
+        'exact_solution': [None, x]
+        }
+    for param in dictproduct(params):
+        yield linsys_cg, param
 
 def linsys_cg(params):
     ret = krypy.linsys.cg(**params)
