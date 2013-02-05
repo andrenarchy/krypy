@@ -26,7 +26,7 @@ def get_spd_precon():
     a[-1] = 1
     return numpy.diag(a), numpy.diag(1/a)
 
-def test_linsys_cg():
+def test_linsys_spd():
     A, Ainv = get_spd_matrix()
     x = numpy.ones((10,1))
     b = numpy.dot(A,x)
@@ -45,6 +45,12 @@ def test_linsys_cg():
                 x],
         'tol': [1e-14, 1e-5, 1e-2],
         'maxiter': [15],
+        'M': [ None,
+                Minv,
+                LinearOperator(Minv.shape, lambda x: numpy.dot(Minv,x), 
+                    dtype=numpy.double),
+                csr_matrix(Minv)
+                ],
         'exact_solution': [None, x]
         }
     for param in dictproduct(params):
