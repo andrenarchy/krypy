@@ -193,36 +193,38 @@ def minres(A, b,
 
     # initial relative residual norm
     relresvec = [norm_MMlr0 / norm_MMlb]
+    xk = x0.copy()
+    info = 0
 
     # compute error?
     if exact_solution is not None:
         errvec = [utils.norm(exact_solution - x0, inner_product = inner_product)]
 
-    # Allocate and initialize the 'large' memory blocks.
-    if return_basis or full_reortho:
-        Vfull = numpy.c_[MMlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=cdtype)]
-        Pfull = numpy.c_[Mlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=cdtype)]
-        Hfull = numpy.zeros((maxiter+1,maxiter), dtype=numpy.float)
-    # Last and current Lanczos vector:
-    V = numpy.c_[numpy.zeros(N, dtype=cdtype), MMlr0 / norm_MMlr0]
-    # M*v[i] = P[1], M*v[i-1] = P[0]
-    P = numpy.c_[numpy.zeros(N, dtype=cdtype), Mlr0 / norm_MMlr0]
-    # Necessary for efficient update of yk:
-    W = numpy.c_[numpy.zeros(N, dtype=cdtype), numpy.zeros(N)]
-    # some small helpers
-    ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
-    y  = [norm_MMlr0, 0] # first entry is (updated) residual
-    G2 = numpy.eye(2)     # old givens rotation
-    G1 = numpy.eye(2)     # even older givens rotation ;)
-    k = 0
+    # initialize only if needed
+    if relresvec[-1] > tol:
+        # Allocate and initialize the 'large' memory blocks.
+        if return_basis or full_reortho:
+            Vfull = numpy.c_[MMlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=cdtype)]
+            Pfull = numpy.c_[Mlr0 / norm_MMlr0, numpy.zeros([N,maxiter], dtype=cdtype)]
+            Hfull = numpy.zeros((maxiter+1,maxiter), dtype=numpy.float)
+        # Last and current Lanczos vector:
+        V = numpy.c_[numpy.zeros(N, dtype=cdtype), MMlr0 / norm_MMlr0]
+        # M*v[i] = P[1], M*v[i-1] = P[0]
+        P = numpy.c_[numpy.zeros(N, dtype=cdtype), Mlr0 / norm_MMlr0]
+        # Necessary for efficient update of yk:
+        W = numpy.c_[numpy.zeros(N, dtype=cdtype), numpy.zeros(N)]
+        # some small helpers
+        ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
+        y  = [norm_MMlr0, 0] # first entry is (updated) residual
+        G2 = numpy.eye(2)     # old givens rotation
+        G1 = numpy.eye(2)     # even older givens rotation ;)
+        k = 0
 
-    # resulting approximation is xk = x0 + Mr*yk
-    yk = numpy.zeros((N,1), dtype=cdtype)
-    xk = x0.copy()
-    info = 0
+        # resulting approximation is xk = x0 + Mr*yk
+        yk = numpy.zeros((N,1), dtype=cdtype)
 
-    if timer:
-        times['setup'][0] = time.time()-start
+        if timer:
+            times['setup'][0] = time.time()-start
 
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
@@ -433,10 +435,11 @@ def gmres( A, b,
     # --------------------------------------------------------------------------
     def _compute_explicit_xk(H, V, y):
         '''Compute approximation xk to the solution.'''
-        yy = numpy.linalg.solve(H, y)
-        u  = utils.apply(Mr, numpy.dot(V, yy))
-        xk = x0 + u
-        return xk
+        if (H.shape[0]>0):
+            yy = numpy.linalg.solve(H, y)
+            u  = utils.apply(Mr, numpy.dot(V, yy))
+            return x0+u
+        return x0
     # --------------------------------------------------------------------------
     def _compute_explicit_residual( xk ):
         '''Compute residual explicitly.'''
@@ -458,6 +461,7 @@ def gmres( A, b,
     # get memory for working variables
     V = numpy.zeros([N, maxiter+1], dtype=cdtype) # Arnoldi basis
     H = numpy.zeros([maxiter+1, maxiter], dtype=cdtype) # Hessenberg matrix
+    y = numpy.zeros( (maxiter+1,1), dtype=cdtype )
 
     if M is not None:
         P = numpy.zeros([N,maxiter+1], dtype=cdtype) # V=M*P
@@ -491,14 +495,15 @@ def gmres( A, b,
     if exact_solution is not None:
         errvec = [utils.norm(exact_solution - x0, inner_product = inner_product)]
 
-    V[:, [0]] = MMlr0 / norm_MMlr0
-    if M is not None:
-        P[:, [0]] = Mlr0 / norm_MMlr0
-    # Right hand side of projected system:
-    y = numpy.zeros( (maxiter+1,1), dtype=cdtype )
-    y[0] = norm_MMlr0
-    # Givens rotations:
-    G = []
+    # initialize only if needed
+    if relresvec[-1] > tol:
+        V[:, [0]] = MMlr0 / norm_MMlr0
+        if M is not None:
+            P[:, [0]] = Mlr0 / norm_MMlr0
+        # Right hand side of projected system:
+        y[0] = norm_MMlr0
+        # Givens rotations:
+        G = []
 
     k = 0
     while relresvec[-1] > tol and k < maxiter:
@@ -559,7 +564,7 @@ def gmres( A, b,
                         % (k+1, relresvec[-1], tol, norm_ur))
                     info = 1
                 else:
-                    warnigs.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
+                    warnings.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
                         % (k+1, relresvec[-1], tol, norm_ur))
 
         k += 1
