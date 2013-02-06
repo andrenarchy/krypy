@@ -16,57 +16,58 @@ def dictproduct(d):
     for p in itertools.product(*d.values()):
         yield dict(zip(d.keys(), p))
 
-def get_spd_matrix():
-    a = numpy.array(range(1,11))
-    a[-1] = 1.e2
-    return numpy.diag(a), numpy.diag(1./a)
-
-def get_spd_precon():
-    a = numpy.array(range(1,11))
-    a[-1] = 1.
-    return numpy.diag(a), numpy.diag(1./a)
-
-def test_linsys_spd():
-    A, Ainv = get_spd_matrix()
-    x = numpy.ones((10,1))
-    b = numpy.dot(A,x)
-    M, Minv = get_spd_precon()
-    params = {
-        'A': [ A, 
+def get_operators(A):
+    return [ A, 
                 LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
                     dtype=numpy.double), 
                 csr_matrix(A)
-                ],
-        'b': [ b, 
-                numpy.reshape(b, (b.shape[0],))],
-        'x0': [None, 
-               numpy.zeros((10,1)),
-               numpy.ones((10,1)),
-               x
-              ],
-        'tol': [1e-14, 1e-5, 1e-2],
-        'maxiter': [15],
-        'M': [ None,
-                Minv,
-                LinearOperator(Minv.shape, lambda x: numpy.dot(Minv,x), 
-                    dtype=numpy.double),
-                csr_matrix(Minv),
-                Ainv
-                ],
+                ]
+def get_vecs(v):
+    return [ v, numpy.reshape(v, (v.shape[0],)) ]
+
+def test_linsys_spd():
+    # build spd diag matrix
+    a = numpy.array(range(1,11))
+    a[-1] = 1.e2
+    A, Ainv = numpy.diag(a), numpy.diag(1./a)
+    
+    # solution
+    x = numpy.ones((10,1))
+    
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'M': [ None, Ainv ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+def produce_cases(A, x, params_adds, solvers):
+    b = numpy.dot(A, x)
+    params_base = {
+        'A': get_operators(A),
+        'b': get_vecs(b),
+        'x0': [ None, numpy.zeros(b.shape), x ] + get_vecs(numpy.ones(b.shape)),
+        'tol': [ 1e-14, 1e-5, 1e-2 ],
+        'maxiter': [ 15 ],
+        'M': [ None ],
         'Ml': [ None ],
         'Mr': [ None ],
         'inner_product': [ krypy.utils.ip ],
-        'exact_solution': [None, x]
+        'exact_solution': [ None ] + get_vecs(x)
         }
-    for solver, param in itertools.product(
-            [   krypy.linsys.cg,
-                krypy.linsys.minres,
-                krypy.linsys.gmres
-            ],
-            dictproduct(params)):
-        yield check_linsys, solver, param
 
-def check_linsys(solver, params):
+    for params_add in params_adds:
+        params = dict( list(params_base.items()) + list(params_add.items()))
+        for solver, param in itertools.product(solvers, dictproduct(params)):
+            yield run_case, solver, param
+
+def run_case(solver, params):
     ret = solver(**params)
 
     # pick out the interesting data
@@ -95,6 +96,13 @@ def check_linsys(solver, params):
     # finally: the assertion
     assert( abs(ret['relresvec'][-1] - norm_MMlrk/norm_MMlb) <= 1e-15 )
 
+    # final error norm correct?
+    # (if exact_solution was provided)
+    if params['exact_solution'] is not None:
+        assert( abs(ret['errvec'][-1] - 
+            krypy.utils.norm( krypy.utils.shape_vec(params['exact_solution'])
+                - krypy.utils.shape_vec(ret['xk']))) <= 1e-15 )
+
     # if the preconditioner is the inverse, then check if convergence
     # occured after the first iteration
     if isinstance(A, numpy.ndarray) and \
@@ -110,8 +118,6 @@ def check_linsys(solver, params):
         norm_MMlr0 = krypy.utils.norm( Mlr0, MMlr0, inner_product=params['inner_product'] )
         if norm_MMlr0/norm_MMlb < params['tol']:
             assert( len(ret['relresvec'])==1 )
-
-
 
     # has gmres found the solution after max N iterations?
     # (cg or minres may take longer because of roundoff errors)
