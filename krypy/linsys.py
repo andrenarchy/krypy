@@ -519,10 +519,8 @@ def gmres( A, b,
                 H[i, k] += inner_product(V[:, [i]], z)[0,0]
                 z -= H[i, k] * V[:, [i]]
         Mz = utils.apply(M, z);
-        H[k+1, k] = utils.norm(z, Mz, inner_product=inner_product)
-        if M is not None:
-            P[:, [k+1]] = z / H[k+1, k]
-        V[:, [k+1]] = Mz / H[k+1, k]
+        norm_Mz = utils.norm(z, Mz, inner_product=inner_product)
+        H[k+1,k] = norm_Mz
         if return_basis:
             Horig[0:k+2, [k]] = H[0:k+2, [k]]
 
@@ -566,6 +564,13 @@ def gmres( A, b,
                 else:
                     warnings.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
                         % (k+1, relresvec[-1], tol, norm_ur))
+
+        if relresvec[-1] > tol:
+            if norm_Mz < 1e-14:
+                warnings.warn('subdiagonal element is (close to) zero (%e) => breakdown in iteration %d' % (norm_Mz, k))
+            if M is not None:
+                P[:, [k+1]] = z / norm_Mz
+            V[:, [k+1]] = Mz / norm_Mz
 
         k += 1
 

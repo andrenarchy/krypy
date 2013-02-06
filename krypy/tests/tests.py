@@ -18,13 +18,13 @@ def dictproduct(d):
 
 def get_spd_matrix():
     a = numpy.array(range(1,11))
-    a[-1] = 1e2
-    return numpy.diag(a), numpy.diag(1/a)
+    a[-1] = 1.e2
+    return numpy.diag(a), numpy.diag(1./a)
 
 def get_spd_precon():
     a = numpy.array(range(1,11))
-    a[-1] = 1
-    return numpy.diag(a), numpy.diag(1/a)
+    a[-1] = 1.
+    return numpy.diag(a), numpy.diag(1./a)
 
 def test_linsys_spd():
     A, Ainv = get_spd_matrix()
@@ -40,16 +40,18 @@ def test_linsys_spd():
         'b': [ b, 
                 numpy.reshape(b, (b.shape[0],))],
         'x0': [None, 
-                numpy.zeros((10,1)), 
-                numpy.ones((10,1)),
-                x],
+               numpy.zeros((10,1)),
+               numpy.ones((10,1)),
+               x
+              ],
         'tol': [1e-14, 1e-5, 1e-2],
         'maxiter': [15],
         'M': [ None,
                 Minv,
                 LinearOperator(Minv.shape, lambda x: numpy.dot(Minv,x), 
                     dtype=numpy.double),
-                csr_matrix(Minv)
+                csr_matrix(Minv),
+                Ainv
                 ],
         'Ml': [ None ],
         'Mr': [ None ],
@@ -67,6 +69,11 @@ def test_linsys_spd():
 def check_linsys(solver, params):
     ret = solver(**params)
 
+    # pick out the interesting data
+    A = params['A']
+    b = krypy.utils.shape_vec(params['b'])
+    xk = krypy.utils.shape_vec(ret['xk'])
+
     # maxiter respected?
     assert( len(ret['relresvec'])-1 <= params['maxiter'] )
 
@@ -76,9 +83,6 @@ def check_linsys(solver, params):
 
     # final residual norm correct?
     # relresvec[-1] == ||M*Ml*(b-A*xk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}}
-    A = params['A']
-    b = krypy.utils.shape_vec(params['b'])
-    xk = krypy.utils.shape_vec(ret['xk'])
     # compute residual norm
     rk = b - krypy.utils.apply( A, xk)
     Mlrk = krypy.utils.apply( params['Ml'], rk )
@@ -89,7 +93,25 @@ def check_linsys(solver, params):
     MMlb = krypy.utils.apply( params['M'], Mlb )
     norm_MMlb = krypy.utils.norm( Mlb, MMlb, inner_product=params['inner_product'] )
     # finally: the assertion
-    assert( ret['relresvec'][-1] - norm_MMlrk/norm_MMlb <= 1e-15 )
+    assert( abs(ret['relresvec'][-1] - norm_MMlrk/norm_MMlb) <= 1e-15 )
+
+    # if the preconditioner is the inverse, then check if convergence
+    # occured after the first iteration
+    if isinstance(A, numpy.ndarray) and \
+            isinstance(params['M'], numpy.ndarray) and \
+            numpy.linalg.norm( numpy.eye(*A.shape)- numpy.dot(A, params['M']) ) < 1e-15:
+        assert( len(ret['relresvec'])<=2 )
+
+    # 0 iterations if initial guess was good enough?
+    if params['x0'] is not None:
+        r0 = b - krypy.utils.apply( A, krypy.utils.shape_vec(params['x0']))
+        Mlr0 = krypy.utils.apply( params['Ml'], r0 )
+        MMlr0 = krypy.utils.apply( params['M'], Mlr0 )
+        norm_MMlr0 = krypy.utils.norm( Mlr0, MMlr0, inner_product=params['inner_product'] )
+        if norm_MMlr0/norm_MMlb < params['tol']:
+            assert( len(ret['relresvec'])==1 )
+
+
 
     # has gmres found the solution after max N iterations?
     # (cg or minres may take longer because of roundoff errors)
