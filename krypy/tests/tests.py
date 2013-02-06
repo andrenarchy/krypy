@@ -41,7 +41,7 @@ def test_linsys_spd():
                 numpy.reshape(b, (b.shape[0],))],
         'x0': [None, 
                 numpy.zeros((10,1)), 
-                numpy.ones((10,1)), 
+                numpy.ones((10,1)),
                 x],
         'tol': [1e-14, 1e-5, 1e-2],
         'maxiter': [15],
@@ -51,16 +51,50 @@ def test_linsys_spd():
                     dtype=numpy.double),
                 csr_matrix(Minv)
                 ],
+        'Ml': [ None ],
+        'Mr': [ None ],
+        'inner_product': [ krypy.utils.ip ],
         'exact_solution': [None, x]
         }
-    for param in dictproduct(params):
-        yield linsys_cg, param
+    for solver, param in itertools.product(
+            [   krypy.linsys.cg,
+                krypy.linsys.minres,
+                krypy.linsys.gmres
+            ],
+            dictproduct(params)):
+        yield check_linsys, solver, param
 
-def linsys_cg(params):
-    ret = krypy.linsys.cg(**params)
+def check_linsys(solver, params):
+    ret = solver(**params)
+
+    # maxiter respected?
     assert( len(ret['relresvec'])-1 <= params['maxiter'] )
+
+    # tolerance reached (if not near machine eps)?
     if params['tol']>1e-15:
         assert( ret['relresvec'][-1] <= params['tol'] )
+
+    # final residual norm correct?
+    # relresvec[-1] == ||M*Ml*(b-A*xk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}}
+    A = params['A']
+    b = krypy.utils.shape_vec(params['b'])
+    xk = krypy.utils.shape_vec(ret['xk'])
+    # compute residual norm
+    rk = b - krypy.utils.apply( A, xk)
+    Mlrk = krypy.utils.apply( params['Ml'], rk )
+    MMlrk = krypy.utils.apply( params['M'], Mlrk )
+    norm_MMlrk = krypy.utils.norm( Mlrk, MMlrk, inner_product=params['inner_product'] )
+    # compute rhs norm
+    Mlb = krypy.utils.apply( params['Ml'], b )
+    MMlb = krypy.utils.apply( params['M'], Mlb )
+    norm_MMlb = krypy.utils.norm( Mlb, MMlb, inner_product=params['inner_product'] )
+    # finally: the assertion
+    assert( ret['relresvec'][-1] - norm_MMlrk/norm_MMlb <= 1e-15 )
+
+    # has gmres found the solution after max N iterations?
+    # (cg or minres may take longer because of roundoff errors)
+    if solver==krypy.linsys.gmres:
+        assert ( len(ret['relresvec'])-1 <= params['b'].shape[0] )
 
 if __name__ == '__main__':
     import nose
