@@ -17,7 +17,7 @@ def dictproduct(d):
         yield dict(zip(d.keys(), p))
 
 def get_operators(A):
-    return [ A, 
+    return [ A,
                 LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
                     dtype=numpy.double), 
                 csr_matrix(A)
@@ -30,10 +30,10 @@ def test_linsys_spd():
     a = numpy.array(range(1,11))
     a[-1] = 1.e2
     A, Ainv = numpy.diag(a), numpy.diag(1./a)
-    
+
     # solution
     x = numpy.ones((10,1))
-    
+
     # preconditioner
     m = numpy.array(range(1,11))
     m[-1] = 1.
@@ -44,6 +44,52 @@ def test_linsys_spd():
             { 'Mr': [ None, Ainv ] + get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+def test_linsys_symm_indef():
+    # build symm indef diag matrix
+    a = numpy.array(range(1,11))
+    a[-1] = -1e2
+    A, Ainv = numpy.diag(a), numpy.diag(1./a)
+
+    # solution
+    x = numpy.ones((10,1))
+
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'M': [ None ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.minres, krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+def test_linsys_nonsymm():
+    # build nonsymm matrix
+    a = numpy.array(range(1,11))
+    a[-1] = -1e2
+    A = numpy.diag(a)
+    A[0,-1] = 1e2
+    Ainv = numpy.linalg.inv(A)
+
+    # solution
+    x = numpy.ones((10,1))
+
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'M': [ None ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
