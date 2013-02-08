@@ -8,7 +8,7 @@ def read(fname):
 
 setup( name = 'krypy',
        packages = ['krypy'],
-       version = '0.1',
+       version = '0.1.1',
        description = 'Krylov subspace methods for linear algebraic systems',
        long_description = read('README.md'),
        author = 'André Gaul',
