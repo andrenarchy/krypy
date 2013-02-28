@@ -43,11 +43,12 @@ def cg(A, b,
     norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product = inner_product)
 
     # if rhs is exactly(!) zero, return zero solution.
-    # otherwise TODO
-    #if norm_MMlb==0:
-
-    # initial relative residual norm
-    relresvec = [norm_MMlr0 / norm_MMlb]
+    if norm_MMlb==0:
+        x0 = numpy.zeros((N,1))
+        relresvec = [0.0]
+    else:
+        # initial relative residual norm
+        relresvec = [norm_MMlr0 / norm_MMlb]
 
     # compute error?
     if exact_solution is not None:
@@ -195,8 +196,13 @@ def minres(A, b,
     MMlr0 = utils.apply(M, Mlr0)
     norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product = inner_product)
 
-    # initial relative residual norm
-    relresvec = [norm_MMlr0 / norm_MMlb]
+    # if rhs is exactly(!) zero, return zero solution.
+    if norm_MMlb==0:
+        x0 = numpy.zeros((N,1))
+        relresvec = [0.0]
+    else:
+        # initial relative residual norm
+        relresvec = [norm_MMlr0 / norm_MMlb]
     xk = x0.copy()
     info = 0
 
@@ -287,6 +293,8 @@ def minres(A, b,
         if abs(alpha.imag)>1e-12:
             warnigs.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
         alpha = alpha.real
+        if abs(alpha) < numpy.finfo(float).eps:
+            alpha=0.0
         if alpha<0.0:
             warnings.warn('Iter %d: alpha = %g < 0' % (k+1, alpha))
             alpha = 0.0
@@ -549,8 +557,13 @@ def _gmres( A, b,
         MMlr0 = MMlb.copy()
         norm_MMlr0 = norm_MMlb
 
-    # initial relative residual norm
-    relresvec = [norm_MMlr0 / norm_MMlb]
+    # if rhs is exactly(!) zero, return zero solution.
+    if norm_MMlb==0:
+        x0 = numpy.zeros((N,1))
+        relresvec = [0.0]
+    else:
+        # initial relative residual norm
+        relresvec = [norm_MMlr0 / norm_MMlb]
     info = 0
 
     # compute error?

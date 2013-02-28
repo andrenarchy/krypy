@@ -25,6 +25,28 @@ def get_operators(A):
 def get_vecs(v):
     return [ v, numpy.reshape(v, (v.shape[0],)) ]
 
+def test_linsys_spd_zero():
+    # build spd diag matrix
+    a = numpy.array(range(1,11))
+    a[-1] = 1.e2
+    A, Ainv = numpy.diag(a), numpy.diag(1./a)
+
+    # zero (!) solution
+    x = numpy.zeros((10,1))
+
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'M': [ None, Ainv ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
 def test_linsys_spd():
     # build spd diag matrix
     a = numpy.array(range(1,11))
@@ -46,31 +68,32 @@ def test_linsys_spd():
     solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
-#TODO
-#def test_linsys_hpd():
-#    # build hpd matrix
-#    a = numpy.array(range(1,11), dtype=numpy.complex)
-#    a[-1] = 1.e2
-#    A = numpy.diag(a)
-#    A[-1,0] = 100.j
-#    A[0,-1] = -100.j
-#    Ainv = numpy.linalg.inv(A)
-#
-#    # solution
-#    x = numpy.zeros((10,1))
-#
-#    # preconditioner
-#    m = numpy.array(range(1,11))
-#    m[-1] = 1.
-#    M, Minv = numpy.diag(m), numpy.diag(1./m)
-#    params_adds = [
-#            { 'M': [ None, Ainv ] + get_operators(Minv) },
-#            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-#            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
-#            ]
-#    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
-#    for case in produce_cases(A, x, params_adds, solvers):
-#        yield case
+
+def test_linsys_hpd():
+    # build hpd matrix
+    a = numpy.array(range(1,11), dtype=numpy.complex)
+    a[0] = 1.01e2
+    a[-1] = 1.e2
+    A = numpy.diag(a)
+    A[-1,0] = 100.j
+    A[0,-1] = -100.j
+    Ainv = numpy.linalg.inv(A)
+
+    # solution
+    x = (1.+1.j)*numpy.ones((10,1))
+
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'M': [ None, Ainv ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
 
 def test_linsys_symm_indef():
     # build symm indef diag matrix
@@ -80,6 +103,31 @@ def test_linsys_symm_indef():
 
     # solution
     x = numpy.ones((10,1))
+
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'M': [ None ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.minres, krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+def test_linsys_herm_indef():
+    # build hermitian indefinite matrix
+    a = numpy.array(range(1,11), dtype=numpy.complex)
+    a[-1] = -1.e2
+    A = numpy.diag(a)
+    A[-1,0] = 100.j
+    A[0,-1] = -100.j
+    Ainv = numpy.linalg.inv(A)
+
+    # solution
+    x = (1.+1.j)*numpy.ones((10,1))
 
     # preconditioner
     m = numpy.array(range(1,11))
@@ -104,6 +152,31 @@ def test_linsys_nonsymm():
 
     # solution
     x = numpy.ones((10,1))
+
+    # preconditioner
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    M, Minv = numpy.diag(m), numpy.diag(1./m)
+    params_adds = [
+            { 'maxiter': [5], 'max_restarts': [20] },
+            { 'M': [ None ] + get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            ]
+    solvers = [ krypy.linsys.gmres ]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+def test_linsys_comp_nonsymm():
+    # build complex nonsymm matrix
+    a = numpy.array(range(1,11), dtype=numpy.complex)
+    a[-1] = -1e2
+    A = numpy.diag(a)
+    A[0,-1] = 1.e2j
+    Ainv = numpy.linalg.inv(A)
+
+    # solution
+    x = (1.j+1)*numpy.ones((10,1))
 
     # preconditioner
     m = numpy.array(range(1,11))
@@ -169,7 +242,10 @@ def run_case(solver, params):
     MMlb = krypy.utils.apply( params['M'], Mlb )
     norm_MMlb = krypy.utils.norm( Mlb, MMlb, inner_product=params['inner_product'] )
     # finally: the assertion
-    assert( abs(ret['relresvec'][-1] - norm_MMlrk/norm_MMlb) <= 1e-15 )
+    if norm_MMlb==0:
+        assert( abs(ret['relresvec'][-1]) == 0 )
+    else:
+        assert( abs(ret['relresvec'][-1] - norm_MMlrk/norm_MMlb) <= 1e-15 )
 
     # final error norm correct?
     # (if exact_solution was provided)
@@ -191,7 +267,7 @@ def run_case(solver, params):
         Mlr0 = krypy.utils.apply( params['Ml'], r0 )
         MMlr0 = krypy.utils.apply( params['M'], Mlr0 )
         norm_MMlr0 = krypy.utils.norm( Mlr0, MMlr0, inner_product=params['inner_product'] )
-        if norm_MMlr0/norm_MMlb < params['tol']:
+        if norm_MMlb!=0 and norm_MMlr0/norm_MMlb < params['tol']:
             assert( len(ret['relresvec'])==1 )
 
     # has gmres (without restarts) found the solution after max N iterations?

@@ -84,6 +84,8 @@ def norm_squared( x, Mx = None, inner_product = ip ):
 
     rho = rho.real
 
+    if abs(rho) < numpy.finfo(float).eps:
+        return 0.0
     if rho < 0.0:
         raise ValueError( '<x,Mx> = %g. M not positive definite?' % rho )
 
