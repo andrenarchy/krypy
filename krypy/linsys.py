@@ -42,6 +42,10 @@ def cg(A, b,
     MMlr0 = utils.apply(M, Mlr0)
     norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product = inner_product)
 
+    # if rhs is exactly(!) zero, return zero solution.
+    # otherwise TODO
+    #if norm_MMlb==0:
+
     # initial relative residual norm
     relresvec = [norm_MMlr0 / norm_MMlb]
 
@@ -431,7 +435,7 @@ def gmres( A, b,
     If M is used the memory consumption is 2*(maxiter+1).
     '''
     if not full_reortho:
-        raise RuntimeError('full_reortho=False not allowed in GMRES ')
+        raise RuntimeError('full_reortho=False not allowed in GMRES')
     # --------------------------------------------------------------------------
     def _compute_explicit_xk(H, V, y):
         '''Compute approximation xk to the solution.'''
