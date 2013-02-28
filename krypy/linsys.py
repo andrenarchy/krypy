@@ -421,7 +421,8 @@ def gmres( A, b,
            explicit_residual = False,
            return_basis = False,
            full_reortho = True,
-           exact_solution = None
+           exact_solution = None,
+           max_restarts = 0
          ):
     '''Preconditioned GMRES
 
@@ -434,6 +435,63 @@ def gmres( A, b,
     Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
     If M is used the memory consumption is 2*(maxiter+1).
     '''
+    relresvec = [numpy.Inf]
+    if exact_solution is not None:
+        errvec = [numpy.Inf]
+    sols = []
+    xk = x0
+    restart = 0
+    while relresvec[-1] > tol and restart <= max_restarts:
+        sol = _gmres( A, b,
+                xk,
+                tol,
+                maxiter,
+                M,
+                Ml,
+                Mr,
+                inner_product,
+                explicit_residual,
+                return_basis,
+                full_reortho,
+                exact_solution,
+                # enable warnings in last restart
+                conv_warning = (restart==max_restarts))
+        xk = sol['xk']
+        del relresvec[-1]
+        relresvec += sol['relresvec']
+        if exact_solution is not None:
+            del errvec[-1]
+            errvec += sol['errvec']
+        sols.append(sol)
+        restart += 1
+    ret = {
+            'xk': xk,
+            'info': sol['info'],
+            'relresvec': relresvec
+            }
+    if exact_solution is not None:
+        ret['errvec'] = errvec
+    if max_restarts == 0:
+        if return_basis:
+            ret['Vfull'] = sol['Vfull']
+            ret['Hfull'] = sol['Hfull']
+            if M is not None:
+                ret['Pfull'] = sol['Pfull']
+    return ret
+
+def _gmres( A, b,
+        x0,
+        tol,
+        maxiter,
+        M,
+        Ml,
+        Mr,
+        inner_product,
+        explicit_residual,
+        return_basis,
+        full_reortho,
+        exact_solution,
+        conv_warning):
     if not full_reortho:
         raise RuntimeError('full_reortho=False not allowed in GMRES')
     # --------------------------------------------------------------------------
@@ -562,12 +620,14 @@ def gmres( A, b,
             if relresvec[-1] >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
-                        % (k+1, relresvec[-1], tol, norm_ur))
+                    if conv_warning:
+                        warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
+                            % (k+1, relresvec[-1], tol, norm_ur))
                     info = 1
                 else:
-                    warnings.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
-                        % (k+1, relresvec[-1], tol, norm_ur))
+                    if conv_warning:
+                        warnings.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
+                            % (k+1, relresvec[-1], tol, norm_ur))
 
         if relresvec[-1] > tol:
             if norm_Mz < 1e-14:
