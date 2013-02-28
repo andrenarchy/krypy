@@ -19,7 +19,7 @@ def dictproduct(d):
 def get_operators(A):
     return [ A,
                 LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
-                    dtype=numpy.double), 
+                    dtype=A.dtype),
                 csr_matrix(A)
                 ]
 def get_vecs(v):
@@ -46,6 +46,31 @@ def test_linsys_spd():
     solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
+#TODO
+#def test_linsys_hpd():
+#    # build hpd matrix
+#    a = numpy.array(range(1,11), dtype=numpy.complex)
+#    a[-1] = 1.e2
+#    A = numpy.diag(a)
+#    A[-1,0] = 100.j
+#    A[0,-1] = -100.j
+#    Ainv = numpy.linalg.inv(A)
+#
+#    # solution
+#    x = numpy.zeros((10,1))
+#
+#    # preconditioner
+#    m = numpy.array(range(1,11))
+#    m[-1] = 1.
+#    M, Minv = numpy.diag(m), numpy.diag(1./m)
+#    params_adds = [
+#            { 'M': [ None, Ainv ] + get_operators(Minv) },
+#            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
+#            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+#            ]
+#    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+#    for case in produce_cases(A, x, params_adds, solvers):
+#        yield case
 
 def test_linsys_symm_indef():
     # build symm indef diag matrix
@@ -85,6 +110,7 @@ def test_linsys_nonsymm():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
+            { 'maxiter': [5], 'max_restarts': [20] },
             { 'M': [ None ] + get_operators(Minv) },
             { 'Ml': [ None, Ainv ] + get_operators(Minv) },
             { 'Mr': [ None, Ainv ] + get_operators(Minv) }
@@ -122,7 +148,10 @@ def run_case(solver, params):
     xk = krypy.utils.shape_vec(ret['xk'])
 
     # maxiter respected?
-    assert( len(ret['relresvec'])-1 <= params['maxiter'] )
+    if not 'max_restarts' in params:
+        assert( len(ret['relresvec'])-1 <= params['maxiter'] )
+    else:
+        assert( len(ret['relresvec'])-1 <= params['maxiter']*(params['max_restarts']+1) )
 
     # tolerance reached (if not near machine eps)?
     if params['tol']>1e-15:
@@ -165,9 +194,10 @@ def run_case(solver, params):
         if norm_MMlr0/norm_MMlb < params['tol']:
             assert( len(ret['relresvec'])==1 )
 
-    # has gmres found the solution after max N iterations?
+    # has gmres (without restarts) found the solution after max N iterations?
     # (cg or minres may take longer because of roundoff errors)
-    if solver==krypy.linsys.gmres:
+    if solver==krypy.linsys.gmres and \
+            ( (not 'max_restarts' in params) or (params['max_restarts']==0)):
         assert ( len(ret['relresvec'])-1 <= params['b'].shape[0] )
 
 if __name__ == '__main__':
