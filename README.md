@@ -51,7 +51,7 @@ KryPy has the following dependencies:
 
 # Development
 
-KryPy is currently maintained by [André Gaul](www.math.tu-berlin.de/~gaul/). Feel free to contact André. Please submit feature requests and bugs as github issues.
+KryPy is currently maintained by [André Gaul](http://www.math.tu-berlin.de/~gaul/). Feel free to contact André. Please submit feature requests and bugs as github issues.
 
 KryPy is developed with continuous integration. Each commit is tested with ~60000 automated unittests. Current status: [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
 
