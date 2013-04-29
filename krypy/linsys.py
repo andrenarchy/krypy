@@ -642,12 +642,11 @@ def _gmres( A, b,
                         warnings.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
                             % (k+1, relresvec[-1], tol, norm_ur))
 
-        if relresvec[-1] > tol:
-            if norm_Mz < 1e-14:
-                warnings.warn('subdiagonal element is (close to) zero (%e) => breakdown in iteration %d' % (norm_Mz, k))
-            if M is not None:
-                P[:, [k+1]] = z / norm_Mz
-            V[:, [k+1]] = Mz / norm_Mz
+        if norm_Mz < 1e-14 and relresvec[-1] > tol:
+            warnings.warn('subdiagonal element is (close to) zero (%e) => breakdown in iteration %d' % (norm_Mz, k))
+        if M is not None:
+            P[:, [k+1]] = z / norm_Mz
+        V[:, [k+1]] = Mz / norm_Mz
 
         k += 1
 
