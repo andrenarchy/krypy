@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -10,7 +9,7 @@
     
     <title>krypy Package &mdash; KryPy 0.1.1 documentation</title>
     
-    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
@@ -27,7 +26,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="KryPy 0.1.1 documentation" href="index.html" />
-    <link rel="next" title="tests Package" href="krypy.tests.html" />
+    <link rel="next" title="krypy.linsys - Linear Algebraic Systems Solver" href="krypy.linsys.html" />
     <link rel="prev" title="Welcome to KryPy’s documentation!" href="index.html" /> 
   </head>
   <body>
@@ -41,7 +40,7 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="krypy.tests.html" title="tests Package"
+          <a href="krypy.linsys.html" title="krypy.linsys - Linear Algebraic Systems Solver"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="index.html" title="Welcome to KryPy’s documentation!"
@@ -57,275 +56,11 @@
             
   <div class="section" id="krypy-package">
 <h1>krypy Package<a class="headerlink" href="#krypy-package" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="id1">
-<h2><tt class="xref py py-mod docutils literal"><span class="pre">krypy</span></tt> Package<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
-<span class="target" id="module-krypy.__init__"></span></div>
-<div class="section" id="module-krypy.linsys">
-<span id="linsys-module"></span><h2><tt class="xref py py-mod docutils literal"><span class="pre">linsys</span></tt> Module<a class="headerlink" href="#module-krypy.linsys" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="krypy.linsys.cg">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">cg</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em><big>)</big><a class="headerlink" href="#krypy.linsys.cg" title="Permalink to this definition">¶</a></dt>
-<dd><p>Conjugate gradient method with different inner product.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.linsys.gmres">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">gmres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=True</em>, <em>exact_solution=None</em>, <em>max_restarts=0</em><big>)</big><a class="headerlink" href="#krypy.linsys.gmres" title="Permalink to this definition">¶</a></dt>
-<dd><p>Preconditioned GMRES</p>
-<p>Solves <span class="math">\(M M_l A M_r y = M M_l b\)</span> where <span class="math">\(x=M_r y\)</span>.</p>
-<p>Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
-If <span class="math">\(M\)</span> is used the memory consumption is 2*(maxiter+1).</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>A</strong> &#8211; a linear operator on <span class="math">\(\mathbb{C}^n\)</span>.</li>
-<li><strong>b</strong> &#8211; a vector in <span class="math">\(\mathbb{C}^n\)</span>.</li>
-<li><strong>tol</strong> &#8211; <p>the tolerance for the stopping criterion with respect to
-the relative residual norm:</p>
-<div class="math">
-\[\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}} 
-\leq \text{tol}\]</div>
-</li>
-<li><strong>maxiter</strong> &#8211; maximum number of iterations per restart cycle, see <tt class="docutils literal"><span class="pre">max_restarts</span></tt>.
-Has to fulfill <span class="math">\(\text{maxiter}\leq n\)</span>.</li>
-<li><strong>M</strong> &#8211; a self-adjoint and positive definite linear operator on 
-<span class="math">\(\mathbb{C}^n\)</span> with respect to <tt class="docutils literal"><span class="pre">inner_product</span></tt>. The changes
-the inner product used for orthogonalization to
-<span class="math">\(\langle x,y\rangle_M = \langle Mx,y\rangle\)</span> where
-<span class="math">\(\langle \cdot,\cdot\rangle\)</span> is the inner product defined
-by the parameter <tt class="docutils literal"><span class="pre">inner_product</span></tt>.
-If set to <tt class="docutils literal"><span class="pre">None</span></tt> then <span class="math">\(M\)</span> is the identity.</li>
-<li><strong>Ml</strong> &#8211; left preconditioner, linear operator on <span class="math">\(\mathbb{C}^n\)</span>.
-If set to <tt class="docutils literal"><span class="pre">None</span></tt> then <span class="math">\(M_l\)</span> is the identity.</li>
-<li><strong>Mr</strong> &#8211; right preconditioner, linear operator on <span class="math">\(\mathbb{C}^n\)</span>.
-If set to <tt class="docutils literal"><span class="pre">None</span></tt> then <span class="math">\(M_r\)</span> is the identity.</li>
-<li><strong>inner_product</strong> &#8211; a function that takes two arguments and computes
-the (block-) inner product of the arguments.</li>
-<li><strong>explicit_residual</strong> &#8211; if set to False, the updated residual norm from the GMRES iteration is
-used in each iteration. If set to <tt class="docutils literal"><span class="pre">True</span></tt>, the residual is computed
-explicitly in each iteration and thus requires an additional
-matrix-vector multiplication in each iteration.</li>
-<li><strong>return_basis</strong> &#8211; if set to <tt class="docutils literal"><span class="pre">True</span></tt> then the computed Arnoldi basis and the Hessenberg
-matrix are returned in the result dictionary with the keys <tt class="docutils literal"><span class="pre">V</span></tt>
-and <tt class="docutils literal"><span class="pre">H</span></tt>. In exact</li>
-<li><strong>exact_solution</strong> &#8211; if the solution vector <span class="math">\(x\)</span> is passed then the error norm
-<span class="math">\(\|x-x_k\|\)</span> will be computed in each iteration (with respect
-to <tt class="docutils literal"><span class="pre">inner_product</span></tt>) and returned as a
-list in the result dictionary with the key <tt class="docutils literal"><span class="pre">errvec</span></tt>.</li>
-<li><strong>max_restarts</strong> &#8211; the maximum number of restarts. The maximum number of
-iterations is <tt class="docutils literal"><span class="pre">(max_restarts+1)*maxiter</span></tt>.</li>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="krypy.linsys.html"><tt class="docutils literal"><span class="pre">krypy.linsys</span></tt> - Linear Algebraic Systems Solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="krypy.utils.html"><tt class="docutils literal"><span class="pre">krypy.utils</span></tt> - Krylov Subspace Utilities</a></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><p>a dictionary with the following keys:</p>
-<ul class="simple">
-<li><tt class="docutils literal"><span class="pre">xk</span></tt>: the approximate solution <span class="math">\(x_k\)</span>.</li>
-<li><tt class="docutils literal"><span class="pre">info</span></tt>: convergence flag (0 if converged, 1 otherwise).</li>
-<li><tt class="docutils literal"><span class="pre">relresvec</span></tt>: relative residual norms of all iterations, see
-parameter <tt class="docutils literal"><span class="pre">tol</span></tt>.</li>
-<li><tt class="docutils literal"><span class="pre">V</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Arnoldi basis 
-vectors.</li>
-<li><tt class="docutils literal"><span class="pre">H</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Hessenberg matrix.</li>
-<li><tt class="docutils literal"><span class="pre">P</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt> and <tt class="docutils literal"><span class="pre">M</span></tt> is provided.
-The matrix <span class="math">\(P\)</span> fulfills <span class="math">\(V=MP\)</span>.</li>
-</ul>
-</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.linsys.minres">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">minres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em>, <em>timer=False</em><big>)</big><a class="headerlink" href="#krypy.linsys.minres" title="Permalink to this definition">¶</a></dt>
-<dd><p>Preconditioned MINRES</p>
-<p>This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
-where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the
-inner_product. M has to be self-adjoint and positive-definite w.r.t.
-inner_product.</p>
-<p>Details:
-The Lanczos procedure is used with the operator M*Ml*A*Mr and the
-inner product defined by inner_product(M^{-1}x,y). The initial vector
-for Lanczos is r0 = M*Ml*(b - A*x0) &#8211; note that Mr is not used for
-the initial vector!</p>
-<p>Stopping criterion is
-||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} &lt;= tol</p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-krypy.utils">
-<span id="utils-module"></span><h2><tt class="xref py py-mod docutils literal"><span class="pre">utils</span></tt> Module<a class="headerlink" href="#module-krypy.utils" title="Permalink to this headline">¶</a></h2>
-<p>Collection of standard functions.</p>
-<p>This method provides functions like inner products, norms, ...</p>
-<dl class="function">
-<dt id="krypy.utils.apply">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">apply</tt><big>(</big><em>A</em>, <em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.apply" title="Permalink to this definition">¶</a></dt>
-<dd><p>Implement A*x for different types of linear operators.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.find_common_dtype">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">find_common_dtype</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#krypy.utils.find_common_dtype" title="Permalink to this definition">¶</a></dt>
-<dd><p>returns common dtype of numpy and scipy objects</p>
-<p>Recognizes ndarray, spmatrix and LinearOperator. All other objects are
-ignored (most notably None).</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.get_projection">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get projection and appropriate initial guess for use in deflated methods.</p>
-<dl class="docutils">
-<dt>Arguments:</dt>
-<dd><p class="first">W:  the basis vectors used for deflation (Nxk array).
-AW: A*W, where A is the operator of the linear algebraic system to be</p>
-<blockquote>
-<div>deflated. A has to be self-adjoint w.r.t. inner_product. Do not
-include the positive-definite preconditioner (argument M in MINRES)
-here. Let N be the dimension of the vector space the operator is
-defined on.</div></blockquote>
-<p>b:  the right hand side of the linear system (array of length N).
-x0: the initial guess (array of length N).
-inner_product: the inner product also used for the deflated iterative</p>
-<blockquote class="last">
-<div>method.</div></blockquote>
-</dd>
-<dt>Returns:</dt>
-<dd><dl class="first last docutils">
-<dt>P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in</dt>
-<dd>MINRES). The preconditioned operator A*P is self-adjoint w.r.t.
-inner_product.
-P(x)=x - W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)</dd>
-<dt>x0new: an adapted initial guess s.t. the deflated iterative solver</dt>
-<dd>does not break down (in exact arithmetics).</dd>
-<dt>AW: AW=A*W. This is returned in order to reduce the total number of</dt>
-<dd>matrix-vector multiplications with A.</dd>
-</dl>
-</dd>
-</dl>
-<p>For nW = W.shape[1] = AW.shape[1] the computational cost is
-cost(get_projection): 2*cost(Pfun) + (nW^2)*IP
-cost(Pfun): nW*IP + (2/3)*nW^3 + nW*AXPY</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.givens">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">givens</tt><big>(</big><em>a</em>, <em>b</em><big>)</big><a class="headerlink" href="#krypy.utils.givens" title="Permalink to this definition">¶</a></dt>
-<dd><p>Givens rotation
-[   c       s    ] * [a] = [r]
-[-conj(s) conj(c)]   [b]   [0]
-r real and non-negative.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.ip">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">ip</tt><big>(</big><em>X</em>, <em>Y</em><big>)</big><a class="headerlink" href="#krypy.utils.ip" title="Permalink to this definition">¶</a></dt>
-<dd><p>Euclidean inner product.</p>
-<p>numpy.vdot only works for vectors and numpy.dot does not use the conjugate
-transpose. In Octave/MATLAB notation ip(X,Y) == X&#8217;<a href="#id2"><span class="problematic" id="id3">*</span></a>Y.</p>
-<dl class="docutils">
-<dt>Arguments:</dt>
-<dd>X:  array of shape [N,m]
-Y:  array of shape [N,n]</dd>
-<dt>Returns:</dt>
-<dd>ip: array of shape [m,n] with X^H * Y</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the norm w.r.t. to a given scalar product.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.ritzh">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c21440&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute Ritz pairs from a (possibly deflated) Lanczos procedure.</p>
-<dl class="docutils">
-<dt>Arguments</dt>
-<dd><dl class="first docutils">
-<dt>W:  a Nxk array. W&#8217;s columns must be orthonormal w.r.t. the</dt>
-<dd>M-inner-product (inner_product(M^{-1} W, W) = I_k).</dd>
-<dt>AW: contains the result of A applied to W (passed in order to reduce #</dt>
-<dd>of matrix-vector multiplications with A).</dd>
-<dt>Vfull: a Nxn array. Vfull&#8217;s columns must be orthonormal w.r.t. the</dt>
-<dd>M-inner-product. Vfull and Hfull must be created with a (possibly
-deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
-and Hfull can be obtained from MINRES applied to a linear system
-with the operator A, the inner product inner_product, the HPD
-preconditioner M and the right preconditioner Mr set to the
-projection obtained with get_projection(W, AW, ...).</dd>
-</dl>
-<p>Hfull: see Vfull.
-M:  The preconditioner used in the Lanczos procedure.</p>
-<dl class="last docutils">
-<dt>The arguments thus have to fulfill the following equations:</dt>
-<dd><p class="first">AW = A*W.
-M*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,</p>
-<blockquote>
-<div>where Mr=get_projection(W, AW,...,inner_product).</div></blockquote>
-<p class="last">inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.</p>
-</dd>
-</dl>
-</dd>
-<dt>Returns:</dt>
-<dd><p class="first">ritz_vals: an array with n+k Ritz values.
-ritz_coeffs: a (n+k)x(n+k) array where the ritz_coeffs[:,i] are the</p>
-<blockquote>
-<div>coefficients (in the basis [W,Vfull]) of the vector corresponding
-the Ritz value ritz_vals[i]. The Ritz vectors then also are
-orthonormal w.r.t. the M-inner-product, that is inner_product(
-M^{-1}*ritz_vecs, ritz_vecs ) = I_{k+n}.</div></blockquote>
-<dl class="last docutils">
-<dt>ritz_res_norm: an array with n+k residual norms. ritz_res_norm[i] is</dt>
-<dd><dl class="first docutils">
-<dt>the M^{-1}-norm of the residual</dt>
-<dd>M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].</dd>
-</dl>
-<p class="last">ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
-residual norms are ascending.</p>
-</dd>
-</dl>
-</dd>
-</dl>
-<p>Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
-M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis [W,
-Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of the
-Ritz pair residual is computed. The computation of the residual norms do
-not need the application of the operator A, but the preconditioner has to
-be applied to the basis W. The computation of the residual norm may be
-unstable (it seems as if residual norms below 1e-8 cannot be achieved...
-note that the actual residual may be lower!).</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.shape_vec">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">shape_vec</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.shape_vec" title="Permalink to this definition">¶</a></dt>
-<dd><p>Take a (n,) ndarray and return it as (n,1) ndarray</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.shape_vecs">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">shape_vecs</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#krypy.utils.shape_vecs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Reshape all ndarrays with shape (n,) to shape (n,1)</p>
-<p>Recognizes ndarrays and ignores all others.</p>
-</dd></dl>
-
 </div>
 <div class="section" id="subpackages">
 <h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>
@@ -349,9 +84,6 @@ note that the actual residual may be lower!).</p>
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">krypy Package</a><ul>
-<li><a class="reference internal" href="#id1"><tt class="docutils literal"><span class="pre">krypy</span></tt> Package</a></li>
-<li><a class="reference internal" href="#module-krypy.linsys"><tt class="docutils literal"><span class="pre">linsys</span></tt> Module</a></li>
-<li><a class="reference internal" href="#module-krypy.utils"><tt class="docutils literal"><span class="pre">utils</span></tt> Module</a></li>
 <li><a class="reference internal" href="#subpackages">Subpackages</a><ul>
 </ul>
 </li>
@@ -363,8 +95,8 @@ note that the actual residual may be lower!).</p>
   <p class="topless"><a href="index.html"
                         title="previous chapter">Welcome to KryPy&#8217;s documentation!</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="krypy.tests.html"
-                        title="next chapter">tests Package</a></p>
+  <p class="topless"><a href="krypy.linsys.html"
+                        title="next chapter"><tt class="docutils literal"><span class="pre">krypy.linsys</span></tt> - Linear Algebraic Systems Solver</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/krypy.txt"
@@ -397,7 +129,7 @@ note that the actual residual may be lower!).</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="krypy.tests.html" title="tests Package"
+          <a href="krypy.linsys.html" title="krypy.linsys - Linear Algebraic Systems Solver"
              >next</a> |</li>
         <li class="right" >
           <a href="index.html" title="Welcome to KryPy’s documentation!"

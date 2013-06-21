@@ -6,10 +6,18 @@
 Welcome to KryPy's documentation!
 =================================
 
-Contents:
+What is KryPy and where is the code?
+------------------------------------
 
+KryPy is a Krylov subspace methods package for Python. If you're looking for
+the source code or bug reports, take a look at `KryPy's github page
+<https://github.com/andrenarchy/krypy>`_. These pages provide the
+documentation of KryPy's API.
+
+Contents:
+---------
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    krypy
 

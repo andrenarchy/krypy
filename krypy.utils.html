@@ -1,0 +1,291 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>krypy.utils - Krylov Subspace Utilities &mdash; KryPy 0.1.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="KryPy 0.1.1 documentation" href="index.html" />
+    <link rel="up" title="krypy Package" href="krypy.html" />
+    <link rel="next" title="tests Package" href="krypy.tests.html" />
+    <link rel="prev" title="krypy.linsys - Linear Algebraic Systems Solver" href="krypy.linsys.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="krypy.tests.html" title="tests Package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="krypy.linsys.html" title="krypy.linsys - Linear Algebraic Systems Solver"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">KryPy 0.1.1 documentation</a> &raquo;</li>
+          <li><a href="krypy.html" accesskey="U">krypy Package</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="krypy-utils-krylov-subspace-utilities">
+<h1><a class="reference internal" href="#module-krypy.utils" title="krypy.utils"><tt class="xref py py-mod docutils literal"><span class="pre">krypy.utils</span></tt></a> - Krylov Subspace Utilities<a class="headerlink" href="#krypy-utils-krylov-subspace-utilities" title="Permalink to this headline">¶</a></h1>
+<p>The utils module provides helper functions for common tasks in the
+process of solving linear algebraic systems.</p>
+<span class="target" id="module-krypy.utils"></span><p>Collection of standard functions.</p>
+<p>This method provides functions like inner products, norms, ...</p>
+<dl class="function">
+<dt id="krypy.utils.apply">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">apply</tt><big>(</big><em>A</em>, <em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.apply" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implement A*x for different types of linear operators.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.find_common_dtype">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">find_common_dtype</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#krypy.utils.find_common_dtype" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns common dtype of numpy and scipy objects</p>
+<p>Recognizes ndarray, spmatrix and LinearOperator. All other objects are
+ignored (most notably None).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.get_projection">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get projection and appropriate initial guess for use in deflated methods.</p>
+<dl class="docutils">
+<dt>Arguments:</dt>
+<dd><p class="first">W:  the basis vectors used for deflation (Nxk array).
+AW: A*W, where A is the operator of the linear algebraic system to be</p>
+<blockquote>
+<div>deflated. A has to be self-adjoint w.r.t. inner_product. Do not
+include the positive-definite preconditioner (argument M in MINRES)
+here. Let N be the dimension of the vector space the operator is
+defined on.</div></blockquote>
+<p>b:  the right hand side of the linear system (array of length N).
+x0: the initial guess (array of length N).
+inner_product: the inner product also used for the deflated iterative</p>
+<blockquote class="last">
+<div>method.</div></blockquote>
+</dd>
+<dt>Returns:</dt>
+<dd><dl class="first last docutils">
+<dt>P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in</dt>
+<dd>MINRES). The preconditioned operator A*P is self-adjoint w.r.t.
+inner_product.
+P(x)=x - W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)</dd>
+<dt>x0new: an adapted initial guess s.t. the deflated iterative solver</dt>
+<dd>does not break down (in exact arithmetics).</dd>
+<dt>AW: AW=A*W. This is returned in order to reduce the total number of</dt>
+<dd>matrix-vector multiplications with A.</dd>
+</dl>
+</dd>
+</dl>
+<p>For nW = W.shape[1] = AW.shape[1] the computational cost is
+cost(get_projection): 2*cost(Pfun) + (nW^2)*IP
+cost(Pfun): nW*IP + (2/3)*nW^3 + nW*AXPY</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.givens">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">givens</tt><big>(</big><em>a</em>, <em>b</em><big>)</big><a class="headerlink" href="#krypy.utils.givens" title="Permalink to this definition">¶</a></dt>
+<dd><p>Givens rotation
+[   c       s    ] * [a] = [r]
+[-conj(s) conj(c)]   [b]   [0]
+r real and non-negative.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.ip">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">ip</tt><big>(</big><em>X</em>, <em>Y</em><big>)</big><a class="headerlink" href="#krypy.utils.ip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Euclidean inner product.</p>
+<p>numpy.vdot only works for vectors and numpy.dot does not use the conjugate
+transpose. In Octave/MATLAB notation ip(X,Y) == X&#8217;<a href="#id1"><span class="problematic" id="id2">*</span></a>Y.</p>
+<dl class="docutils">
+<dt>Arguments:</dt>
+<dd>X:  array of shape [N,m]
+Y:  array of shape [N,n]</dd>
+<dt>Returns:</dt>
+<dd>ip: array of shape [m,n] with X^H * Y</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.norm">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the norm w.r.t. to a given scalar product.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.norm_MMlr">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.norm_squared">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.ritzh">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute Ritz pairs from a (possibly deflated) Lanczos procedure.</p>
+<dl class="docutils">
+<dt>Arguments</dt>
+<dd><dl class="first docutils">
+<dt>W:  a Nxk array. W&#8217;s columns must be orthonormal w.r.t. the</dt>
+<dd>M-inner-product (inner_product(M^{-1} W, W) = I_k).</dd>
+<dt>AW: contains the result of A applied to W (passed in order to reduce #</dt>
+<dd>of matrix-vector multiplications with A).</dd>
+<dt>Vfull: a Nxn array. Vfull&#8217;s columns must be orthonormal w.r.t. the</dt>
+<dd>M-inner-product. Vfull and Hfull must be created with a (possibly
+deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
+and Hfull can be obtained from MINRES applied to a linear system
+with the operator A, the inner product inner_product, the HPD
+preconditioner M and the right preconditioner Mr set to the
+projection obtained with get_projection(W, AW, ...).</dd>
+</dl>
+<p>Hfull: see Vfull.
+M:  The preconditioner used in the Lanczos procedure.</p>
+<dl class="last docutils">
+<dt>The arguments thus have to fulfill the following equations:</dt>
+<dd><p class="first">AW = A*W.
+M*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,</p>
+<blockquote>
+<div>where Mr=get_projection(W, AW,...,inner_product).</div></blockquote>
+<p class="last">inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.</p>
+</dd>
+</dl>
+</dd>
+<dt>Returns:</dt>
+<dd><p class="first">ritz_vals: an array with n+k Ritz values.
+ritz_coeffs: a (n+k)x(n+k) array where the ritz_coeffs[:,i] are the</p>
+<blockquote>
+<div>coefficients (in the basis [W,Vfull]) of the vector corresponding
+the Ritz value ritz_vals[i]. The Ritz vectors then also are
+orthonormal w.r.t. the M-inner-product, that is inner_product(
+M^{-1}*ritz_vecs, ritz_vecs ) = I_{k+n}.</div></blockquote>
+<dl class="last docutils">
+<dt>ritz_res_norm: an array with n+k residual norms. ritz_res_norm[i] is</dt>
+<dd><dl class="first docutils">
+<dt>the M^{-1}-norm of the residual</dt>
+<dd>M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].</dd>
+</dl>
+<p class="last">ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
+residual norms are ascending.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
+M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis [W,
+Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of the
+Ritz pair residual is computed. The computation of the residual norms do
+not need the application of the operator A, but the preconditioner has to
+be applied to the basis W. The computation of the residual norm may be
+unstable (it seems as if residual norms below 1e-8 cannot be achieved...
+note that the actual residual may be lower!).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.shape_vec">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">shape_vec</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.shape_vec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take a (n,) ndarray and return it as (n,1) ndarray</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.shape_vecs">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">shape_vecs</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#krypy.utils.shape_vecs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reshape all ndarrays with shape (n,) to shape (n,1)</p>
+<p>Recognizes ndarrays and ignores all others.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="krypy.linsys.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">krypy.linsys</span></tt> - Linear Algebraic Systems Solver</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="krypy.tests.html"
+                        title="next chapter">tests Package</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/krypy.utils.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="krypy.tests.html" title="tests Package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="krypy.linsys.html" title="krypy.linsys - Linear Algebraic Systems Solver"
+             >previous</a> |</li>
+        <li><a href="index.html">KryPy 0.1.1 documentation</a> &raquo;</li>
+          <li><a href="krypy.html" >krypy Package</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, André Gaul.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
