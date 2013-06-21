@@ -16,6 +16,9 @@ Some features of KryPy are:
 
 # Usage
 
+### Documentation
+Here is the [documentation](http://andrenarchy.github.io/krypy/).
+
 ### Example
 ```python
 from numpy import ones
