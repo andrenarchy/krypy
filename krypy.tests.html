@@ -1,0 +1,190 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>tests Package &mdash; KryPy 0.1.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="KryPy 0.1.1 documentation" href="index.html" />
+    <link rel="up" title="krypy Package" href="krypy.html" />
+    <link rel="prev" title="krypy Package" href="krypy.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="krypy.html" title="krypy Package"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">KryPy 0.1.1 documentation</a> &raquo;</li>
+          <li><a href="krypy.html" accesskey="U">krypy Package</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tests-package">
+<h1>tests Package<a class="headerlink" href="#tests-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-krypy.tests.tests">
+<span id="tests-module"></span><h2><tt class="xref py py-mod docutils literal"><span class="pre">tests</span></tt> Module<a class="headerlink" href="#module-krypy.tests.tests" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="krypy.tests.tests.dictproduct">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">dictproduct</tt><big>(</big><em>d</em><big>)</big><a class="headerlink" href="#krypy.tests.tests.dictproduct" title="Permalink to this definition">¶</a></dt>
+<dd><p>enhance itertools product to process values of dicts</p>
+<dl class="docutils">
+<dt>example: </dt>
+<dd>d = {&#8216;a&#8217;:[1,2],&#8217;b&#8217;:[3,4]}
+then list(dictproduct(d)) == 
+[{&#8216;a&#8217;:1,&#8217;b&#8217;:3}, {&#8216;a&#8217;:1,&#8217;b&#8217;:4}, {&#8216;a&#8217;:2,&#8217;b&#8217;:3}, {&#8216;a&#8217;:2,&#8217;b&#8217;:4}]</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.get_operators">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">get_operators</tt><big>(</big><em>A</em><big>)</big><a class="headerlink" href="#krypy.tests.tests.get_operators" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.get_vecs">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">get_vecs</tt><big>(</big><em>v</em><big>)</big><a class="headerlink" href="#krypy.tests.tests.get_vecs" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.produce_cases">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">produce_cases</tt><big>(</big><em>A</em>, <em>x</em>, <em>params_adds</em>, <em>solvers</em><big>)</big><a class="headerlink" href="#krypy.tests.tests.produce_cases" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.run_case">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">run_case</tt><big>(</big><em>solver</em>, <em>params</em><big>)</big><a class="headerlink" href="#krypy.tests.tests.run_case" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_comp_nonsymm">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_comp_nonsymm</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_comp_nonsymm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_herm_indef">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_herm_indef</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_herm_indef" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_hpd">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_hpd</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_hpd" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_nonsymm">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_nonsymm</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_nonsymm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_spd">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_spd</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_spd" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_spd_zero">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_spd_zero</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_spd_zero" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.tests.tests.test_linsys_symm_indef">
+<tt class="descclassname">krypy.tests.tests.</tt><tt class="descname">test_linsys_symm_indef</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.tests.tests.test_linsys_symm_indef" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">tests Package</a><ul>
+<li><a class="reference internal" href="#module-krypy.tests.tests"><tt class="docutils literal"><span class="pre">tests</span></tt> Module</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="krypy.html"
+                        title="previous chapter">krypy Package</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/krypy.tests.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="krypy.html" title="krypy Package"
+             >previous</a> |</li>
+        <li><a href="index.html">KryPy 0.1.1 documentation</a> &raquo;</li>
+          <li><a href="krypy.html" >krypy Package</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, André Gaul.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
