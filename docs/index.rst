@@ -11,6 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   krypy
 
 
 Indices and tables

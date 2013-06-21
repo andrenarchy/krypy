@@ -407,9 +407,9 @@ def minres(A, b,
     if exact_solution is not None:
         ret['errvec'] = errvec
     if return_basis:
-        ret['Vfull'] = Vfull[:,0:k+1]
-        ret['Pfull'] = Pfull[:,0:k+1]
-        ret['Hfull'] = Hfull[0:k+1,0:k]
+        ret['V'] = Vfull[:,0:k+1]
+        ret['P'] = Pfull[:,0:k+1]
+        ret['H'] = Hfull[0:k+1,0:k]
     if timer:
         # properly cut down times
         for key in times:
@@ -434,14 +434,71 @@ def gmres( A, b,
          ):
     '''Preconditioned GMRES
 
-    Solves   M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y.
-    M has to be self-adjoint and positive-definite w.r.t. inner_product.
-
-    Stopping criterion is
-    ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
+    Solves :math:`M M_l A M_r y = M M_l b` where :math:`x=M_r y`.
 
     Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
-    If M is used the memory consumption is 2*(maxiter+1).
+    If :math:`M` is used the memory consumption is 2*(maxiter+1).
+
+    :param A:
+        a linear operator on :math:`\\mathbb{C}^n`.
+    :param b:
+        a vector in :math:`\\mathbb{C}^n`.
+    :param tol: the tolerance for the stopping criterion with respect to
+        the relative residual norm:
+
+        .. math:: 
+        
+           \\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}} 
+           \leq \\text{tol}
+
+    :param maxiter: 
+        maximum number of iterations per restart cycle, see ``max_restarts``.
+        Has to fulfill :math:`\\text{maxiter}\leq n`.
+    :param M: 
+        a self-adjoint and positive definite linear operator on 
+        :math:`\\mathbb{C}^n` with respect to ``inner_product``. The changes
+        the inner product used for orthogonalization to
+        :math:`\\langle x,y\\rangle_M = \\langle Mx,y\\rangle` where
+        :math:`\\langle \cdot,\cdot\\rangle` is the inner product defined
+        by the parameter ``inner_product``.
+        If set to ``None`` then :math:`M` is the identity.
+    :param Ml:
+        left preconditioner, linear operator on :math:`\\mathbb{C}^n`.
+        If set to ``None`` then :math:`M_l` is the identity.
+    :param Mr:
+        right preconditioner, linear operator on :math:`\\mathbb{C}^n`.
+        If set to ``None`` then :math:`M_r` is the identity.
+    :param inner_product:
+        a function that takes two arguments and computes
+        the (block-) inner product of the arguments.
+    :param explicit_residual:
+        if set to False, the updated residual norm from the GMRES iteration is
+        used in each iteration. If set to ``True``, the residual is computed
+        explicitly in each iteration and thus requires an additional
+        matrix-vector multiplication in each iteration.
+    :param return_basis:
+        if set to ``True`` then the computed Arnoldi basis and the Hessenberg
+        matrix are returned in the result dictionary with the keys ``V``
+        and ``H``. In exact 
+    :param exact_solution:
+        if the solution vector :math:`x` is passed then the error norm
+        :math:`\|x-x_k\|` will be computed in each iteration (with respect
+        to ``inner_product``) and returned as a
+        list in the result dictionary with the key ``errvec``.
+    :param max_restarts: the maximum number of restarts. The maximum number of
+        iterations is ``(max_restarts+1)*maxiter``.
+    :return:
+        a dictionary with the following keys:
+
+        * ``xk``: the approximate solution :math:`x_k`.
+        * ``info``: convergence flag (0 if converged, 1 otherwise).
+        * ``relresvec``: relative residual norms of all iterations, see
+          parameter ``tol``.
+        * ``V``: present if ``return_basis=True``. The Arnoldi basis 
+          vectors.
+        * ``H``: present if ``return_basis=True``. The Hessenberg matrix.
+        * ``P``: present if ``return_basis=True`` and ``M`` is provided.
+          The matrix :math:`P` fulfills :math:`V=MP`.
     '''
     relresvec = [numpy.Inf]
     if exact_solution is not None:
@@ -481,10 +538,10 @@ def gmres( A, b,
         ret['errvec'] = errvec
     if max_restarts == 0:
         if return_basis:
-            ret['Vfull'] = sol['Vfull']
-            ret['Hfull'] = sol['Hfull']
+            ret['V'] = sol['V']
+            ret['H'] = sol['H']
             if M is not None:
-                ret['Pfull'] = sol['Pfull']
+                ret['P'] = sol['P']
     return ret
 
 def _gmres( A, b,
@@ -658,8 +715,8 @@ def _gmres( A, b,
     if exact_solution is not None:
         ret['errvec'] = errvec
     if return_basis:
-        ret['Vfull'] = V[:, :k+1]
-        ret['Hfull'] = Horig[:k+1, :k]
+        ret['V'] = V[:, :k+1]
+        ret['H'] = Horig[:k+1, :k]
         if M is not None:
-            ret['Pfull'] = P[:, :k+1]
+            ret['P'] = P[:, :k+1]
     return ret
