@@ -292,7 +292,7 @@ def run_house(x):
     HI = H.apply(I)
     Hm = H.matrix()
     assert( numpy.linalg.norm( HI - Hm, 2) <= 1e-14 )
-    
+
     # check that H.matrix() is Hermitian
     assert( numpy.linalg.norm( Hm - Hm.T.conj(), 2) <= 1e-14 )
     # check that H.matrix() is unitary/involutory
@@ -311,7 +311,7 @@ def test_givens():
 def run_givens(x):
     G = krypy.utils.Givens(x)
     y = G.apply(x)
-    
+
     I = numpy.eye(2)
     # check that G.G is unitary
     assert( numpy.linalg.norm( I - numpy.dot(G.G.T.conj(), G.G), 2) <= 1e-14 )
