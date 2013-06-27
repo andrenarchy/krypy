@@ -457,16 +457,14 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
     :param ortho: may be 'mgs' (Modified Gram-Schmidt), 'dmgs' (double Modified Gram-Schmidt), 'house' (Householder)
     """
     dtype = find_common_dtype(A, v)
-    print(dtype)
     N = v.shape[0]
     V = numpy.zeros([N, maxiter+1], dtype=dtype) # Arnoldi basis
     H = numpy.zeros([maxiter+1, maxiter], dtype=dtype) # Hessenberg matrix
 
     houses = [House(v)]
-    vnew = houses[0].apply(numpy.eye(N,1, dtype=dtype))
-    V[:,[0]] = vnew
+    V[:,[0]] = houses[0].apply(numpy.eye(N,1, dtype=dtype))
     for k in range(maxiter):
-        hnew = apply(A, vnew)
+        hnew = apply(A, V[:,[k]])
         for j in range(k+1):
             hnew[j:] = houses[j].apply(hnew[j:])
         houses.append( House(hnew[k+1:]) )
@@ -477,6 +475,5 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
         vnew[k+1] = 1
         for j in range(k+1,-1,-1):
             vnew[j:] = houses[j].apply(vnew[j:])
-        print(H)
         V[:,[k+1]] = vnew
     return V, H
