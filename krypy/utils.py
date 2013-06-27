@@ -12,6 +12,15 @@ from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.sputils import upcast
 from scipy.linalg import eigh
 
+# for Givens rotations
+try:
+    # scipy < 0.12, compare
+    # http://docs.scipy.org/doc/scipy-dev/reference/release.0.12.0.html#fblas-and-cblas
+    import scipy.linalg.blas as blas
+    blas = blas.cblas
+except ImportError:
+    import scipy.linalg.blas as blas
+
 # ===================================================================
 def find_common_dtype(*args):
     '''returns common dtype of numpy and scipy objects
@@ -360,3 +369,80 @@ def ritzh(Vfull, Hfull,
         #print 'Explicit residual: %g' % numpy.sqrt(abs(zz))
 
     return ritz_values, ritz_coeffs, ritz_res_norm
+
+# ===================================================================
+class House:
+    def __init__(self, x):
+        """Compute Householder transformation for given vector
+
+        Initialize Householder transformation :math:`H` such that 
+        :math:`Hx = \\alpha e_1` with :math:`|\\alpha|=\|x\|_2`
+
+        The algorithm is a combination of Algorithm 5.1.1 on page 236
+        and the treatment of the complex case in Section 5.1.13 on page 243
+        in Golub, Van Loan. Matrix computations. Fourth Edition. 2013.
+        """
+        # make sure that x is a vector ;)
+        if x.size != x.shape[0]:
+            raise ValueError('x is not a vector')
+
+        v = x.copy()
+
+        gamma = numpy.asscalar(v[0])
+        sigma = numpy.linalg.norm(v[1:],2)
+        self.xnorm = numpy.sqrt(numpy.abs(gamma)**2+sigma**2)
+
+        v[0] = 1
+        # is x the multiple of first unit vector?
+        if sigma==0:
+            beta = 0
+        else:
+            if gamma==0:
+                v[0] = -sigma
+            else:
+                v[0] = gamma + gamma/numpy.abs(gamma) * self.xnorm
+            beta = 2
+
+        self.v = v/numpy.sqrt( numpy.abs(v[0])**2 + sigma**2)
+        self.beta = beta
+
+    def apply(self, x):
+        return x - self.beta * self.v * numpy.dot(self.v.T.conj(), x)
+
+    def norm(self):
+        return self.xnorm
+
+    def matrix(self):
+        n = self.v.shape[0]
+        vtmp = self.v.reshape((n,1))
+        return numpy.eye(n,n) - self.beta * numpy.dot(vtmp, vtmp.T.conj())
+
+# ===================================================================
+class Givens:
+    def __init__(self, x):
+        """Compute Givens rotation for given vector
+
+        Computes Givens rotation G such that
+            G*x=[c        s] [a] = [r]
+                [-conj(s) c] [b]   [0]
+        """
+        # make sure that x is a vector ;)
+        if x.size != x.shape[0] or x.size!=2:
+            raise ValueError('x is not a 2-dimensional vector')
+
+        a = numpy.asscalar(x[0])
+        b = numpy.asscalar(x[1])
+        # real vector
+        if numpy.isrealobj(x):
+            c, s = blas.drotg(a,b)
+        # complex vector
+        else:
+            c, s = blas.zrotg(a,b)
+
+        self.c = c
+        self.s = s
+        self.r = c*a + s*b
+        self.G = numpy.array([[c, s], [-numpy.conj(s), c]])
+
+    def apply(self, x):
+        return numpy.dot(self.G, x)
