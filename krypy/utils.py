@@ -383,8 +383,8 @@ class House:
         in Golub, Van Loan. Matrix computations. Fourth Edition. 2013.
         """
         # make sure that x is a vector ;)
-        if x.size != x.shape[0]:
-            raise ValueError('x is not a vector')
+        if len(x.shape)!=2 or x.shape[1]!=1:
+            raise ValueError('x is not a vector of dim (N,1)')
 
         v = x.copy()
 
@@ -407,6 +407,9 @@ class House:
         self.beta = beta
 
     def apply(self, x):
+        # make sure that x is a (N,*) matrix
+        if len(x.shape)!=2:
+            raise ValueError('x is not a matrix of shape (N,*)')
         return x - self.beta * self.v * numpy.dot(self.v.T.conj(), x)
 
     def norm(self):
@@ -414,8 +417,7 @@ class House:
 
     def matrix(self):
         n = self.v.shape[0]
-        vtmp = self.v.reshape((n,1))
-        return numpy.eye(n,n) - self.beta * numpy.dot(vtmp, vtmp.T.conj())
+        return numpy.eye(n,n) - self.beta * numpy.dot(self.v, self.v.T.conj())
 
 # ===================================================================
 class Givens:
@@ -427,8 +429,8 @@ class Givens:
                 [-conj(s) c] [b]   [0]
         """
         # make sure that x is a vector ;)
-        if x.size != x.shape[0] or x.size!=2:
-            raise ValueError('x is not a 2-dimensional vector')
+        if x.shape!=(2,1):
+            raise ValueError('x is not a vector of shape (2,1)')
 
         a = numpy.asscalar(x[0])
         b = numpy.asscalar(x[1])
