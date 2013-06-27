@@ -461,19 +461,42 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
     V = numpy.zeros([N, maxiter+1], dtype=dtype) # Arnoldi basis
     H = numpy.zeros([maxiter+1, maxiter], dtype=dtype) # Hessenberg matrix
 
-    houses = [House(v)]
-    V[:,[0]] = houses[0].apply(numpy.eye(N,1, dtype=dtype))
-    for k in range(maxiter):
-        hnew = apply(A, V[:,[k]])
-        for j in range(k+1):
-            hnew[j:] = houses[j].apply(hnew[j:])
-        houses.append( House(hnew[k+1:]) )
-        hnew[k+1:] = houses[-1].apply(hnew[k+1:])
-        H[:k+2,[k]] = hnew[:k+2]
+    if ortho=='house':
+        if inner_product!=ip:
+            raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
+        houses = [House(v)]
+        V[:,[0]] = houses[0].apply(numpy.eye(N,1, dtype=dtype))
+    elif ortho in ['mgs','dmgs']:
+        reorthos = 0
+        if ortho=='dmgs':
+            reorthos = 1
+        V[:,[0]] = v / norm(v, inner_product=inner_product)
+    else:
+        raise ValueError('Unknown orthogonalization method "%s"' % ortho)
 
-        vnew = numpy.zeros((N,1), dtype=dtype)
-        vnew[k+1] = 1
-        for j in range(k+1,-1,-1):
-            vnew[j:] = houses[j].apply(vnew[j:])
-        V[:,[k+1]] = vnew
+    for k in range(maxiter):
+        Av = apply(A, V[:,[k]])
+
+        if ortho=='house':
+            # Householder
+            for j in range(k+1):
+                Av[j:] = houses[j].apply(Av[j:])
+            houses.append( House(Av[k+1:]) )
+            Av[k+1:] = houses[-1].apply(Av[k+1:])
+            H[:k+2,[k]] = Av[:k+2]
+
+            vnew = numpy.zeros((N,1), dtype=dtype)
+            vnew[k+1] = 1
+            for j in range(k+1,-1,-1):
+                vnew[j:] = houses[j].apply(vnew[j:])
+            V[:,[k+1]] = vnew
+        else:
+            # (double) modified Gram-Schmidt
+            for reortho in range(reorthos+1):
+                for j in range(k+1):
+                    H[j,k] += inner_product(V[:, [j]], Av)[0,0]
+                    Av -= H[j,k] * V[:,[j]]
+            H[k+1,k] = norm(Av, inner_product=inner_product)
+            V[:,[k+1]] = Av / H[k+1,k]
+
     return V, H
