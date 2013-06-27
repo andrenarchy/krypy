@@ -448,3 +448,35 @@ class Givens:
 
     def apply(self, x):
         return numpy.dot(self.G, x)
+
+def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
+    """Compute Arnoldi relation
+
+    Computes V and H such that :math:`AV_{n}=V_{n+1}\\underline{H}_n`
+
+    :param ortho: may be 'mgs' (Modified Gram-Schmidt), 'dmgs' (double Modified Gram-Schmidt), 'house' (Householder)
+    """
+    dtype = find_common_dtype(A, v)
+    print(dtype)
+    N = v.shape[0]
+    V = numpy.zeros([N, maxiter+1], dtype=dtype) # Arnoldi basis
+    H = numpy.zeros([maxiter+1, maxiter], dtype=dtype) # Hessenberg matrix
+
+    houses = [House(v)]
+    vnew = houses[0].apply(numpy.eye(N,1, dtype=dtype))
+    V[:,[0]] = vnew
+    for k in range(maxiter):
+        hnew = apply(A, vnew)
+        for j in range(k+1):
+            hnew[j:] = houses[j].apply(hnew[j:])
+        houses.append( House(hnew[k+1:]) )
+        hnew[k+1:] = houses[-1].apply(hnew[k+1:])
+        H[:k+2,[k]] = hnew[:k+2]
+
+        vnew = numpy.zeros((N,1), dtype=dtype)
+        vnew[k+1] = 1
+        for j in range(k+1,-1,-1):
+            vnew[j:] = houses[j].apply(vnew[j:])
+        print(H)
+        V[:,[k+1]] = vnew
+    return V, H
