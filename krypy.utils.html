@@ -62,6 +62,53 @@
 process of solving linear algebraic systems.</p>
 <span class="target" id="module-krypy.utils"></span><p>Collection of standard functions.</p>
 <p>This method provides functions like inner products, norms, ...</p>
+<dl class="class">
+<dt id="krypy.utils.Givens">
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Givens</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.Givens" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
+<p>Compute Givens rotation for given vector</p>
+<dl class="docutils">
+<dt>Computes Givens rotation G such that</dt>
+<dd><dl class="first last docutils">
+<dt>G*x=[c        s] [a] = [r]</dt>
+<dd>[-conj(s) c] [b]   [0]</dd>
+</dl>
+</dd>
+</dl>
+<dl class="method">
+<dt id="krypy.utils.Givens.apply">
+<tt class="descname">apply</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.Givens.apply" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="krypy.utils.House">
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">House</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.House" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
+<p>Compute Householder transformation for given vector</p>
+<p>Initialize Householder transformation <span class="math">\(H\)</span> such that 
+<span class="math">\(Hx = \alpha e_1\)</span> with <span class="math">\(|\alpha|=\|x\|_2\)</span></p>
+<p>The algorithm is a combination of Algorithm 5.1.1 on page 236
+and the treatment of the complex case in Section 5.1.13 on page 243
+in Golub, Van Loan. Matrix computations. Fourth Edition. 2013.</p>
+<dl class="method">
+<dt id="krypy.utils.House.apply">
+<tt class="descname">apply</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.House.apply" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="krypy.utils.House.matrix">
+<tt class="descname">matrix</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.utils.House.matrix" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="krypy.utils.House.norm">
+<tt class="descname">norm</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.utils.House.norm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 <dl class="function">
 <dt id="krypy.utils.apply">
 <tt class="descclassname">krypy.utils.</tt><tt class="descname">apply</tt><big>(</big><em>A</em>, <em>x</em><big>)</big><a class="headerlink" href="#krypy.utils.apply" title="Permalink to this definition">¶</a></dt>
@@ -78,7 +125,7 @@ ignored (most notably None).</p>
 
 <dl class="function">
 <dt id="krypy.utils.get_projection">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c25320&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get projection and appropriate initial guess for use in deflated methods.</p>
 <dl class="docutils">
 <dt>Arguments:</dt>
@@ -139,24 +186,24 @@ Y:  array of shape [N,n]</dd>
 
 <dl class="function">
 <dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c25320&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip at 0x2aaab4c25320&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c25320&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.ritzh">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c3b170&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip at 0x2aaab4c25320&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute Ritz pairs from a (possibly deflated) Lanczos procedure.</p>
 <dl class="docutils">
 <dt>Arguments</dt>
