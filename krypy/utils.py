@@ -455,6 +455,12 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
     Computes V and H such that :math:`AV_{n}=V_{n+1}\\underline{H}_n`
 
     :param ortho: may be 'mgs' (Modified Gram-Schmidt), 'dmgs' (double Modified Gram-Schmidt), 'house' (Householder)
+
+    If the Householder orthogonalization is used, the inner product has to be
+    the Euclidean inner product.  It's unclear to me (andrenarchy), how a
+    variant of the Householder QR algorithm can be used with a non-Euclidean
+    inner product. Compare
+    http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
     """
     dtype = find_common_dtype(A, v)
     N = v.shape[0]
