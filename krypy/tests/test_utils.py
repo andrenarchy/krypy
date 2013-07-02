@@ -46,6 +46,42 @@ def run_givens(x):
     # check that y[0] == 0
     assert( numpy.linalg.norm(y[1],2) <= 1e-14*numpy.linalg.norm(x,2) )
 
+def assert_arnoldi(A, v, V, H, lanczos=False, inner_product=krypy.utils.ip, arnoldi_tol=1e-14, proj_tol=1e-14, ortho_tol=1e-14):
+    # check shapes of V and H
+    k = H.shape[1]
+    assert( V.shape[1] == k+1 )
+    assert( H.shape == (k+1,k) )
+
+    # check that the initial vector is correct
+    v1 = v / krypy.utils.norm(v, inner_product=inner_product)
+    assert( numpy.linalg.norm(V[:,[0]] - v1, 2) <= 1e-14 )
+
+    # check if H is Hessenberg
+    assert( numpy.linalg.norm( numpy.tril(H, -2) ) == 0 )
+    if lanczos:
+        # check if H is Hermitian
+        assert( numpy.linalg.norm( H - H.T.conj() ) == 0 )
+        # check if H is real
+        assert( numpy.isreal(H).all() )
+
+    # check if subdiagonal-elements are real and non-negative
+    d = numpy.diag(H[1:,:])
+    assert( numpy.isreal(d).all() )
+    assert( (d>=0).all() )
+
+    # check Arnoldi residual \| A*V_k - V_{k+1} H \|
+    AV = krypy.utils.apply(A, V[:,:-1])
+    arnoldi_res = AV - numpy.dot(V, H)
+    assert( krypy.utils.norm( arnoldi_res, inner_product=inner_product )<= arnoldi_tol )
+
+    # check projection residual \| <V_k, A*V_k> - H_k \|
+    proj_res = inner_product(V, AV) - H
+    assert( numpy.linalg.norm( proj_res, 2) <= proj_tol )
+
+    # check orthogonality by measuring \| I - <V,V> \|_2
+    ortho_res = numpy.eye(V.shape[1]) - inner_product(V, V)
+    assert( numpy.linalg.norm( ortho_res, 2) <= ortho_tol )
+
 if __name__ == '__main__':
     import nose
     nose.main()

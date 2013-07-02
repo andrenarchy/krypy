@@ -79,14 +79,14 @@ def ip(X,Y):
 def norm_squared( x, Mx = None, inner_product = ip ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     assert( len(x.shape)==2 )
-    assert( x.shape[1]==1 )
     if Mx is None:
-        rho = inner_product(x, x)[0,0]
+        rho = inner_product(x, x)
     else:
         assert( len(Mx.shape)==2 )
         assert( Mx.shape[1]==1 )
-        rho = inner_product(x, Mx)[0,0]
+        rho = inner_product(x, Mx)
 
+    return numpy.linalg.norm(rho, 2)
 #    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
     if abs(rho.imag) > abs(rho) *1e-10:
         raise ValueError( 'M not positive definite?' )
@@ -500,8 +500,9 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
             # (double) modified Gram-Schmidt
             for reortho in range(reorthos+1):
                 for j in range(k+1):
-                    H[j,k] += inner_product(V[:, [j]], Av)[0,0]
-                    Av -= H[j,k] * V[:,[j]]
+                    ip = inner_product(V[:, [j]], Av)[0,0]
+                    H[j,k] += ip
+                    Av -= ip * V[:,[j]]
             H[k+1,k] = norm(Av, inner_product=inner_product)
             V[:,[k+1]] = Av / H[k+1,k]
 
