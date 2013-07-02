@@ -7,4 +7,4 @@ virtualenv:
 before_install:
     - sudo apt-get update -qq
     - sudo apt-get install -qq python-numpy python-scipy python3-numpy python3-scipy
-script: python -m krypy.tests.tests
+script: nosetests krypy/tests
