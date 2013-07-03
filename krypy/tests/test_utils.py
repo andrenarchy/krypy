@@ -46,7 +46,7 @@ def run_givens(x):
     # check that y[0] == 0
     assert( numpy.linalg.norm(y[1],2) <= 1e-14*numpy.linalg.norm(x,2) )
 
-def assert_arnoldi(A, v, V, H, lanczos=False, inner_product=krypy.utils.ip, arnoldi_tol=1e-14, proj_tol=1e-14, ortho_tol=1e-14):
+def assert_arnoldi(A, v, V, H, lanczos=False, inner_product=krypy.utils.ip_euclid, arnoldi_tol=1e-14, proj_tol=1e-14, ortho_tol=1e-14):
     # check shapes of V and H
     k = H.shape[1]
     assert( V.shape[1] == k+1 )
