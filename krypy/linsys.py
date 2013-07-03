@@ -235,8 +235,8 @@ def minres(A, b,
         # some small helpers
         ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
         y  = [norm_MMlr0, 0] # first entry is (updated) residual
-        G2 = numpy.eye(2)     # old givens rotation
-        G1 = numpy.eye(2)     # even older givens rotation ;)
+        G2 = None            # old givens rotation
+        G1 = None            # even older givens rotation ;)
         k = 0
 
         # resulting approximation is xk = x0 + Mr*yk
@@ -291,8 +291,10 @@ def minres(A, b,
             times['reortho'][k] = time.time()-start
 
         # needed for QR-update:
-        R = numpy.dot(G1, [0, tsold])
-        R = numpy.append(R, [0.0, 0.0])
+        R = numpy.zeros( (4,1) )
+        R[1] = tsold
+        if G1 is not None:
+            R[:2] = G1.apply(R[:2])
 
         # Apply the preconditioner.
         if timer:
@@ -333,18 +335,15 @@ def minres(A, b,
         # (implicit) update of QR-factorization of Lanczos matrix
         if timer:
             start = time.time()
-        R[2:4] = [td, ts]
-        R[1:3] = numpy.dot(G2, R[1:3])
-        G1 = G2.copy()
+        R[2:4,0] = [td, ts]
+        if G2 is not None:
+            R[1:3] = G2.apply(R[1:3])
+        G1 = G2
         # compute new givens rotation.
-        gg = numpy.linalg.norm( R[2:4] )
-        gc = R[2] / gg
-        gs = R[3] / gg
-        G2 = numpy.array([ [gc,  gs],
-                        [-gs, gc] ])
-        R[2] = gg
+        G2 = utils.Givens(R[2:4])
+        R[2] = G2.r
         R[3] = 0.0
-        y = numpy.dot(G2, y)
+        y = G2.apply(y)
         if timer:
             times['implicit QR'][k] = time.time()-start
 
@@ -665,12 +664,12 @@ def _gmres( A, b,
 
         # Apply previous Givens rotations.
         for i in range(k):
-            H[i:i+2, k] = numpy.dot(G[i], H[i:i+2, k])
+            H[i:i+2, k] = G[i].apply(H[i:i+2, k])
 
         # Compute and apply new Givens rotation.
-        G.append(utils.givens(H[k, k], H[k+1, k]))
-        H[k:k+2, k] = numpy.dot(G[k], H[k:k+2, k])
-        y[k:k+2] = numpy.dot(G[k], y[k:k+2])
+        G.append(utils.Givens(H[k:k+2, [k]]))
+        H[k:k+2, k] = G[k].apply(H[k:k+2, k])
+        y[k:k+2] = G[k].apply(y[k:k+2])
 
         if exact_solution is not None:
             xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])

@@ -130,37 +130,6 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip):
     return xk, Mlr, MMlr, norm_MMlr
 
 # ===================================================================
-def givens(a, b):
-    '''Givens rotation
-    [   c       s    ] * [a] = [r]
-    [-conj(s) conj(c)]   [b]   [0]
-    r real and non-negative.'''
-    if abs(b) == 0:
-        r = abs(a)
-        c = a.conjugate() / r
-        s = 0
-    elif abs(a) == 0:
-        r = abs(b)
-        c = 0
-        s = b.conjugate() / r
-    elif abs(b) > abs(a):
-        absb = abs(b)
-        t = a.conjugate() / absb
-        u = numpy.sqrt(1 + t.real**2 + t.imag**2)
-        c = t / u
-        s = (b.conjugate()/absb) / u
-        r = absb * u
-    else:
-        absa = abs(a)
-        t = b.conjugate()/absa
-        u = numpy.sqrt(1 + t.real**2 + t.imag**2)
-        c = (a.conjugate()/absa)/u
-        s = t/u
-        r = absa*u
-    return numpy.array([[c, s],
-                     [-s.conjugate(), c.conjugate()]])
-
-# ===================================================================
 def get_projection(b, W, AW,
         # TODO: AW optional, supply A
         x0 = None, 
