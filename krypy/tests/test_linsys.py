@@ -203,7 +203,7 @@ def produce_cases(A, x, params_adds, solvers):
         'M': [ None ],
         'Ml': [ None ],
         'Mr': [ None ],
-        'inner_product': [ krypy.utils.ip ],
+        'inner_product': [ krypy.utils.ip_euclid ],
         'exact_solution': [ None ] + get_vecs(x)
         }
 

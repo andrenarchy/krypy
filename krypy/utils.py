@@ -60,23 +60,23 @@ def shape_vecs(*args):
     return flat_vecs, ret_args
 
 # ===================================================================
-def ip(X,Y):
+def ip_euclid(X,Y):
     '''Euclidean inner product.
 
     numpy.vdot only works for vectors and numpy.dot does not use the conjugate
-    transpose. In Octave/MATLAB notation ip(X,Y) == X'*Y.
+    transpose. In Octave/MATLAB notation ip_euclid(X,Y) == X'*Y.
 
     Arguments:
         X:  array of shape [N,m]
         Y:  array of shape [N,n]
 
     Returns:
-        ip: array of shape [m,n] with X^H * Y
+        ip_euclid: array of shape [m,n] with X^H * Y
     '''
     return numpy.dot(X.T.conj(), Y)
 
 # ===================================================================
-def norm_squared( x, Mx = None, inner_product = ip ):
+def norm_squared( x, Mx = None, inner_product = ip_euclid ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     assert( len(x.shape)==2 )
     if Mx is None:
@@ -93,9 +93,9 @@ def norm_squared( x, Mx = None, inner_product = ip ):
 
 
 # ===================================================================
-def norm( x, Mx = None, inner_product = ip ):
+def norm( x, Mx = None, inner_product = ip_euclid ):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    if Mx is None and inner_product==ip:
+    if Mx is None and inner_product==ip_euclid:
         return numpy.linalg.norm(x, 2)
     else:
         return numpy.sqrt(norm_squared( x, Mx = Mx, inner_product = inner_product ) )
@@ -109,7 +109,7 @@ def get_linearoperator(shape, A):
         return aslinearoperator(A)
 
 # ===================================================================
-def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip):
+def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip_euclid):
     xk = x0 + Mr * yk
     r = b - A * xk
     Mlr = Ml * r
@@ -133,7 +133,7 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip):
 def get_projection(b, W, AW,
         # TODO: AW optional, supply A
         x0 = None, 
-        inner_product = ip):
+        inner_product = ip_euclid):
     """Get projection and appropriate initial guess for use in deflated methods.
 
     Arguments:
@@ -195,7 +195,7 @@ def ritzh(Vfull, Hfull,
                A = None,
                M = None, 
                Minv = None,
-               inner_product = ip,
+               inner_product = ip_euclid,
                ):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure.
 
@@ -306,8 +306,8 @@ def ritzh(Vfull, Hfull,
         z0 = -mu * w
         z1 = w + numpy.dot(Einv, numpy.dot(B, v))
         z2 = numpy.dot(Hfull, v) - numpy.r_[mu*v, numpy.zeros((1,1))]
-        res_ip = ip(z0, z0) + 2 * ip(z0, numpy.dot(E, z1)).real + ip(z1, numpy.dot(D, z1)) \
-               + 2 * ip(z1, numpy.dot(B1, z2)).real + ip(z2, z2)
+        res_ip = ip_euclid(z0, z0) + 2 * ip_euclid(z0, numpy.dot(E, z1)).real + ip_euclid(z1, numpy.dot(D, z1)) \
+               + 2 * ip_euclid(z1, numpy.dot(B1, z2)).real + ip_euclid(z2, z2)
         res_ip = res_ip[0,0]
 
         if res_ip.imag > 1e-13:
@@ -407,7 +407,7 @@ class Givens:
     def apply(self, x):
         return numpy.dot(self.G, x)
 
-def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
+def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     """Compute Arnoldi relation
 
     Computes V and H such that :math:`AV_{n}=V_{n+1}\\underline{H}_n`
@@ -427,7 +427,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
     H = numpy.zeros([maxiter+1, maxiter], dtype=dtype) # Hessenberg matrix
 
     if ortho=='house':
-        if inner_product!=ip:
+        if inner_product!=ip_euclid:
             raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
         houses = [House(v)]
         V[:,[0]] = houses[0].apply(numpy.eye(N,1, dtype=dtype))
@@ -459,9 +459,9 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
             # (double) modified Gram-Schmidt
             for reortho in range(reorthos+1):
                 for j in range(k+1):
-                    ip = inner_product(V[:, [j]], Av)[0,0]
-                    H[j,k] += ip
-                    Av -= ip * V[:,[j]]
+                    alpha = inner_product(V[:, [j]], Av)[0,0]
+                    H[j,k] += alpha
+                    Av -= alpha * V[:,[j]]
             H[k+1,k] = norm(Av, inner_product=inner_product)
             V[:,[k+1]] = Av / H[k+1,k]
 
