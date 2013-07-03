@@ -422,6 +422,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
     """
     dtype = find_common_dtype(A, v)
     N = v.shape[0]
+    A = get_linearoperator((N,N), A)
     V = numpy.zeros([N, maxiter+1], dtype=dtype) # Arnoldi basis
     H = numpy.zeros([maxiter+1, maxiter], dtype=dtype) # Hessenberg matrix
 
@@ -439,7 +440,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip):
         raise ValueError('Unknown orthogonalization method "%s"' % ortho)
 
     for k in range(maxiter):
-        Av = apply(A, V[:,[k]])
+        Av = A * V[:,[k]]
 
         if ortho=='house':
             # Householder
