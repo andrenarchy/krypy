@@ -83,27 +83,22 @@ def norm_squared( x, Mx = None, inner_product = ip ):
         rho = inner_product(x, x)
     else:
         assert( len(Mx.shape)==2 )
-        assert( Mx.shape[1]==1 )
         rho = inner_product(x, Mx)
 
+    if rho.shape==(1,1):
+        if abs(rho[0,0].imag) > abs(rho[0,0]) *1e-10 or rho[0,0].real < 0.0:
+            raise ValueError( '<x,Mx> = %g. M not positive definite?' % rho[0,0] )
+
     return numpy.linalg.norm(rho, 2)
-#    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
-    if abs(rho.imag) > abs(rho) *1e-10:
-        raise ValueError( 'M not positive definite?' )
 
-    rho = rho.real
-
-    if abs(rho) < numpy.finfo(float).eps:
-        return 0.0
-    if rho < 0.0:
-        raise ValueError( '<x,Mx> = %g. M not positive definite?' % rho )
-
-    return rho
 
 # ===================================================================
 def norm( x, Mx = None, inner_product = ip ):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    return numpy.sqrt(norm_squared( x, Mx = Mx, inner_product = inner_product ) )
+    if Mx is None and inner_product==ip:
+        return numpy.linalg.norm(x, 2)
+    else:
+        return numpy.sqrt(norm_squared( x, Mx = Mx, inner_product = inner_product ) )
 
 # ===================================================================
 def apply( A, x ):

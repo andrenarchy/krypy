@@ -289,16 +289,8 @@ def minres(A, b,
         if timer:
             start = time.time()
         v  = utils.apply(M, z)
-        alpha = inner_product(z, v)[0,0]
-        if abs(alpha.imag)>1e-12:
-            warnigs.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
-        alpha = alpha.real
-        if abs(alpha) < numpy.finfo(float).eps:
-            alpha=0.0
-        if alpha<0.0:
-            warnings.warn('Iter %d: alpha = %g < 0' % (k+1, alpha))
-            alpha = 0.0
-        ts = numpy.sqrt( alpha )
+        ts = utils.norm(z, Mx=v, inner_product=inner_product)
+
         if timer:
             times['apply prec'][k] = time.time()-start
 
