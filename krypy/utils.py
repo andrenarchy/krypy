@@ -8,7 +8,7 @@ This method provides functions like inner products, norms, ...
 import numpy
 import warnings
 from scipy.sparse import issparse, isspmatrix
-from scipy.sparse.linalg import LinearOperator
+from scipy.sparse.linalg import LinearOperator, aslinearoperator
 from scipy.sparse.sputils import upcast
 from scipy.linalg import eigh
 
@@ -101,24 +101,18 @@ def norm( x, Mx = None, inner_product = ip ):
         return numpy.sqrt(norm_squared( x, Mx = Mx, inner_product = inner_product ) )
 
 # ===================================================================
-def apply( A, x ):
-    '''Implement A*x for different types of linear operators.'''
+def get_linearoperator(shape, A):
     if A is None:
-        return x
-    elif isinstance( A, numpy.ndarray ):
-        return numpy.dot( A, x )
-    elif isspmatrix(A):
-        return A * x
-    elif isinstance( A, LinearOperator ):
-        return A * x
+        identity = lambda x: x
+        return LinearOperator(shape, identity, identity, identity, numpy.double)
     else:
-        raise ValueError( 'Unknown operator type "%s".' % type(A) )
+        return aslinearoperator(A)
 
 # ===================================================================
 def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip):
-    xk = x0 + apply(Mr, yk)
-    r = b - apply(A, xk)
-    Mlr = apply(Ml, r)
+    xk = x0 + Mr * yk
+    r = b - A * xk
+    Mlr = Ml * r
     # normalize residual before applying the preconditioner here.
     # otherwise MMlr can become 0 exactly (pyamg doesnt respect relative
     # residual)
@@ -129,7 +123,7 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip):
         norm_MMlr = 0
     else:
         nMlr = Mlr / norm_Mlr
-        nMMlr = apply(M, nMlr)
+        nMMlr = M * nMlr
         MMlr = nMMlr * norm_Mlr
         norm_MMlr = norm(Mlr, MMlr, inner_product=inner_product)
     # return xk and ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}}
@@ -295,7 +289,7 @@ def ritzh(Vfull, Hfull,
         Einv = numpy.linalg.inv(E) # can (and should) be obtained from earlier computation
         # Apply preconditioner to AW (I don't see a way to get rid of this! -- André).
         # cost: nW*APPLM
-        MAW = apply(M, AW)
+        MAW = M * AW
     else:
         W = numpy.zeros((N,0))
         AW = numpy.zeros((N,0))

@@ -216,9 +216,14 @@ def run_case(solver, params):
     ret = solver(**params)
 
     # pick out the interesting data
-    A = params['A']
     b = krypy.utils.shape_vec(params['b'])
     xk = krypy.utils.shape_vec(ret['xk'])
+    N = len(b)
+    shape = (N,N)
+    A = krypy.utils.get_linearoperator(shape, params['A'])
+    M = krypy.utils.get_linearoperator(shape, params['M'])
+    Ml = krypy.utils.get_linearoperator(shape, params['Ml'])
+    Mr = krypy.utils.get_linearoperator(shape, params['Mr'])
 
     # maxiter respected?
     if not 'max_restarts' in params:
@@ -233,13 +238,13 @@ def run_case(solver, params):
     # final residual norm correct?
     # relresvec[-1] == ||M*Ml*(b-A*xk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}}
     # compute residual norm
-    rk = b - krypy.utils.apply( A, xk)
-    Mlrk = krypy.utils.apply( params['Ml'], rk )
-    MMlrk = krypy.utils.apply( params['M'], Mlrk )
+    rk = b - A * xk
+    Mlrk = Ml * rk
+    MMlrk = M * Mlrk
     norm_MMlrk = krypy.utils.norm( Mlrk, MMlrk, inner_product=params['inner_product'] )
     # compute rhs norm
-    Mlb = krypy.utils.apply( params['Ml'], b )
-    MMlb = krypy.utils.apply( params['M'], Mlb )
+    Mlb = Ml * b
+    MMlb = M * Mlb
     norm_MMlb = krypy.utils.norm( Mlb, MMlb, inner_product=params['inner_product'] )
     # finally: the assertion
     if norm_MMlb==0:
@@ -263,9 +268,9 @@ def run_case(solver, params):
 
     # 0 iterations if initial guess was good enough?
     if params['x0'] is not None:
-        r0 = b - krypy.utils.apply( A, krypy.utils.shape_vec(params['x0']))
-        Mlr0 = krypy.utils.apply( params['Ml'], r0 )
-        MMlr0 = krypy.utils.apply( params['M'], Mlr0 )
+        r0 = b - A * krypy.utils.shape_vec(params['x0'])
+        Mlr0 = Ml * r0
+        MMlr0 = M * Mlr0
         norm_MMlr0 = krypy.utils.norm( Mlr0, MMlr0, inner_product=params['inner_product'] )
         if norm_MMlb!=0 and norm_MMlr0/norm_MMlb < params['tol']:
             assert( len(ret['relresvec'])==1 )

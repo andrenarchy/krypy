@@ -1,8 +1,7 @@
 # -*- coding: utf8 -*-
 import numpy
 import warnings
-from scipy.sparse.sputils import upcast
-from scipy.sparse import issparse, isspmatrix
+from scipy.sparse.linalg import aslinearoperator
 from . import utils
 
 def cg(A, b, 
@@ -24,22 +23,27 @@ def cg(A, b,
         raise RuntimeError('return_basis/full_reortho not yet implemented for CG.')
 
     N = len(b)
+    shape = (N,N)
+    A = utils.get_linearoperator(shape, A)
     if maxiter is None:
         maxiter = N
     flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0, exact_solution)
     if x0 is None:
         x0 = numpy.zeros((N,1))
+    M = utils.get_linearoperator(shape, M)
+    Ml = utils.get_linearoperator(shape, Ml)
+    Mr = utils.get_linearoperator(shape, Mr)
     cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
 
     # Compute M-norm of M*Ml*b.
-    Mlb = utils.apply(Ml, b)
-    MMlb = utils.apply(M, Mlb)
+    Mlb = Ml * b
+    MMlb = M * Mlb
     norm_MMlb = utils.norm(Mlb, MMlb, inner_product = inner_product)
 
     # Init Lanczos and CG
-    r0 = b - utils.apply(A, x0)
-    Mlr0 = utils.apply(Ml, r0)
-    MMlr0 = utils.apply(M, Mlr0)
+    r0 = b - A * x0
+    Mlr0 = Ml * r0
+    MMlr0 = M * Mlr0
     norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product = inner_product)
 
     # if rhs is exactly(!) zero, return zero solution.
@@ -71,9 +75,9 @@ def cg(A, b,
             # update the search direction
             p = MMlr + rho_new/rho_old * p
             rho_old = rho_new
-        Ap = utils.apply(Mr, p)
-        Ap = utils.apply(A, Ap)
-        Ap = utils.apply(Ml, Ap)
+        Ap = Mr * p
+        Ap = A * Ap
+        Ap = Ml * Ap
 
         # update current guess and residual
         alpha = rho_old / inner_product( p, Ap )
@@ -83,7 +87,7 @@ def cg(A, b,
         yk += alpha * p
 
         if exact_solution is not None:
-            xk = x0 + utils.apply(Mr, yk)
+            xk = x0 + Mr * yk
             errvec.append(utils.norm(exact_solution - xk, inner_product=inner_product))
 
         if explicit_residual:
@@ -92,7 +96,7 @@ def cg(A, b,
             rho_new = norm_MMlr**2
         else:
             Mlr -= alpha * Ap
-            MMlr = utils.apply(M, Mlr)
+            MMlr = M * Mlr
             rho_new = utils.norm_squared( Mlr, MMlr, inner_product = inner_product )
             relresvec.append( numpy.sqrt(rho_new) / norm_MMlb )
 
@@ -159,11 +163,16 @@ def minres(A, b,
     ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
     '''
     N = len(b)
+    shape = (N,N)
+    A = utils.get_linearoperator(shape, A)
     if maxiter is None:
         maxiter = N
     flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0, exact_solution)
     if x0 is None:
         x0 = numpy.zeros((N,1))
+    M = utils.get_linearoperator(shape, M)
+    Ml = utils.get_linearoperator(shape, Ml)
+    Mr = utils.get_linearoperator(shape, Mr)
     cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
 
     if timer:
@@ -186,14 +195,14 @@ def minres(A, b,
         start = time.time()
 
     # Compute M-norm of M*Ml*b.
-    Mlb = utils.apply(Ml, b)
-    MMlb = utils.apply(M, Mlb)
+    Mlb = Ml * b
+    MMlb = M * Mlb
     norm_MMlb = utils.norm(Mlb, MMlb, inner_product = inner_product)
 
     # Init Lanczos and MINRES
-    r0 = b - utils.apply(A, x0)
-    Mlr0 = utils.apply(Ml, r0)
-    MMlr0 = utils.apply(M, Mlr0)
+    r0 = b - A * x0
+    Mlr0 = Ml * r0
+    MMlr0 = M * Mlr0
     norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product = inner_product)
 
     # if rhs is exactly(!) zero, return zero solution.
@@ -245,9 +254,9 @@ def minres(A, b,
         if timer:
             start = time.time()
         tsold = ts
-        z  = utils.apply(Mr, V[:,[1]])
-        z  = utils.apply(A, z)
-        z  = utils.apply(Ml, z)
+        z  = Mr * V[:,[1]]
+        z  = A * z
+        z  = Ml * z
         if timer:
             times['apply Ml*A*Mr'][k] = time.time()-start
 
@@ -282,13 +291,13 @@ def minres(A, b,
             times['reortho'][k] = time.time()-start
 
         # needed for QR-update:
-        R = utils.apply(G1, [0, tsold])
+        R = numpy.dot(G1, [0, tsold])
         R = numpy.append(R, [0.0, 0.0])
 
         # Apply the preconditioner.
         if timer:
             start = time.time()
-        v  = utils.apply(M, z)
+        v  = M * z
         ts = utils.norm(z, Mx=v, inner_product=inner_product)
 
         if timer:
@@ -325,7 +334,7 @@ def minres(A, b,
         if timer:
             start = time.time()
         R[2:4] = [td, ts]
-        R[1:3] = utils.apply(G2, R[1:3])
+        R[1:3] = numpy.dot(G2, R[1:3])
         G1 = G2.copy()
         # compute new givens rotation.
         gg = numpy.linalg.norm( R[2:4] )
@@ -335,7 +344,7 @@ def minres(A, b,
                         [-gs, gc] ])
         R[2] = gg
         R[3] = 0.0
-        y = utils.apply(G2, y)
+        y = numpy.dot(G2, y)
         if timer:
             times['implicit QR'][k] = time.time()-start
 
@@ -354,7 +363,7 @@ def minres(A, b,
         if timer:
             start = time.time()
         if exact_solution is not None:
-            xk = x0 + utils.apply(Mr, yk)
+            xk = x0 + Mr * yk
             errvec.append(utils.norm(exact_solution - xk, inner_product=inner_product))
 
         if explicit_residual:
@@ -551,31 +560,37 @@ def _gmres( A, b,
         conv_warning):
     if not full_reortho:
         raise RuntimeError('full_reortho=False not allowed in GMRES')
-    # --------------------------------------------------------------------------
-    def _compute_explicit_xk(H, V, y):
-        '''Compute approximation xk to the solution.'''
-        if (H.shape[0]>0):
-            yy = numpy.linalg.solve(H, y)
-            u  = utils.apply(Mr, numpy.dot(V, yy))
-            return x0+u
-        return x0
-    # --------------------------------------------------------------------------
-    def _compute_explicit_residual( xk ):
-        '''Compute residual explicitly.'''
-        rk  = b - utils.apply(A, xk)
-        rk  = utils.apply(Ml, rk)
-        Mrk  = utils.apply(M, rk);
-        norm_Mrk = utils.norm(rk, Mrk, inner_product=inner_product)
-        return Mrk, norm_Mrk
-    # --------------------------------------------------------------------------
 
     N = len(b)
+    shape = (N,N)
+    A = utils.get_linearoperator(shape, A)
     if not maxiter:
         maxiter = N
     flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0, exact_solution)
     if x0 is None:
         x0 = numpy.zeros((N,1))
+    M = utils.get_linearoperator(shape, M)
+    Ml = utils.get_linearoperator(shape, Ml)
+    Mr = utils.get_linearoperator(shape, Mr)
     cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
+
+    # --------------------------------------------------------------------------
+    def _compute_explicit_xk(H, V, y):
+        '''Compute approximation xk to the solution.'''
+        if (H.shape[0]>0):
+            yy = numpy.linalg.solve(H, y)
+            u  = Mr * numpy.dot(V, yy)
+            return x0+u
+        return x0
+    # --------------------------------------------------------------------------
+    def _compute_explicit_residual( xk ):
+        '''Compute residual explicitly.'''
+        rk  = b - A * xk
+        rk  = Ml * rk
+        Mrk  = M * rk
+        norm_Mrk = utils.norm(rk, Mrk, inner_product=inner_product)
+        return Mrk, norm_Mrk
+    # --------------------------------------------------------------------------
 
     # get memory for working variables
     V = numpy.zeros([N, maxiter+1], dtype=cdtype) # Arnoldi basis
@@ -589,16 +604,16 @@ def _gmres( A, b,
         Horig = numpy.zeros([maxiter+1,maxiter], dtype=cdtype)
 
     # initialize working variables
-    Mlb = utils.apply(Ml, b)
-    MMlb = utils.apply(M, Mlb)
+    Mlb = Ml * b
+    MMlb = M * Mlb
     norm_MMlb = utils.norm(Mlb, MMlb, inner_product=inner_product)
     # This may only save us the application of Ml to the same vector again if
     # x0 is the zero vector.
     norm_x0 = utils.norm(x0, inner_product=inner_product)
     if norm_x0 > numpy.finfo(float).eps:
-        r0 = b - utils.apply(A, x0)
-        Mlr0 = utils.apply(Ml, r0)
-        MMlr0 = utils.apply(M, Mlr0);
+        r0 = b - A * x0
+        Mlr0 = Ml * r0
+        MMlr0 = M * Mlr0
         norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product=inner_product)
     else:
         x0 = numpy.zeros( (N,1) )
@@ -632,7 +647,7 @@ def _gmres( A, b,
     k = 0
     while relresvec[-1] > tol and k < maxiter:
         # Apply operator Ml*A*Mr
-        z = utils.apply(Ml, utils.apply(A, utils.apply(Mr, V[:, [k]])))
+        z = Ml * (A * (Mr * V[:, [k]]))
 
         # orthogonalize (MGS)
         for i in range(k+1):
@@ -642,7 +657,7 @@ def _gmres( A, b,
             else:
                 H[i, k] += inner_product(V[:, [i]], z)[0,0]
                 z -= H[i, k] * V[:, [i]]
-        Mz = utils.apply(M, z);
+        Mz = M * z
         norm_Mz = utils.norm(z, Mz, inner_product=inner_product)
         H[k+1,k] = norm_Mz
         if return_basis:
@@ -650,12 +665,12 @@ def _gmres( A, b,
 
         # Apply previous Givens rotations.
         for i in range(k):
-            H[i:i+2, k] = utils.apply(G[i], H[i:i+2, k])
+            H[i:i+2, k] = numpy.dot(G[i], H[i:i+2, k])
 
         # Compute and apply new Givens rotation.
         G.append(utils.givens(H[k, k], H[k+1, k]))
-        H[k:k+2, k] = utils.apply(G[k], H[k:k+2, k])
-        y[k:k+2] = utils.apply(G[k], y[k:k+2])
+        H[k:k+2, k] = numpy.dot(G[k], H[k:k+2, k])
+        y[k:k+2] = numpy.dot(G[k], y[k:k+2])
 
         if exact_solution is not None:
             xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
