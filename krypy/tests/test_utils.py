@@ -25,6 +25,8 @@ def run_house(x):
     assert( numpy.linalg.norm( I - numpy.dot(Hm.T.conj(),Hm),2) <= 1e-14 )
     # check that absolute value of y[0] equals norm(x)
     assert( numpy.abs( numpy.linalg.norm(x,2) - numpy.abs(y[0])) <= 1e-14*numpy.linalg.norm(x,2) )
+    # check that abs(alpha)=1
+    assert( numpy.abs( 1 - numpy.abs( H.alpha ) ) <= 1e-14 )
     # check that y[0] = alpha*norm(x)
     assert( numpy.abs( y[0] - H.alpha*H.xnorm ) <= 1e-14*numpy.linalg.norm(x,2) )
     # check that all elements of r except the first are zero

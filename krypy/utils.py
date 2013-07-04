@@ -356,7 +356,7 @@ class House:
             beta = 0
             self.xnorm = numpy.abs(gamma)
             if gamma==0:
-                self.alpha = 0
+                self.alpha = 1
             else:
                 self.alpha = gamma / self.xnorm
         else:
