@@ -354,11 +354,18 @@ class House:
         # is x the multiple of first unit vector?
         if sigma==0:
             beta = 0
+            self.xnorm = numpy.abs(gamma)
+            if gamma==0:
+                self.alpha = 0
+            else:
+                self.alpha = gamma / self.xnorm
         else:
             if gamma==0:
                 v[0] = -sigma
+                self.alpha = 1
             else:
                 v[0] = gamma + gamma/numpy.abs(gamma) * self.xnorm
+                self.alpha = - gamma/numpy.abs(gamma)
             beta = 2
 
         self.v = v/numpy.sqrt( numpy.abs(v[0])**2 + sigma**2)
