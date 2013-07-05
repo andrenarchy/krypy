@@ -437,8 +437,8 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     dtype = find_common_dtype(A, v)
     N = v.shape[0]
     A = get_linearoperator((N,N), A)
-    V = numpy.zeros([N, maxiter+1], dtype=dtype) # Arnoldi basis
-    H = numpy.zeros([maxiter+1, maxiter], dtype=dtype) # Hessenberg matrix
+    V = numpy.zeros((N, maxiter+1), dtype=dtype) # Arnoldi basis
+    H = numpy.zeros((maxiter+1, maxiter), dtype=dtype) # Hessenberg matrix
 
     if ortho=='house':
         if inner_product!=ip_euclid:
@@ -464,7 +464,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
             houses.append( House(Av[k+1:]) )
             Av[k+1:] = houses[-1].apply(Av[k+1:]) * numpy.conj(houses[-1].alpha)
             H[:k+2,[k]] = Av[:k+2]
-            H[k+1,k] = numpy.abs(H[k+1,k])
+            H[k+1,k] = numpy.abs(H[k+1,k]) # safe due to the multiplications with alpha
 
             vnew = numpy.zeros((N,1), dtype=dtype)
             vnew[k+1] = 1
@@ -479,6 +479,13 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
                     H[j,k] += alpha
                     Av -= alpha * V[:,[j]]
             H[k+1,k] = norm(Av, inner_product=inner_product)
+            if H[k+1,k] <= 5e-14:
+                break
             V[:,[k+1]] = Av / H[k+1,k]
+
+    # if V is A-invariant: shorten Arnoldi vectors and Hessenberg matrix
+    if k+1<maxiter:
+        V = V[:,:k+1]
+        H = H[:k+1,:k+1]
 
     return V, H

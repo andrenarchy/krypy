@@ -1,9 +1,7 @@
 import krypy
+import krypy.tests.test_utils as test_utils
 import numpy
 import itertools
-from scipy.sparse.linalg import LinearOperator
-from scipy.sparse import csr_matrix
-
 
 def dictproduct(d):
     '''enhance itertools product to process values of dicts
@@ -16,20 +14,9 @@ def dictproduct(d):
     for p in itertools.product(*d.values()):
         yield dict(zip(d.keys(), p))
 
-def get_operators(A):
-    return [ A,
-                LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
-                    dtype=A.dtype),
-                csr_matrix(A)
-                ]
-def get_vecs(v):
-    return [ v, numpy.reshape(v, (v.shape[0],)) ]
-
 def test_linsys_spd_zero():
-    # build spd diag matrix
-    a = numpy.array(range(1,11))
-    a[-1] = 1.e2
-    A, Ainv = numpy.diag(a), numpy.diag(1./a)
+    A = test_utils.get_matrix_spd()
+    Ainv = numpy.linalg.inv(A)
 
     # zero (!) solution
     x = numpy.zeros((10,1))
@@ -39,19 +26,17 @@ def test_linsys_spd_zero():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
-            { 'M': [ None, Ainv ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
 def test_linsys_spd():
-    # build spd diag matrix
-    a = numpy.array(range(1,11))
-    a[-1] = 1.e2
-    A, Ainv = numpy.diag(a), numpy.diag(1./a)
+    A = test_utils.get_matrix_spd()
+    Ainv = numpy.linalg.inv(A)
 
     # solution
     x = numpy.ones((10,1))
@@ -61,22 +46,16 @@ def test_linsys_spd():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
-            { 'M': [ None, Ainv ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
 def test_linsys_hpd():
-    # build hpd matrix
-    a = numpy.array(range(1,11), dtype=numpy.complex)
-    a[0] = 1.01e2
-    a[-1] = 1.e2
-    A = numpy.diag(a)
-    A[-1,0] = 100.j
-    A[0,-1] = -100.j
+    A = test_utils.get_matrix_hpd()
     Ainv = numpy.linalg.inv(A)
 
     # solution
@@ -87,19 +66,17 @@ def test_linsys_hpd():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
-            { 'M': [ None, Ainv ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
 def test_linsys_symm_indef():
-    # build symm indef diag matrix
-    a = numpy.array(range(1,11))
-    a[-1] = -1e2
-    A, Ainv = numpy.diag(a), numpy.diag(1./a)
+    A = test_utils.get_matrix_symm_indef()
+    Ainv = numpy.linalg.inv(A)
 
     # solution
     x = numpy.ones((10,1))
@@ -109,21 +86,16 @@ def test_linsys_symm_indef():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
-            { 'M': [ None ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
 def test_linsys_herm_indef():
-    # build hermitian indefinite matrix
-    a = numpy.array(range(1,11), dtype=numpy.complex)
-    a[-1] = -1.e2
-    A = numpy.diag(a)
-    A[-1,0] = 100.j
-    A[0,-1] = -100.j
+    A = test_utils.get_matrix_herm_indef()
     Ainv = numpy.linalg.inv(A)
 
     # solution
@@ -134,20 +106,16 @@ def test_linsys_herm_indef():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
-            { 'M': [ None ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.minres, krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
 def test_linsys_nonsymm():
-    # build nonsymm matrix
-    a = numpy.array(range(1,11))
-    a[-1] = -1e2
-    A = numpy.diag(a)
-    A[0,-1] = 1e2
+    A = test_utils.get_matrix_nonsymm()
     Ainv = numpy.linalg.inv(A)
 
     # solution
@@ -159,20 +127,16 @@ def test_linsys_nonsymm():
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
             { 'maxiter': [5], 'max_restarts': [20] },
-            { 'M': [ None ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
 def test_linsys_comp_nonsymm():
-    # build complex nonsymm matrix
-    a = numpy.array(range(1,11), dtype=numpy.complex)
-    a[-1] = -1e2
-    A = numpy.diag(a)
-    A[0,-1] = 1.e2j
+    A = test_utils.get_matrix_comp_nonsymm()
     Ainv = numpy.linalg.inv(A)
 
     # solution
@@ -184,9 +148,9 @@ def test_linsys_comp_nonsymm():
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
             { 'maxiter': [5], 'max_restarts': [20] },
-            { 'M': [ None ] + get_operators(Minv) },
-            { 'Ml': [ None, Ainv ] + get_operators(Minv) },
-            { 'Mr': [ None, Ainv ] + get_operators(Minv) }
+            { 'M': [ None ] + test_utils.get_operators(Minv) },
+            { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
+            { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
     solvers = [ krypy.linsys.gmres ]
     for case in produce_cases(A, x, params_adds, solvers):
@@ -195,16 +159,16 @@ def test_linsys_comp_nonsymm():
 def produce_cases(A, x, params_adds, solvers):
     b = numpy.dot(A, x)
     params_base = {
-        'A': get_operators(A),
-        'b': get_vecs(b),
-        'x0': [ None, numpy.zeros(b.shape), x ] + get_vecs(numpy.ones(b.shape)),
+        'A': test_utils.get_operators(A),
+        'b': test_utils.get_vecs(b),
+        'x0': [ None, numpy.zeros(b.shape), x ] + test_utils.get_vecs(numpy.ones(b.shape)),
         'tol': [ 1e-14, 1e-5, 1e-2 ],
         'maxiter': [ 15 ],
         'M': [ None ],
         'Ml': [ None ],
         'Mr': [ None ],
         'inner_product': [ krypy.utils.ip_euclid ],
-        'exact_solution': [ None ] + get_vecs(x)
+        'exact_solution': [ None ] + test_utils.get_vecs(x)
         }
 
     for params_add in params_adds:
