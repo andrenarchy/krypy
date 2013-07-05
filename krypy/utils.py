@@ -437,7 +437,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
         if inner_product!=ip_euclid:
             raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
         houses = [House(v)]
-        V[:,[0]] = houses[0].apply(numpy.eye(N,1, dtype=dtype))
+        V[:,[0]] = v / numpy.linalg.norm(v, 2)
     elif ortho in ['mgs','dmgs']:
         reorthos = 0
         if ortho=='dmgs':
@@ -453,15 +453,17 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
             # Householder
             for j in range(k+1):
                 Av[j:] = houses[j].apply(Av[j:])
+                Av[j] *= numpy.conj(houses[j].alpha)
             houses.append( House(Av[k+1:]) )
-            Av[k+1:] = houses[-1].apply(Av[k+1:])
+            Av[k+1:] = houses[-1].apply(Av[k+1:]) * numpy.conj(houses[-1].alpha)
             H[:k+2,[k]] = Av[:k+2]
+            H[k+1,k] = numpy.abs(H[k+1,k])
 
             vnew = numpy.zeros((N,1), dtype=dtype)
             vnew[k+1] = 1
             for j in range(k+1,-1,-1):
                 vnew[j:] = houses[j].apply(vnew[j:])
-            V[:,[k+1]] = vnew
+            V[:,[k+1]] = vnew * houses[-1].alpha
         else:
             # (double) modified Gram-Schmidt
             for reortho in range(reorthos+1):

@@ -50,7 +50,10 @@ def run_givens(x):
     # check that y[0] == 0
     assert( numpy.linalg.norm(y[1],2) <= 1e-14*numpy.linalg.norm(x,2) )
 
-def assert_arnoldi(A, v, V, H, lanczos=False, inner_product=krypy.utils.ip_euclid, arnoldi_tol=1e-14, proj_tol=1e-14, ortho_tol=1e-14):
+def assert_arnoldi(A, v, V, H, lanczos=False, inner_product=krypy.utils.ip_euclid, arnoldi_tol=1e-13, proj_tol=1e-13, ortho_tol=1e-14):
+    N = v.shape[0]
+    A = krypy.utils.get_linearoperator((N,N), A)
+
     # check shapes of V and H
     k = H.shape[1]
     assert( V.shape[1] == k+1 )
@@ -74,7 +77,7 @@ def assert_arnoldi(A, v, V, H, lanczos=False, inner_product=krypy.utils.ip_eucli
     assert( (d>=0).all() )
 
     # check Arnoldi residual \| A*V_k - V_{k+1} H \|
-    AV = krypy.utils.apply(A, V[:,:-1])
+    AV = A * V[:,:-1]
     arnoldi_res = AV - numpy.dot(V, H)
     assert( krypy.utils.norm( arnoldi_res, inner_product=inner_product )<= arnoldi_tol )
 
