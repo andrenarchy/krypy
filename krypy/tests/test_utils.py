@@ -148,16 +148,9 @@ def assert_arnoldi(A, v, V, H, maxiter, ortho, inner_product=krypy.utils.ip_eucl
     #maxiter respected?
     assert( k <= maxiter )
 
-    invariant = False
+    invariant = H.shape[0]==k
     # check shapes of V and H
-    if k<maxiter:
-        invariant = True
-        # V is A-invariant
-        assert( V.shape[1] == k )
-        assert( H.shape[0] == k )
-    else:
-        assert( V.shape[1] == k+1 )
-        assert( H.shape == (k+1,k) )
+    assert(V.shape[1]==H.shape[0])
 
     # check that the initial vector is correct
     v1 = v / krypy.utils.norm(v, inner_product=inner_product)

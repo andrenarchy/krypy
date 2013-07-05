@@ -453,6 +453,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     else:
         raise ValueError('Unknown orthogonalization method "%s"' % ortho)
 
+    invariant = False
     for k in range(maxiter):
         Av = A * V[:,[k]]
 
@@ -465,6 +466,9 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
             Av[k+1:] = houses[-1].apply(Av[k+1:]) * numpy.conj(houses[-1].alpha)
             H[:k+2,[k]] = Av[:k+2]
             H[k+1,k] = numpy.abs(H[k+1,k]) # safe due to the multiplications with alpha
+            if H[k+1,k] <= 1e-15:
+                invariant = True
+                break
 
             vnew = numpy.zeros((N,1), dtype=dtype)
             vnew[k+1] = 1
@@ -480,11 +484,12 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
                     Av -= alpha * V[:,[j]]
             H[k+1,k] = norm(Av, inner_product=inner_product)
             if H[k+1,k] <= 5e-14:
+                invariant = True
                 break
             V[:,[k+1]] = Av / H[k+1,k]
 
     # if V is A-invariant: shorten Arnoldi vectors and Hessenberg matrix
-    if k+1<maxiter:
+    if invariant:
         V = V[:,:k+1]
         H = H[:k+1,:k+1]
 
