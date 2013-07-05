@@ -23,7 +23,7 @@ except ImportError:
 
 # ===================================================================
 def find_common_dtype(*args):
-    '''returns common dtype of numpy and scipy objects
+    '''Returns common dtype of numpy and scipy objects.
 
     Recognizes ndarray, spmatrix and LinearOperator. All other objects are
     ignored (most notably None).'''
@@ -40,12 +40,12 @@ def find_common_dtype(*args):
 
 # ===================================================================
 def shape_vec(x):
-    '''Take a (n,) ndarray and return it as (n,1) ndarray'''
+    '''Take a (n,) ndarray and return it as (n,1) ndarray.'''
     return numpy.reshape(x, (x.shape[0], 1))
 
 # ===================================================================
 def shape_vecs(*args):
-    '''Reshape all ndarrays with shape (n,) to shape (n,1)
+    '''Reshape all ndarrays with ``shape==(n,)`` to ``shape==(n,1)``.
 
     Recognizes ndarrays and ignores all others.'''
     ret_args = []
@@ -64,14 +64,12 @@ def ip_euclid(X,Y):
     '''Euclidean inner product.
 
     numpy.vdot only works for vectors and numpy.dot does not use the conjugate
-    transpose. In Octave/MATLAB notation ip_euclid(X,Y) == X'*Y.
+    transpose.
 
-    Arguments:
-        X:  array of shape [N,m]
-        Y:  array of shape [N,n]
+    :param X: numpy array with ``shape==(N,m)``
+    :param Y: numpy array with ``shape==(N,n)``
 
-    Returns:
-        ip_euclid: array of shape [m,n] with X^H * Y
+    :return: numpy array :math:`X^* Y` with ``shape==(m,n)``.
     '''
     return numpy.dot(X.T.conj(), Y)
 
@@ -331,7 +329,7 @@ def ritzh(Vfull, Hfull,
 # ===================================================================
 class House:
     def __init__(self, x):
-        """Compute Householder transformation for given vector
+        """Compute Householder transformation for given vector.
 
         Initialize Householder transformation :math:`H` such that 
         :math:`Hx = \\alpha \|x\|_2 e_1` with :math:`|\\alpha|=1`
@@ -377,6 +375,10 @@ class House:
         self.beta = beta
 
     def apply(self, x):
+        """Apply Householder transformation to vector x.
+
+        Applies the Householder transformation efficiently to the given vector.
+        """
         # make sure that x is a (N,*) matrix
         if len(x.shape)!=2:
             raise ValueError('x is not a matrix of shape (N,*)')
@@ -384,21 +386,27 @@ class House:
             return x
         return x - self.beta * self.v * numpy.dot(self.v.T.conj(), x)
 
-    def norm(self):
-        return self.xnorm
-
     def matrix(self):
+        """Build matrix representation of Householder transformation.
+
+        Builds the matrix representation
+        :math:`H = I - \\beta vv^*`.
+        Use with care! This routine may be helpful for testing purposes but
+        should not be used in production codes for high dimensions since
+        the resulting matrix is dense.
+        """
         n = self.v.shape[0]
         return numpy.eye(n,n) - self.beta * numpy.dot(self.v, self.v.T.conj())
 
 # ===================================================================
 class Givens:
     def __init__(self, x):
-        """Compute Givens rotation for given vector
+        """Compute Givens rotation for provided vector x.
 
-        Computes Givens rotation G such that
-            G*x=[c        s] [a] = [r]
-                [-conj(s) c] [b]   [0]
+        Computes Givens rotation
+        :math:`G=\\begin{bmatrix}c&s\\\\-\\overline{s}&c\\end{bmatrix}`
+        such that
+        :math:`Gx=\\begin{bmatrix}r\\\\0\\end{bmatrix}`.
         """
         # make sure that x is a vector ;)
         if x.shape!=(2,1):
@@ -419,20 +427,28 @@ class Givens:
         self.G = numpy.array([[c, s], [-numpy.conj(s), c]])
 
     def apply(self, x):
+        """Apply Givens rotation to vector x."""
         return numpy.dot(self.G, x)
 
 def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
-    """Compute Arnoldi relation
+    """Arnoldi algorithm.
 
-    Computes V and H such that :math:`AV_{n}=V_{n+1}\\underline{H}_n`
+    Computes V and H such that :math:`AV_n=V_{n+1}\\underline{H}_n`.
+    If the Krylov subspace becomes A-invariant then V and H are truncated such
+    that :math:`AV_n = V_n H_n`.
 
-    :param ortho: may be 'mgs' (Modified Gram-Schmidt), 'dmgs' (double Modified Gram-Schmidt), 'house' (Householder)
-
-    If the Householder orthogonalization is used, the inner product has to be
-    the Euclidean inner product.  It's unclear to me (andrenarchy), how a
-    variant of the Householder QR algorithm can be used with a non-Euclidean
-    inner product. Compare
-    http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
+    :param A: a linear operator that can be used with scipy's aslinearoperator
+        with ``shape==(N,N)``.
+    :param v: the initial vector with ``shape==(N,1)``.
+    :param maxiter: maximal number of iterations.
+    :param ortho: orthogonalization algorithm: may be ``'mgs'`` (Modified
+        Gram-Schmidt), ``'dmgs'`` (double Modified Gram-Schmidt), ``'house'``
+        (Householder).
+    :param inner_product: the inner product to use (has to be the Euclidean
+        inner product if ``ortho=='house'``). It's unclear to me (andrenarchy),
+        how a variant of the Householder QR algorithm can be used with a
+        non-Euclidean inner product. Compare
+        http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
     """
     dtype = find_common_dtype(A, v)
     N = v.shape[0]
