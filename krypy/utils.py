@@ -347,34 +347,41 @@ class House:
         v = x.copy()
 
         gamma = numpy.asscalar(v[0])
-        sigma = numpy.linalg.norm(v[1:],2)
-        self.xnorm = numpy.sqrt(numpy.abs(gamma)**2+sigma**2)
-
         v[0] = 1
-        # is x the multiple of first unit vector?
-        if sigma==0:
+        if x.shape[0]==1:
+            sigma = 0
+            xnorm = numpy.abs(gamma)
             beta = 0
-            self.xnorm = numpy.abs(gamma)
-            if gamma==0:
-                self.alpha = 1
-            else:
-                self.alpha = gamma / self.xnorm
+            alpha = 1 if gamma==0 else gamma/xnorm
         else:
-            if gamma==0:
-                v[0] = -sigma
-                self.alpha = 1
-            else:
-                v[0] = gamma + gamma/numpy.abs(gamma) * self.xnorm
-                self.alpha = - gamma/numpy.abs(gamma)
-            beta = 2
+            sigma = numpy.linalg.norm(v[1:],2)
+            xnorm = numpy.sqrt(numpy.abs(gamma)**2+sigma**2)
 
+            # is x the multiple of first unit vector?
+            if sigma==0:
+                beta = 0
+                xnorm = numpy.abs(gamma)
+                alpha = 1 if gamma==0 else gamma/xnorm
+            else:
+                beta = 2
+                if gamma==0:
+                    v[0] = -sigma
+                    alpha = 1
+                else:
+                    v[0] = gamma + gamma/numpy.abs(gamma) * xnorm
+                    alpha = - gamma/numpy.abs(gamma)
+
+        self.xnorm = xnorm
         self.v = v/numpy.sqrt( numpy.abs(v[0])**2 + sigma**2)
+        self.alpha = alpha
         self.beta = beta
 
     def apply(self, x):
         # make sure that x is a (N,*) matrix
         if len(x.shape)!=2:
             raise ValueError('x is not a matrix of shape (N,*)')
+        if self.beta==0:
+            return x
         return x - self.beta * self.v * numpy.dot(self.v.T.conj(), x)
 
     def norm(self):
