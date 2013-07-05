@@ -510,3 +510,51 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
         H = H[:k+1,:k+1]
 
     return V, H
+
+def ritz(H, V=None, hermitian=False, type='ritz'):
+    """Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.
+
+    This function computes Ritz, harmonic Ritz or harmonic-like Ritz values and
+    vectors with respect to the Krylov subspace :math:`K_n(A,v)` from the
+    extended Hessenberg matrix :math:`\\underline{H}_n` generated with n
+    iterations the Arnoldi algorithm applied to A and v.
+
+    :param H: Hessenberg matrix from Arnoldi algorithm.
+    :param V: optional: Arnoldi vectors. If provided, the Ritz vectors are also
+        returned.
+    :param hermitian: optional: if set to ``True`` the matrix :math:`H_n` must
+        be Hermitian. A Hermitian matrix :math:`H_n` allows for faster and
+        often more accurate computation of Ritz pairs.
+    :param type: optional: type of Ritz vectors. May be one of
+
+        * ``'ritz'``: regular Ritz pairs, i.e.
+            :math:`(\\theta_i,z_i)\\in\\mathbb{C}\\times K_n(A,v)` s.t.
+            :math:`A z_i - \\theta_i z_i \\perp K_n(A,v)`.
+        * ``'harmonic'``:
+        * ``'harmonic_like'``:
+
+    :return:
+
+        * If V is not ``None`` then ``e, U, R, Z`` is returned.
+        * If V is ``None`` then ``e, U, R`` is returned.
+        Where
+
+        * ``e`` are the Ritz values :math:`[\\theta_1,\ldots,\\theta_n]`.
+        * ``U`` are the coefficients of the Ritz vectors in the Arnoldi basis,
+            i.e. :math:`z_i=Vu_i` where :math:`u_i` is the i-th column of U.
+        * ``R`` is a residual norm vector.
+        * ``Z`` are the actual Ritz vectors, i.e. ``Z=dot(V,U)``.
+    """
+    if type=='ritz':
+        e, U = eig(H[:-1,:])
+    elif type=='harmonic':
+        pass
+    elif type=='harmonic_like':
+        pass
+    else:
+        raise ValueError('unknown Ritz type {0}'.format(type))
+
+    if V is not None:
+        return e, U, R, numpy.dot(V, U)
+
+    return e, U, R
