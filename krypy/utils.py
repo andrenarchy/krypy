@@ -276,7 +276,7 @@ def ritzh(Vfull, Hfull,
     ritz_values, ritz_coeffs = eigh(ritzmat)
 
     # Calculate the Ritz-residuals in a smart way.
-    ritz_res_norm = numpy.empty(nritz)
+    ritz_res_norm = numpy.zeros(nritz)
     D = inner_product(AW, MAW)
     for i in range(nritz):
         w = ritz_coeffs[:W.shape[1],[i]]
