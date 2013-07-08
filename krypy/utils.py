@@ -10,7 +10,7 @@ import warnings
 from scipy.sparse import issparse, isspmatrix
 from scipy.sparse.linalg import LinearOperator, aslinearoperator
 from scipy.sparse.sputils import upcast
-from scipy.linalg import eigh
+from scipy.linalg import eig, eigh
 
 # for Givens rotations
 try:
@@ -519,34 +519,55 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
     extended Hessenberg matrix :math:`\\underline{H}_n` generated with n
     iterations the Arnoldi algorithm applied to A and v.
 
+
     :param H: Hessenberg matrix from Arnoldi algorithm.
-    :param V: optional: Arnoldi vectors. If provided, the Ritz vectors are also
-        returned.
+    :param V: optional: Arnoldi vectors, :math:`V\\in\\mathbb{C}^{N,n+1}`. If
+        provided, the Ritz vectors are also returned.
     :param hermitian: optional: if set to ``True`` the matrix :math:`H_n` must
         be Hermitian. A Hermitian matrix :math:`H_n` allows for faster and
         often more accurate computation of Ritz pairs.
-    :param type: optional: type of Ritz vectors. May be one of
+    :param type: optional: type of Ritz pairs, may be one of ``'ritz'``,
+        ``'harmonic'`` or ``'harmonic_like'``. All choices of Ritz pairs fit
+        in the following description:
 
-        * ``'ritz'``: regular Ritz pairs, i.e.
-            :math:`(\\theta_i,z_i)\\in\\mathbb{C}\\times K_n(A,v)` s.t.
-            :math:`A z_i - \\theta_i z_i \\perp K_n(A,v)`.
-        * ``'harmonic'``:
+        `Given two n-dimensional subspaces`
+        :math:`X,Y\subseteq \\mathbb{C}^N`,
+        `find a basis`
+        :math:`z_1,\ldots,z_n`
+        `of`
+        :math:`X`
+        `and` :math:`\\theta_1,\ldots,\\theta_n\\in\\mathbb{C}`
+        such that
+        :math:`A z_i - \\theta_i z_i \\perp Y`
+        for all :math:`i\\in\{1,\ldots,n\}`.
+
+        In this setting the choices are
+
+        * ``'ritz'``: regular Ritz pairs, i.e. :math:`X=Y=K_n(A,v)`.
+        * ``'harmonic'``: harmonic Ritz pairs,
+            TODO: Paige/Parlett/vdVorst 1995
         * ``'harmonic_like'``:
 
     :return:
 
-        * If V is not ``None`` then ``e, U, R, Z`` is returned.
-        * If V is ``None`` then ``e, U, R`` is returned.
+        * If V is not ``None`` then ``theta, U, R, Z`` is returned.
+        * If V is ``None`` then ``theta, U, R`` is returned.
+
         Where
 
-        * ``e`` are the Ritz values :math:`[\\theta_1,\ldots,\\theta_n]`.
+        * ``theta`` are the Ritz values :math:`[\\theta_1,\ldots,\\theta_n]`.
         * ``U`` are the coefficients of the Ritz vectors in the Arnoldi basis,
             i.e. :math:`z_i=Vu_i` where :math:`u_i` is the i-th column of U.
         * ``R`` is a residual norm vector.
         * ``Z`` are the actual Ritz vectors, i.e. ``Z=dot(V,U)``.
     """
     if type=='ritz':
-        e, U = eig(H[:-1,:])
+        if numpy.linalg.norm(H - H.T.conj()) >= 1e-14:
+            raise ValueError('Hessenberg matrix is not symmetric')
+        if hermitian:
+            theta, U = eigh(H[:-1,:])
+        else:
+            theta, U = eig(H[:-1,:])
     elif type=='harmonic':
         pass
     elif type=='harmonic_like':
@@ -555,6 +576,6 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         raise ValueError('unknown Ritz type {0}'.format(type))
 
     if V is not None:
-        return e, U, R, numpy.dot(V, U)
+        return theta, U, R, numpy.dot(V, U)
 
-    return e, U, R
+    return theta, U, R
