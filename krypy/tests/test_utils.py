@@ -136,7 +136,7 @@ def run_projection(X, Y, inner_product, ipYX, ipYXinv):
     # check that the range is X, i.e. the kernel of I-P is X
     assert( numpy.linalg.norm(X - P.apply(X),2) <= 1e-14)
     # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal to Y
-    assert( numpy.linalg.norm( inner_product( X if Y is None else Y, I - P.apply(I) ), 2) <= 2e-14)
+    assert( numpy.linalg.norm( inner_product( X if Y is None else Y, I - P.apply(I) ), 2) <= 5e-14)
     # check that the complementary projection is correct
     assert( numpy.linalg.norm( I-P.apply(I) -P.apply_complement(I), 2) <= 1e-14 )
     # check that the matrix representation is correct
