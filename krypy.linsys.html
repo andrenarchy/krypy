@@ -62,13 +62,13 @@
 systems.</p>
 <span class="target" id="module-krypy.linsys"></span><dl class="function">
 <dt id="krypy.linsys.cg">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">cg</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab4c25320&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em><big>)</big><a class="headerlink" href="#krypy.linsys.cg" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.linsys.</tt><tt class="descname">cg</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596f560&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em><big>)</big><a class="headerlink" href="#krypy.linsys.cg" title="Permalink to this definition">¶</a></dt>
 <dd><p>Conjugate gradient method with different inner product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.linsys.gmres">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">gmres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab4c25320&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=True</em>, <em>exact_solution=None</em>, <em>max_restarts=0</em><big>)</big><a class="headerlink" href="#krypy.linsys.gmres" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.linsys.</tt><tt class="descname">gmres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596f560&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=True</em>, <em>exact_solution=None</em>, <em>max_restarts=0</em><big>)</big><a class="headerlink" href="#krypy.linsys.gmres" title="Permalink to this definition">¶</a></dt>
 <dd><p>Preconditioned GMRES</p>
 <p>Solves <span class="math">\(M M_l A M_r y = M M_l b\)</span> where <span class="math">\(x=M_r y\)</span>.</p>
 <p>Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
@@ -138,7 +138,7 @@ The matrix <span class="math">\(P\)</span> fulfills <span class="math">\(V=MP\)<
 
 <dl class="function">
 <dt id="krypy.linsys.minres">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">minres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab4c25320&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em>, <em>timer=False</em><big>)</big><a class="headerlink" href="#krypy.linsys.minres" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.linsys.</tt><tt class="descname">minres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596f560&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em>, <em>timer=False</em><big>)</big><a class="headerlink" href="#krypy.linsys.minres" title="Permalink to this definition">¶</a></dt>
 <dd><p>Preconditioned MINRES</p>
 <p>This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
 where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the

@@ -101,8 +101,108 @@ in Golub, Van Loan. Matrix computations. Fourth Edition. 2013.</p>
 <tt class="descname">matrix</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.utils.House.matrix" title="Permalink to this definition">¶</a></dt>
 <dd><p>Build matrix representation of Householder transformation.</p>
 <p>Builds the matrix representation
-<span class="math">\(H = I - \beta vv^*\)</span>.
-Use with care! This routine may be helpful for testing purposes but
+<span class="math">\(H = I - \beta vv^*\)</span>.</p>
+<p><strong>Use with care!</strong> This routine may be helpful for testing purposes but
+should not be used in production codes for high dimensions since
+the resulting matrix is dense.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="krypy.utils.Projection">
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
+<p>Generic projection.</p>
+<p>This class can represent any projection (orthogonal and oblique)
+on a N-dimensional Hilbert space. A projection is a linear operator
+<span class="math">\(P\)</span> with <span class="math">\(P^2=P\)</span>. A projection is uniquely defined by its
+range <span class="math">\(\mathcal{V}:=\operatorname{range}(P)\)</span> and its kernel
+<span class="math">\(\mathcal{W}:=\operatorname{ker}(P)\)</span>; this projection is called
+<span class="math">\(P_{\mathcal{V},\mathcal{W}}\)</span>.</p>
+<p>Let X and Y be two full rank arrays with <tt class="docutils literal"><span class="pre">shape==(N,k)</span></tt> and let
+<span class="math">\(\mathcal{X}\oplus\mathcal{Y}^\perp=\mathbb{C}^N\)</span> where
+<span class="math">\(\mathcal{X}:=\operatorname{colspan}(X)\)</span> and
+<span class="math">\(\mathcal{Y}:=\operatorname{colspan}(Y)\)</span>.
+Then this class constructs the projection
+<span class="math">\(P_{\mathcal{X},\mathcal{Y}^\perp}\)</span>.
+The requirement
+<span class="math">\(\mathcal{X}\oplus\mathcal{Y}^\perp=\mathbb{C}^N\)</span>
+is equivalent to <tt class="docutils literal"><span class="pre">inner_product(X,Y)</span></tt> being nonsingular.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>X</strong> &#8211; array with <tt class="docutils literal"><span class="pre">shape==(N,k)</span></tt> and
+<span class="math">\(\operatorname{rank}(X)=k\)</span>.</li>
+<li><strong>Y</strong> &#8211; (optional) <tt class="docutils literal"><span class="pre">None</span></tt> or array with <tt class="docutils literal"><span class="pre">shape==(N,k)</span></tt> and
+<span class="math">\(\operatorname{rank}(X)=k\)</span>. If Y is <tt class="docutils literal"><span class="pre">None</span></tt> then Y is
+set to X which means that the resulting projection is orthogonal.</li>
+<li><strong>inner_product</strong> &#8211; (optional) the inner product to use, default is
+<a class="reference internal" href="#krypy.utils.ip_euclid" title="krypy.utils.ip_euclid"><tt class="xref py py-meth docutils literal"><span class="pre">ip_euclid()</span></tt></a>.</li>
+<li><strong>ipYX</strong> &#8211; (optional) <tt class="docutils literal"><span class="pre">None</span></tt> or array with precomputed
+<tt class="docutils literal"><span class="pre">inner_product(Y,X)</span></tt> (<tt class="docutils literal"><span class="pre">shape==(k,k)</span></tt>).</li>
+<li><strong>ipYXinv</strong> &#8211; <p>(optional) may be one of</p>
+<ul>
+<li><tt class="docutils literal"><span class="pre">'explicit'</span></tt>: the inverse of <tt class="docutils literal"><span class="pre">ipYX</span></tt> is explicitly computed.</li>
+<li><dl class="first docutils">
+<dt><tt class="docutils literal"><span class="pre">'ondemand'</span></tt>: <tt class="docutils literal"><span class="pre">numpy.linalg.solve()</span></tt> is called for each</dt>
+<dd>application of the projection.</dd>
+</dl>
+</li>
+<li>array with precomputed inverse of <tt class="docutils literal"><span class="pre">ipYX</span></tt>.</li>
+</ul>
+</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="krypy.utils.Projection.apply">
+<tt class="descname">apply</tt><big>(</big><em>z</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection.apply" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the projection to an array.</p>
+<p>The computation is carried out without explicitly forming the
+matrix corresponding to the projection (which would be an array with
+<tt class="docutils literal"><span class="pre">shape==(N,N)</span></tt>).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>z</strong> &#8211; array with <tt class="docutils literal"><span class="pre">shape==(N,m)</span></tt>.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><span class="math">\(P_{\mathcal{X},\mathcal{Y}^\perp} z =
+X \langle Y,X\rangle^{-1} \langle Y, z\rangle\)</span>.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="krypy.utils.Projection.apply_complement">
+<tt class="descname">apply_complement</tt><big>(</big><em>z</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection.apply_complement" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the complementary projection to an array.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>z</strong> &#8211; array with <tt class="docutils literal"><span class="pre">shape==(N,m)</span></tt>.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><span class="math">\(P_{\mathcal{Y}^\perp,\mathcal{X}}z =
+z - P_{\mathcal{X},\mathcal{Y}^\perp} z\)</span>.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="krypy.utils.Projection.matrix">
+<tt class="descname">matrix</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.utils.Projection.matrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Builds matrix representation of projection.</p>
+<p>Builds the matrix representation
+<span class="math">\(P = X \langle Y,X\rangle^{-1} \langle Y, I_N\rangle\)</span>.</p>
+<p><strong>Use with care!</strong> This routine may be helpful for testing purposes but
 should not be used in production codes for high dimensions since
 the resulting matrix is dense.</p>
 </dd></dl>
@@ -111,7 +211,7 @@ the resulting matrix is dense.</p>
 
 <dl class="function">
 <dt id="krypy.utils.arnoldi">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab42fd5f0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
 <dd><p>Arnoldi algorithm.</p>
 <p>Computes V and H such that <span class="math">\(AV_n=V_{n+1}\underline{H}_n\)</span>.
 If the Krylov subspace becomes A-invariant then V and H are truncated such
@@ -155,7 +255,7 @@ ignored (most notably None).</p>
 
 <dl class="function">
 <dt id="krypy.utils.get_projection">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab42fd5f0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get projection and appropriate initial guess for use in deflated methods.</p>
 <dl class="docutils">
 <dt>Arguments:</dt>
@@ -215,24 +315,98 @@ transpose.</p>
 
 <dl class="function">
 <dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab42fd5f0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab42fd5f0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab42fd5f0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="krypy.utils.ritz">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritz</tt><big>(</big><em>H</em>, <em>V=None</em>, <em>hermitian=False</em>, <em>type='ritz'</em><big>)</big><a class="headerlink" href="#krypy.utils.ritz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.</p>
+<p><strong>WARNING: this method is still under construction!</strong></p>
+<p>This function computes Ritz, harmonic Ritz or harmonic-like Ritz values and
+vectors with respect to the Krylov subspace <span class="math">\(K_n(A,v)\)</span> from the
+extended Hessenberg matrix <span class="math">\(\underline{H}_n\)</span> generated with n
+iterations the Arnoldi algorithm applied to A and v.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>H</strong> &#8211; Hessenberg matrix from Arnoldi algorithm.</li>
+<li><strong>V</strong> &#8211; optional: Arnoldi vectors, <span class="math">\(V\in\mathbb{C}^{N,n+1}\)</span>. If
+provided, the Ritz vectors are also returned.</li>
+<li><strong>hermitian</strong> &#8211; optional: if set to <tt class="docutils literal"><span class="pre">True</span></tt> the matrix <span class="math">\(H_n\)</span> must
+be Hermitian. A Hermitian matrix <span class="math">\(H_n\)</span> allows for faster and
+often more accurate computation of Ritz pairs.</li>
+<li><strong>type</strong> &#8211; <p>optional: type of Ritz pairs, may be one of <tt class="docutils literal"><span class="pre">'ritz'</span></tt>,
+<tt class="docutils literal"><span class="pre">'harmonic'</span></tt> or <tt class="docutils literal"><span class="pre">'harmonic_like'</span></tt>. All choices of Ritz pairs fit
+in the following description:</p>
+<p><cite>Given two n-dimensional subspaces</cite>
+<span class="math">\(X,Y\subseteq \mathbb{C}^N\)</span>,
+<cite>find a basis</cite>
+<span class="math">\(z_1,\ldots,z_n\)</span>
+<cite>of</cite>
+<span class="math">\(X\)</span>
+<cite>and</cite> <span class="math">\(\theta_1,\ldots,\theta_n\in\mathbb{C}\)</span>
+such that
+<span class="math">\(A z_i - \theta_i z_i \perp Y\)</span>
+for all <span class="math">\(i\in\{1,\ldots,n\}\)</span>.</p>
+<p>In this setting the choices are</p>
+<ul>
+<li><tt class="docutils literal"><span class="pre">'ritz'</span></tt>: regular Ritz pairs, i.e. <span class="math">\(X=Y=K_n(A,v)\)</span>.</li>
+<li><dl class="first docutils">
+<dt><tt class="docutils literal"><span class="pre">'harmonic'</span></tt>: harmonic Ritz pairs, i.e.</dt>
+<dd><span class="math">\(X=K_n(A,v)\)</span> and <span class="math">\(Y=AK_n(A,v)\)</span> (cf.
+TODO: Paige/Parlett/vdVorst 1995)</dd>
+</dl>
+</li>
+<li><tt class="docutils literal"><span class="pre">'harmonic_like'</span></tt>:</li>
+</ul>
+</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li>If V is not <tt class="docutils literal"><span class="pre">None</span></tt> then <tt class="docutils literal"><span class="pre">theta,</span> <span class="pre">U,</span> <span class="pre">R,</span> <span class="pre">Z</span></tt> is returned.</li>
+<li>If V is <tt class="docutils literal"><span class="pre">None</span></tt> then <tt class="docutils literal"><span class="pre">theta,</span> <span class="pre">U,</span> <span class="pre">R</span></tt> is returned.</li>
+</ul>
+<p>Where</p>
+<ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">theta</span></tt> are the Ritz values <span class="math">\([\theta_1,\ldots,\theta_n]\)</span>.</p>
+</li>
+<li><dl class="first docutils">
+<dt><tt class="docutils literal"><span class="pre">U</span></tt> are the coefficients of the Ritz vectors in the Arnoldi basis,</dt>
+<dd><p class="first last">i.e. <span class="math">\(z_i=Vu_i\)</span> where <span class="math">\(u_i\)</span> is the i-th column of U.</p>
+</dd>
+</dl>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">R</span></tt> is a residual norm vector.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">Z</span></tt> are the actual Ritz vectors, i.e. <tt class="docutils literal"><span class="pre">Z=dot(V,U)</span></tt>.</p>
+</li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
 <dt id="krypy.utils.ritzh">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab42fd5f0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute Ritz pairs from a (possibly deflated) Lanczos procedure.</p>
 <dl class="docutils">
 <dt>Arguments</dt>
