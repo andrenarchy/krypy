@@ -7,6 +7,7 @@ This method provides functions like inner products, norms, ...
 
 import numpy
 import warnings
+import scipy.linalg
 from scipy.sparse import issparse, isspmatrix
 from scipy.sparse.linalg import LinearOperator, aslinearoperator
 from scipy.sparse.sputils import upcast
@@ -391,7 +392,8 @@ class House:
 
         Builds the matrix representation
         :math:`H = I - \\beta vv^*`.
-        Use with care! This routine may be helpful for testing purposes but
+
+        **Use with care!** This routine may be helpful for testing purposes but
         should not be used in production codes for high dimensions since
         the resulting matrix is dense.
         """
@@ -430,6 +432,132 @@ class Givens:
         """Apply Givens rotation to vector x."""
         return numpy.dot(self.G, x)
 
+# ===================================================================
+class Projection:
+    def __init__(self, X,
+            Y = None,
+            inner_product = ip_euclid,
+            ipYX = None,
+            ipYXinv = 'explicit'):
+        """Generic projection.
+
+        This class can represent any projection (orthogonal and oblique)
+        on a N-dimensional Hilbert space. A projection is a linear operator
+        :math:`P` with :math:`P^2=P`. A projection is uniquely defined by its
+        range :math:`\\mathcal{V}:=\\operatorname{range}(P)` and its kernel
+        :math:`\\mathcal{W}:=\\operatorname{ker}(P)`; this projection is called
+        :math:`P_{\\mathcal{V},\\mathcal{W}}`.
+
+        Let X and Y be two full rank arrays with ``shape==(N,k)`` and let
+        :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N` where
+        :math:`\\mathcal{X}:=\\operatorname{colspan}(X)` and
+        :math:`\\mathcal{Y}:=\\operatorname{colspan}(Y)`.
+        Then this class constructs the projection
+        :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp}`.
+        The requirement
+        :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N`
+        is equivalent to ``inner_product(X,Y)`` being nonsingular.
+
+        :param X: array with ``shape==(N,k)`` and
+            :math:`\\operatorname{rank}(X)=k`.
+        :param Y: (optional) ``None`` or array with ``shape==(N,k)`` and
+            :math:`\\operatorname{rank}(X)=k`. If Y is ``None`` then Y is
+            set to X which means that the resulting projection is orthogonal.
+        :param inner_product: (optional) the inner product to use, default is
+            :py:meth:`ip_euclid`.
+        :param ipYX: (optional) ``None`` or array with precomputed
+            ``inner_product(Y,X)`` (``shape==(k,k)``).
+        :param ipYXinv: (optional) may be one of
+
+            * ``'explicit'``: the inverse of ``ipYX`` is explicitly computed.
+            * ``'ondemand'``: ``numpy.linalg.solve()`` is called for each
+                application of the projection.
+            * array with precomputed inverse of ``ipYX``.
+        """
+        Y = X if Y is None else Y   # default: orthogonal projection
+
+        if len(X.shape) != 2:
+            raise ValueError('X does not have shape==(N,k)')
+        if X.shape != Y.shape:
+            raise ValueError('X and Y have different shapes')
+
+        (N, k) = X.shape
+        self.inner_product = inner_product
+        # special case of orthogonal projection in Euclidean inner product
+        # (the case of non-Euclidean inner products is handled in the general
+        # case below)
+        if Y is X and inner_product==ip_euclid:
+            X = scipy.linalg.orth(X)
+            Y = X
+            ipYX = None
+            ipYXinv = None
+        # general case
+        else:
+            ipYX = inner_product(Y, X) if ipYX is None else ipYX
+            if ipYX.shape != (k,k):
+                raise ValueError('ipYX does not have shape==(k,k)')
+
+            if ipYXinv == 'explicit':
+                ipYXinv = numpy.linalg.inv(ipYX)
+            elif ipYXinv == 'ondemand':
+                pass
+            elif type(ipYXinv) == numpy.ndarray:
+                if ipYXinv.shape != (k,k):
+                    raise ValueError('ipYXinv does not have shape==(k,k)')
+            else:
+                raise ValueError('unknown value for ipYXinv: {0}'.format(ipYXinv))
+
+        # save computed quantities in object
+        self.X = X
+        self.Y = Y
+        self.inner_product = inner_product
+        self.ipYX = ipYX
+        self.ipYXinv = ipYXinv
+
+    def apply(self, z):
+        """Apply the projection to an array.
+
+        The computation is carried out without explicitly forming the
+        matrix corresponding to the projection (which would be an array with
+        ``shape==(N,N)``).
+
+        :param z: array with ``shape==(N,m)``.
+
+        :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
+            X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
+        """
+
+        z = self.inner_product(self.Y, z)
+        if self.ipYXinv is not None:
+            if type(self.ipYXinv) == numpy.ndarray:
+                z = numpy.dot(self.ipYXinv, z)
+            else: # ondemand
+                z = numpy.linalg.solve(self.ipYX, z)
+        return numpy.dot(self.X, z)
+
+    def apply_complement(self, z):
+        """Apply the complementary projection to an array.
+
+        :param z: array with ``shape==(N,m)``.
+
+        :return: :math:`P_{\\mathcal{Y}^\\perp,\\mathcal{X}}z =
+            z - P_{\\mathcal{X},\\mathcal{Y}^\\perp} z`.
+        """
+        return z - self.apply(z)
+
+    def matrix(self):
+        """Builds matrix representation of projection.
+
+        Builds the matrix representation
+        :math:`P = X \\langle Y,X\\rangle^{-1} \\langle Y, I_N\\rangle`.
+
+        **Use with care!** This routine may be helpful for testing purposes but
+        should not be used in production codes for high dimensions since
+        the resulting matrix is dense.
+        """
+        return self.apply(numpy.eye(self.X.shape[0]))
+
+# ===================================================================
 def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     """Arnoldi algorithm.
 
@@ -514,6 +642,8 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
 def ritz(H, V=None, hermitian=False, type='ritz'):
     """Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.
 
+    **WARNING: this method is still under construction!**
+
     This function computes Ritz, harmonic Ritz or harmonic-like Ritz values and
     vectors with respect to the Krylov subspace :math:`K_n(A,v)` from the
     extended Hessenberg matrix :math:`\\underline{H}_n` generated with n
@@ -544,8 +674,9 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         In this setting the choices are
 
         * ``'ritz'``: regular Ritz pairs, i.e. :math:`X=Y=K_n(A,v)`.
-        * ``'harmonic'``: harmonic Ritz pairs,
-            TODO: Paige/Parlett/vdVorst 1995
+        * ``'harmonic'``: harmonic Ritz pairs, i.e.
+            :math:`X=K_n(A,v)` and :math:`Y=AK_n(A,v)` (cf.
+            TODO: Paige/Parlett/vdVorst 1995)
         * ``'harmonic_like'``:
 
     :return:
