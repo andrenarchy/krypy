@@ -11,7 +11,6 @@ import scipy.linalg
 from scipy.sparse import issparse, isspmatrix
 from scipy.sparse.linalg import LinearOperator, aslinearoperator
 from scipy.sparse.sputils import upcast
-from scipy.linalg import eig, eigh
 
 # for Givens rotations
 try:
@@ -274,7 +273,7 @@ def ritzh(Vfull, Hfull,
                      numpy.c_[B.T.conj(), Hfull[0:-1,:] + numpy.dot(B.T.conj(), numpy.dot(Einv, B))]
                    ]
     # Compute Ritz values / vectors.
-    ritz_values, ritz_coeffs = eigh(ritzmat)
+    ritz_values, ritz_coeffs = scipy.linalg.eigh(ritzmat)
 
     # Calculate the Ritz-residuals in a smart way.
     ritz_res_norm = numpy.zeros(nritz)
@@ -557,6 +556,10 @@ class Projection:
         """
         return self.apply(numpy.eye(self.X.shape[0]))
 
+def angles(X, Y, inner_product = ip_euclid):
+    #TODO!
+    pass
+
 # ===================================================================
 def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     """Arnoldi algorithm.
@@ -568,14 +571,16 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     :param A: a linear operator that can be used with scipy's aslinearoperator
         with ``shape==(N,N)``.
     :param v: the initial vector with ``shape==(N,1)``.
-    :param maxiter: maximal number of iterations.
-    :param ortho: orthogonalization algorithm: may be ``'mgs'`` (Modified
-        Gram-Schmidt), ``'dmgs'`` (double Modified Gram-Schmidt), ``'house'``
-        (Householder).
-    :param inner_product: the inner product to use (has to be the Euclidean
-        inner product if ``ortho=='house'``). It's unclear to me (andrenarchy),
-        how a variant of the Householder QR algorithm can be used with a
-        non-Euclidean inner product. Compare
+    :param maxiter: (optional) maximal number of iterations. Default: N.
+    :param ortho: (optional) orthogonalization algorithm: may be one of
+
+        * ``'mgs'``: modified Gram-Schmidt (default).
+        * ``'dmgs'``: double Modified Gram-Schmidt.
+        * ``'house'``: Householder.
+    :param inner_product: (optional) the inner product to use (has to be the
+        Euclidean inner product if ``ortho=='house'``). It's unclear to me
+        (andrenarchy), how a variant of the Householder QR algorithm can be
+        used with a non-Euclidean inner product. Compare
         http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
     """
     dtype = find_common_dtype(A, v)
@@ -650,13 +655,21 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
     iterations the Arnoldi algorithm applied to A and v.
 
 
-    :param H: Hessenberg matrix from Arnoldi algorithm.
-    :param V: optional: Arnoldi vectors, :math:`V\\in\\mathbb{C}^{N,n+1}`. If
-        provided, the Ritz vectors are also returned.
-    :param hermitian: optional: if set to ``True`` the matrix :math:`H_n` must
+    :param H: Hessenberg matrix from Arnoldi/Lanczos algorithm.
+    :param V: (optional) Arnoldi/Lanczos vectors,
+        :math:`V\\in\\mathbb{C}^{N,n+1}`. If provided, the Ritz vectors are
+        also returned. The Arnoldi vectors have to form an orthonormal basis
+        with respect to an inner product.
+
+        **Caution:** if you are using the Lanzcos or Gram-Schmidt Arnoldi
+        algorithm without reorthogonalization, then the orthonormality of the
+        basis is usually lost. For accurate results it is advisable to use
+        the Householder Arnoldi (``ortho='house'``) or modified Gram-Schmidt
+        with reorthogonalization (``ortho='dmgs'``).
+    :param hermitian: (optional) if set to ``True`` the matrix :math:`H_n` must
         be Hermitian. A Hermitian matrix :math:`H_n` allows for faster and
         often more accurate computation of Ritz pairs.
-    :param type: optional: type of Ritz pairs, may be one of ``'ritz'``,
+    :param type: (optional) type of Ritz pairs, may be one of ``'ritz'``,
         ``'harmonic'`` or ``'harmonic_like'``. All choices of Ritz pairs fit
         in the following description:
 
@@ -692,15 +705,22 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         * ``R`` is a residual norm vector.
         * ``Z`` are the actual Ritz vectors, i.e. ``Z=dot(V,U)``.
     """
+    n = H.shape[1]
+    if V is not None and V.shape[1]!=H.shape[0]:
+        raise ValueError('shape mismatch with V and H')
+    if not H.shape[0] in [n, n+1]:
+        raise ValueError('H not of shape (n+1,n) or (n,n)')
+    symmres = numpy.linalg.norm(H - H.T.conj())
+    if hermitian and symmres >= 1e-14:
+        warnings.warn('Hessenberg matrix is not symmetric: |H-H^*|={0}'.format(symmres))
+
+    # choose eig for Hermitian or non-Hermitian matrices
+    eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
+
     if type=='ritz':
-        if numpy.linalg.norm(H - H.T.conj()) >= 1e-14:
-            raise ValueError('Hessenberg matrix is not symmetric')
-        if hermitian:
-            theta, U = eigh(H[:-1,:])
-        else:
-            theta, U = eig(H[:-1,:])
+        theta, U = eig(H[:n,:])
     elif type=='harmonic':
-        pass
+        theta, U = eig(H[:n,:], dot(H.T.conj(),H))
     elif type=='harmonic_like':
         pass
     else:
