@@ -657,61 +657,65 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
 
     :param H: Hessenberg matrix from Arnoldi/Lanczos algorithm.
     :param V: (optional) Arnoldi/Lanczos vectors,
-        :math:`V\\in\\mathbb{C}^{N,n+1}`. If provided, the Ritz vectors are
-        also returned. The Arnoldi vectors have to form an orthonormal basis
-        with respect to an inner product.
+      :math:`V\\in\\mathbb{C}^{N,n+1}`. If provided, the Ritz vectors are
+      also returned. The Arnoldi vectors have to form an orthonormal basis
+      with respect to an inner product.
 
-        **Caution:** if you are using the Lanzcos or Gram-Schmidt Arnoldi
-        algorithm without reorthogonalization, then the orthonormality of the
-        basis is usually lost. For accurate results it is advisable to use
-        the Householder Arnoldi (``ortho='house'``) or modified Gram-Schmidt
-        with reorthogonalization (``ortho='dmgs'``).
+      **Caution:** if you are using the Lanzcos or Gram-Schmidt Arnoldi
+      algorithm without reorthogonalization, then the orthonormality of the
+      basis is usually lost. For accurate results it is advisable to use
+      the Householder Arnoldi (``ortho='house'``) or modified Gram-Schmidt
+      with reorthogonalization (``ortho='dmgs'``).
     :param hermitian: (optional) if set to ``True`` the matrix :math:`H_n` must
-        be Hermitian. A Hermitian matrix :math:`H_n` allows for faster and
-        often more accurate computation of Ritz pairs.
+      be Hermitian. A Hermitian matrix :math:`H_n` allows for faster and
+      often more accurate computation of Ritz pairs.
     :param type: (optional) type of Ritz pairs, may be one of ``'ritz'``,
-        ``'harmonic'`` or ``'harmonic_like'``. All choices of Ritz pairs fit
-        in the following description:
+      ``'harmonic'`` or ``'harmonic_like'``. All choices of Ritz pairs fit
+      in the following description:
 
-        `Given two n-dimensional subspaces`
-        :math:`X,Y\subseteq \\mathbb{C}^N`,
-        `find a basis`
-        :math:`z_1,\ldots,z_n`
-        `of`
-        :math:`X`
-        `and` :math:`\\theta_1,\ldots,\\theta_n\\in\\mathbb{C}`
-        such that
-        :math:`A z_i - \\theta_i z_i \\perp Y`
-        for all :math:`i\\in\{1,\ldots,n\}`.
+      `Given two n-dimensional subspaces`
+      :math:`X,Y\subseteq \\mathbb{C}^N`,
+      `find a basis`
+      :math:`z_1,\ldots,z_n`
+      `of`
+      :math:`X`
+      `and` :math:`\\theta_1,\ldots,\\theta_n\\in\\mathbb{C}`
+      such that
+      :math:`A z_i - \\theta_i z_i \\perp Y`
+      for all :math:`i\\in\{1,\ldots,n\}`.
 
-        In this setting the choices are
+      In this setting the choices are
 
-        * ``'ritz'``: regular Ritz pairs, i.e. :math:`X=Y=K_n(A,v)`.
-        * ``'harmonic'``: harmonic Ritz pairs, i.e.
-            :math:`X=K_n(A,v)` and :math:`Y=AK_n(A,v)` (cf.
-            TODO: Paige/Parlett/vdVorst 1995)
-        * ``'harmonic_like'``:
+      * ``'ritz'``: regular Ritz pairs, i.e. :math:`X=Y=K_n(A,v)`.
+      * ``'harmonic'``: harmonic Ritz pairs, i.e.
+          :math:`X=K_n(A,v)` and :math:`Y=AK_n(A,v)`.
+      * ``'harmonic_improved'``: the returned vectors ``U`` (and ``V``, if
+        requested) are the same as with ``type='harmonic'``. The ``theta``
+        array contains the improved Ritz values
+        :math:`\\theta_i = u_i^* H_n u_i`, cf. section 2 in *Morgan, Zeng.
+        Harmonic Projection Methods for Large Non-symmetric Eigenvalue
+        Problems. 1998.*
 
     :return:
 
-        * If V is not ``None`` then ``theta, U, R, Z`` is returned.
-        * If V is ``None`` then ``theta, U, R`` is returned.
+      * If V is not ``None`` then ``theta, U, resnorm, Z`` is returned.
+      * If V is ``None`` then ``theta, U, resnorm`` is returned.
 
-        Where
+      Where
 
-        * ``theta`` are the Ritz values :math:`[\\theta_1,\ldots,\\theta_n]`.
-        * ``U`` are the coefficients of the Ritz vectors in the Arnoldi basis,
-            i.e. :math:`z_i=Vu_i` where :math:`u_i` is the i-th column of U.
-        * ``R`` is a residual norm vector.
-        * ``Z`` are the actual Ritz vectors, i.e. ``Z=dot(V,U)``.
+      * ``theta`` are the Ritz values :math:`[\\theta_1,\ldots,\\theta_n]`.
+      * ``U`` are the coefficients of the Ritz vectors in the Arnoldi basis,
+        i.e. :math:`z_i=Vu_i` where :math:`u_i` is the i-th column of U.
+      * ``resnorm`` is a residual norm vector.
+      * ``Z`` are the actual Ritz vectors, i.e. ``Z=dot(V,U)``.
     """
     n = H.shape[1]
     if V is not None and V.shape[1]!=H.shape[0]:
         raise ValueError('shape mismatch with V and H')
     if not H.shape[0] in [n, n+1]:
         raise ValueError('H not of shape (n+1,n) or (n,n)')
-    symmres = numpy.linalg.norm(H - H.T.conj())
-    if hermitian and symmres >= 1e-14:
+    symmres = numpy.linalg.norm(H[:n,:] - H[:n,:].T.conj())
+    if hermitian and symmres >= 5e-14:
         warnings.warn('Hessenberg matrix is not symmetric: |H-H^*|={0}'.format(symmres))
 
     # choose eig for Hermitian or non-Hermitian matrices
@@ -719,14 +723,36 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
 
     if type=='ritz':
         theta, U = eig(H[:n,:])
+        beta = 0 if H.shape[0]==n else H[-1,-1]
+        resnorm = numpy.abs( beta * U[-1,:] )
     elif type=='harmonic':
-        theta, U = eig(H[:n,:], dot(H.T.conj(),H))
-    elif type=='harmonic_like':
+        theta, U = eig(H[:n,:], numpy.dot(H.T.conj(),H))
+        theta = 1/theta
+        resnorm = []
+        for i in range(n):
+            U[:,i] /= numpy.linalg.norm(U[:,i], 2)
+            resi = numpy.dot(H, U[:,i])
+            resi[:n] -= theta[i]*U[:,i]
+            resnorm.append( numpy.linalg.norm( resi, 2) )
+        resnorm = numpy.array(resnorm)
+    elif type=='harmonic_improved':
+        theta, U = eig(H[:n,:], numpy.dot(H.T.conj(),H))
+        rho = []
+        for i in range(n):
+            U[:,i] /= numpy.linalg.norm(U[:,i], 2)
+            rho.append( numpy.dot( U[:,i].T.conj(), numpy.dot(H[:n,:], U[:,i])) )
+        theta = numpy.array(rho)
+        resnorm = []
+        for i in range(n):
+            resi = numpy.dot(H, U[:,i])
+            resi[:n] -= theta[i]*U[:,i]
+            resnorm.append( numpy.linalg.norm( resi, 2) )
+        resnorm = numpy.array(resnorm)
         pass
     else:
         raise ValueError('unknown Ritz type {0}'.format(type))
 
     if V is not None:
-        return theta, U, R, numpy.dot(V, U)
+        return theta, U, resnorm, numpy.dot(V[:,:n], U)
 
-    return theta, U, R
+    return theta, U, resnorm
