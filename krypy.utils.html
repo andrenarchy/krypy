@@ -111,7 +111,7 @@ the resulting matrix is dense.</p>
 
 <dl class="class">
 <dt id="krypy.utils.Projection">
-<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e560&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
 <p>Generic projection.</p>
 <p>This class can represent any projection (orthogonal and oblique)
@@ -211,12 +211,12 @@ the resulting matrix is dense.</p>
 
 <dl class="function">
 <dt id="krypy.utils.angles">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>X</em>, <em>Y</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>X</em>, <em>Y</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e560&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.arnoldi">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e560&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
 <dd><p>Arnoldi algorithm.</p>
 <p>Computes V and H such that <span class="math">\(AV_n=V_{n+1}\underline{H}_n\)</span>.
 If the Krylov subspace becomes A-invariant then V and H are truncated such
@@ -260,43 +260,7 @@ ignored (most notably None).</p>
 <dl class="function">
 <dt id="krypy.utils.get_linearoperator">
 <tt class="descclassname">krypy.utils.</tt><tt class="descname">get_linearoperator</tt><big>(</big><em>shape</em>, <em>A</em><big>)</big><a class="headerlink" href="#krypy.utils.get_linearoperator" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.get_projection">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get projection and appropriate initial guess for use in deflated methods.</p>
-<dl class="docutils">
-<dt>Arguments:</dt>
-<dd><p class="first">W:  the basis vectors used for deflation (Nxk array).
-AW: A*W, where A is the operator of the linear algebraic system to be</p>
-<blockquote>
-<div>deflated. A has to be self-adjoint w.r.t. inner_product. Do not
-include the positive-definite preconditioner (argument M in MINRES)
-here. Let N be the dimension of the vector space the operator is
-defined on.</div></blockquote>
-<p>b:  the right hand side of the linear system (array of length N).
-x0: the initial guess (array of length N).
-inner_product: the inner product also used for the deflated iterative</p>
-<blockquote class="last">
-<div>method.</div></blockquote>
-</dd>
-<dt>Returns:</dt>
-<dd><dl class="first last docutils">
-<dt>P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in</dt>
-<dd>MINRES). The preconditioned operator A*P is self-adjoint w.r.t.
-inner_product.
-P(x)=x - W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)</dd>
-<dt>x0new: an adapted initial guess s.t. the deflated iterative solver</dt>
-<dd>does not break down (in exact arithmetics).</dd>
-<dt>AW: AW=A*W. This is returned in order to reduce the total number of</dt>
-<dd>matrix-vector multiplications with A.</dd>
-</dl>
-</dd>
-</dl>
-<p>For nW = W.shape[1] = AW.shape[1] the computational cost is
-cost(get_projection): 2*cost(Pfun) + (nW^2)*IP
-cost(Pfun): nW*IP + (2/3)*nW^3 + nW*AXPY</p>
+<dd><p>Enhances aslinearoperator if A is None.</p>
 </dd></dl>
 
 <dl class="function">
@@ -324,18 +288,18 @@ transpose.</p>
 
 <dl class="function">
 <dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e560&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e560&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e560&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
 </dd></dl>
 
@@ -367,7 +331,7 @@ with reorthogonalization (<tt class="docutils literal"><span class="pre">ortho='
 be Hermitian. A Hermitian matrix <span class="math">\(H_n\)</span> allows for faster and
 often more accurate computation of Ritz pairs.</li>
 <li><strong>type</strong> &#8211; <p>(optional) type of Ritz pairs, may be one of <tt class="docutils literal"><span class="pre">'ritz'</span></tt>,
-<tt class="docutils literal"><span class="pre">'harmonic'</span></tt> or <tt class="docutils literal"><span class="pre">'harmonic_like'</span></tt>. All choices of Ritz pairs fit
+<tt class="docutils literal"><span class="pre">'harmonic'</span></tt> or <tt class="docutils literal"><span class="pre">'harmonic_like'</span></tt>. Two choices of Ritz pairs fit
 in the following description:</p>
 <p><cite>Given two n-dimensional subspaces</cite>
 <span class="math">\(X,Y\subseteq \mathbb{C}^N\)</span>,
@@ -392,7 +356,10 @@ requested) are the same as with <tt class="docutils literal"><span class="pre">t
 array contains the improved Ritz values
 <span class="math">\(\theta_i = u_i^* H_n u_i\)</span>, cf. section 2 in <em>Morgan, Zeng.
 Harmonic Projection Methods for Large Non-symmetric Eigenvalue
-Problems. 1998.</em></li>
+Problems. 1998.</em> It can be shown that the residual norm of improved
+Ritz pairs is always less than or equal to the residual norm of the
+harmonic Ritz pairs. However, the improved Ritz pairs do not fit into
+the framework above since the orthogonality condition is lost.</li>
 </ul>
 </li>
 </ul>
@@ -415,67 +382,6 @@ i.e. <span class="math">\(z_i=Vu_i\)</span> where <span class="math">\(u_i\)</sp
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.ritzh">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute Ritz pairs from a (possibly deflated) Lanczos procedure.</p>
-<dl class="docutils">
-<dt>Arguments</dt>
-<dd><dl class="first docutils">
-<dt>W:  a Nxk array. W&#8217;s columns must be orthonormal w.r.t. the</dt>
-<dd>M-inner-product (inner_product(M^{-1} W, W) = I_k).</dd>
-<dt>AW: contains the result of A applied to W (passed in order to reduce #</dt>
-<dd>of matrix-vector multiplications with A).</dd>
-<dt>Vfull: a Nxn array. Vfull&#8217;s columns must be orthonormal w.r.t. the</dt>
-<dd>M-inner-product. Vfull and Hfull must be created with a (possibly
-deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
-and Hfull can be obtained from MINRES applied to a linear system
-with the operator A, the inner product inner_product, the HPD
-preconditioner M and the right preconditioner Mr set to the
-projection obtained with get_projection(W, AW, ...).</dd>
-</dl>
-<p>Hfull: see Vfull.
-M:  The preconditioner used in the Lanczos procedure.</p>
-<dl class="last docutils">
-<dt>The arguments thus have to fulfill the following equations:</dt>
-<dd><p class="first">AW = A*W.
-M*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,</p>
-<blockquote>
-<div>where Mr=get_projection(W, AW,...,inner_product).</div></blockquote>
-<p class="last">inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.</p>
-</dd>
-</dl>
-</dd>
-<dt>Returns:</dt>
-<dd><p class="first">ritz_vals: an array with n+k Ritz values.
-ritz_coeffs: a (n+k)x(n+k) array where the ritz_coeffs[:,i] are the</p>
-<blockquote>
-<div>coefficients (in the basis [W,Vfull]) of the vector corresponding
-the Ritz value ritz_vals[i]. The Ritz vectors then also are
-orthonormal w.r.t. the M-inner-product, that is inner_product(
-M^{-1}*ritz_vecs, ritz_vecs ) = I_{k+n}.</div></blockquote>
-<dl class="last docutils">
-<dt>ritz_res_norm: an array with n+k residual norms. ritz_res_norm[i] is</dt>
-<dd><dl class="first docutils">
-<dt>the M^{-1}-norm of the residual</dt>
-<dd>M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].</dd>
-</dl>
-<p class="last">ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
-residual norms are ascending.</p>
-</dd>
-</dl>
-</dd>
-</dl>
-<p>Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
-M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis [W,
-Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of the
-Ritz pair residual is computed. The computation of the residual norms do
-not need the application of the operator A, but the preconditioner has to
-be applied to the basis W. The computation of the residual norm may be
-unstable (it seems as if residual norms below 1e-8 cannot be achieved...
-note that the actual residual may be lower!).</p>
 </dd></dl>
 
 <dl class="function">
