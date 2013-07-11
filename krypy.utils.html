@@ -111,7 +111,7 @@ the resulting matrix is dense.</p>
 
 <dl class="class">
 <dt id="krypy.utils.Projection">
-<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
 <p>Generic projection.</p>
 <p>This class can represent any projection (orthogonal and oblique)
@@ -211,12 +211,12 @@ the resulting matrix is dense.</p>
 
 <dl class="function">
 <dt id="krypy.utils.angles">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>X</em>, <em>Y</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>X</em>, <em>Y</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.arnoldi">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
 <dd><p>Arnoldi algorithm.</p>
 <p>Computes V and H such that <span class="math">\(AV_n=V_{n+1}\underline{H}_n\)</span>.
 If the Krylov subspace becomes A-invariant then V and H are truncated such
@@ -264,7 +264,7 @@ ignored (most notably None).</p>
 
 <dl class="function">
 <dt id="krypy.utils.get_projection">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">get_projection</tt><big>(</big><em>b</em>, <em>W</em>, <em>AW</em>, <em>x0=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.get_projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get projection and appropriate initial guess for use in deflated methods.</p>
 <dl class="docutils">
 <dt>Arguments:</dt>
@@ -324,18 +324,18 @@ transpose.</p>
 
 <dl class="function">
 <dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
 </dd></dl>
 
@@ -343,8 +343,7 @@ transpose.</p>
 <dt id="krypy.utils.ritz">
 <tt class="descclassname">krypy.utils.</tt><tt class="descname">ritz</tt><big>(</big><em>H</em>, <em>V=None</em>, <em>hermitian=False</em>, <em>type='ritz'</em><big>)</big><a class="headerlink" href="#krypy.utils.ritz" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.</p>
-<p><strong>WARNING: this method is still under construction!</strong></p>
-<p>This function computes Ritz, harmonic Ritz or harmonic-like Ritz values and
+<p>This function computes Ritz, harmonic Ritz or improved harmonic Ritz values and
 vectors with respect to the Krylov subspace <span class="math">\(K_n(A,v)\)</span> from the
 extended Hessenberg matrix <span class="math">\(\underline{H}_n\)</span> generated with n
 iterations the Arnoldi algorithm applied to A and v.</p>
@@ -420,7 +419,7 @@ i.e. <span class="math">\(z_i=Vu_i\)</span> where <span class="math">\(u_i\)</sp
 
 <dl class="function">
 <dt id="krypy.utils.ritzh">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596d8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">ritzh</tt><big>(</big><em>Vfull</em>, <em>Hfull</em>, <em>W=None</em>, <em>AW=None</em>, <em>A=None</em>, <em>M=None</em>, <em>Minv=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596e8c0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.ritzh" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute Ritz pairs from a (possibly deflated) Lanczos procedure.</p>
 <dl class="docutils">
 <dt>Arguments</dt>
