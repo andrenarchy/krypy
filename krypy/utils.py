@@ -611,9 +611,12 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
             for j in range(k+1):
                 Av[j:] = houses[j].apply(Av[j:])
                 Av[j] *= numpy.conj(houses[j].alpha)
-            houses.append( House(Av[k+1:]) )
-            Av[k+1:] = houses[-1].apply(Av[k+1:]) * numpy.conj(houses[-1].alpha)
-            H[:k+2,[k]] = Av[:k+2]
+            if k+1<N:
+                houses.append( House(Av[k+1:]) )
+                Av[k+1:] = houses[-1].apply(Av[k+1:]) * numpy.conj(houses[-1].alpha)
+                H[:k+2,[k]] = Av[:k+2]
+            else:
+                H[:k+1,[k]] = Av[:k+1]
             H[k+1,k] = numpy.abs(H[k+1,k]) # safe due to the multiplications with alpha
             if H[k+1,k] <= 1e-15:
                 invariant = True
@@ -653,7 +656,6 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
     vectors with respect to the Krylov subspace :math:`K_n(A,v)` from the
     extended Hessenberg matrix :math:`\\underline{H}_n` generated with n
     iterations the Arnoldi algorithm applied to A and v.
-
 
     :param H: Hessenberg matrix from Arnoldi/Lanczos algorithm.
     :param V: (optional) Arnoldi/Lanczos vectors,
@@ -726,17 +728,19 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         beta = 0 if H.shape[0]==n else H[-1,-1]
         resnorm = numpy.abs( beta * U[-1,:] )
     elif type=='harmonic':
-        theta, U = eig(H[:n,:], numpy.dot(H.T.conj(),H))
+        theta, U = eig(H[:n,:].T.conj(), numpy.dot(H.T.conj(),H))
         theta = 1/theta
         resnorm = []
         for i in range(n):
             U[:,i] /= numpy.linalg.norm(U[:,i], 2)
             resi = numpy.dot(H, U[:,i])
+            if resi.dtype!=numpy.complex and theta.dtype==numpy.complex:
+                resi = numpy.array(resi, dtype=numpy.complex)
             resi[:n] -= theta[i]*U[:,i]
             resnorm.append( numpy.linalg.norm( resi, 2) )
         resnorm = numpy.array(resnorm)
     elif type=='harmonic_improved':
-        theta, U = eig(H[:n,:], numpy.dot(H.T.conj(),H))
+        theta, U = eig(H[:n,:].T.conj(), numpy.dot(H.T.conj(),H))
         rho = []
         for i in range(n):
             U[:,i] /= numpy.linalg.norm(U[:,i], 2)
