@@ -359,6 +359,36 @@ class Projection:
         return self.apply(numpy.eye(self.X.shape[0]))
 
 # ===================================================================
+def qr(X, inner_product = ip_euclid, reorthos=1):
+    """QR factorization with customizable inner product.
+
+    :param X: array with ``shape==(N,k)``
+    :param inner_product: (optional) inner product in which the resulting Q
+      matrix should be orthogonal in. Defaults to :py:meth:`ip_euclid`.
+    :param reorthos: (optional) numer of reorthogonalizations. Defaults to
+      1 (i.e. 2 runs of modified Gram-Schmidt) which should be enough in most
+      cases (TODO: add reference).
+
+    :return: Q, R where :math:`X=QR` with :math:`\\langle Q,Q \\rangle=I_k` and
+      R upper triangular.
+    """
+    if inner_product==ip_euclid:
+        return scipy.linalg.qr(X, mode='economic')
+    else:
+        (N,k) = X.shape
+        Q = X.copy()
+        R = numpy.zeros((k,k), dtype=X.dtype)
+        for i in range(k):
+            for reortho in range(reorthos+1):
+                for j in range(i):
+                    alpha = inner_product(Q[:, [j]], Q[:,[i]])[0,0]
+                    R[j,i] += alpha
+                    Q[:,[i]] -= alpha * Q[:,[j]]
+            R[i,i] = norm(Q[:,[i]], inner_product=inner_product)
+            Q[:,[i]] /= R[i,i]
+        return Q, R
+
+# ===================================================================
 def angles(X, Y, inner_product = ip_euclid):
     #TODO!
     pass
