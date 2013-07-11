@@ -650,9 +650,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
 def ritz(H, V=None, hermitian=False, type='ritz'):
     """Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.
 
-    **WARNING: this method is still under construction!**
-
-    This function computes Ritz, harmonic Ritz or harmonic-like Ritz values and
+    This function computes Ritz, harmonic Ritz or improved harmonic Ritz values and
     vectors with respect to the Krylov subspace :math:`K_n(A,v)` from the
     extended Hessenberg matrix :math:`\\underline{H}_n` generated with n
     iterations the Arnoldi algorithm applied to A and v.
