@@ -143,6 +143,33 @@ def run_projection(X, Y, inner_product, ipYX, ipYXinv):
     # check that the matrix representation is correct
     assert( numpy.linalg.norm( P.matrix() - P.apply(I), 2) <= 1e-14 )
 
+def test_qr():
+    Xs = [ numpy.eye(10,5), scipy.linalg.hilbert(10)[:,:5] ]
+    B = numpy.diag(numpy.linspace(1,5,10))
+    inner_products = [
+            krypy.utils.ip_euclid,
+            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
+            ]
+    reorthos = [0, 1, 2]
+    for X, inner_product, reortho in itertools.product(Xs, inner_products, reorthos):
+        yield run_qr, X, inner_product, reortho
+
+def run_qr(X, inner_product, reorthos):
+    (N,k) = X.shape
+    s = scipy.linalg.svd(X, compute_uv=False)
+    Q, R = krypy.utils.qr(X, inner_product=inner_product, reorthos=reorthos)
+
+    # check shapes
+    assert( Q.shape==(N,k) )
+    assert( R.shape==(k,k) )
+    # check residual
+    assert( numpy.linalg.norm( numpy.dot(Q,R) - X, 2) <= 1e-14*max(s) )
+    # check orthogonality
+    orthotol = 1e-8 if reorthos<1 else 1e-14
+    assert( numpy.linalg.norm( inner_product(Q,Q) - numpy.eye(k), 2) <= orthotol )
+    # check if R is upper triangular
+    assert( numpy.linalg.norm( numpy.tril(R, -1) ) == 0 )
+
 def test_arnoldi():
     matrices = [
             get_matrix_spd(),
