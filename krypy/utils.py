@@ -100,6 +100,7 @@ def norm( x, Mx = None, inner_product = ip_euclid ):
 
 # ===================================================================
 def get_linearoperator(shape, A):
+    """Enhances aslinearoperator if A is None."""
     if A is None:
         identity = lambda x: x
         return LinearOperator(shape, identity, identity, identity, numpy.double)
@@ -126,205 +127,6 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip_euclid):
         norm_MMlr = norm(Mlr, MMlr, inner_product=inner_product)
     # return xk and ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}}
     return xk, Mlr, MMlr, norm_MMlr
-
-# ===================================================================
-def get_projection(b, W, AW,
-        # TODO: AW optional, supply A
-        x0 = None, 
-        inner_product = ip_euclid):
-    """Get projection and appropriate initial guess for use in deflated methods.
-
-    Arguments:
-        W:  the basis vectors used for deflation (Nxk array).
-        AW: A*W, where A is the operator of the linear algebraic system to be
-            deflated. A has to be self-adjoint w.r.t. inner_product. Do not
-            include the positive-definite preconditioner (argument M in MINRES)
-            here. Let N be the dimension of the vector space the operator is
-            defined on.
-        b:  the right hand side of the linear system (array of length N).
-        x0: the initial guess (array of length N).
-        inner_product: the inner product also used for the deflated iterative
-            method.
-
-    Returns:
-        P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in
-            MINRES). The preconditioned operator A*P is self-adjoint w.r.t.
-            inner_product.
-            P(x)=x - W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)
-        x0new: an adapted initial guess s.t. the deflated iterative solver
-            does not break down (in exact arithmetics).
-        AW: AW=A*W. This is returned in order to reduce the total number of
-            matrix-vector multiplications with A.
-
-    For nW = W.shape[1] = AW.shape[1] the computational cost is
-    cost(get_projection): 2*cost(Pfun) + (nW^2)*IP
-    cost(Pfun): nW*IP + (2/3)*nW^3 + nW*AXPY
-    """
-    # --------------------------------------------------------------------------
-    def Pfun(x):
-        '''Computes x - W * E\<AW,x>.'''
-        return x - numpy.dot(W, numpy.dot(Einv, inner_product(AW, x)))
-    # --------------------------------------------------------------------------
-
-    # cost: (nW^2)*IP
-    E = inner_product(W, AW)
-    Einv = numpy.linalg.inv(E)
-
-    # cost: nW*IP + (2/3)*nW^3
-    EWb = numpy.dot(Einv, inner_product(W, b))
-
-    # Define projection operator.
-    N = len(b)
-    if x0 is None:
-        x0 = numpy.zeros((N,1))
-    dtype = upcast(W.dtype, AW.dtype, b.dtype, x0.dtype)
-    P = LinearOperator( [N,N], Pfun, matmat=Pfun,
-                                            dtype=dtype)
-    # Get updated x0.
-    # cost: nW*AXPY + cost(Pfun)
-    x0new = P*x0 +  numpy.dot(W, EWb)
-
-    return P, x0new
-
-# ===================================================================
-def ritzh(Vfull, Hfull,
-               W = None,
-               AW = None,
-               A = None,
-               M = None, 
-               Minv = None,
-               inner_product = ip_euclid,
-               ):
-    """Compute Ritz pairs from a (possibly deflated) Lanczos procedure.
-
-    Arguments
-        W:  a Nxk array. W's columns must be orthonormal w.r.t. the
-            M-inner-product (inner_product(M^{-1} W, W) = I_k).
-        AW: contains the result of A applied to W (passed in order to reduce #
-            of matrix-vector multiplications with A).
-        Vfull: a Nxn array. Vfull's columns must be orthonormal w.r.t. the
-            M-inner-product. Vfull and Hfull must be created with a (possibly
-            deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
-            and Hfull can be obtained from MINRES applied to a linear system
-            with the operator A, the inner product inner_product, the HPD
-            preconditioner M and the right preconditioner Mr set to the
-            projection obtained with get_projection(W, AW, ...).
-        Hfull: see Vfull.
-        M:  The preconditioner used in the Lanczos procedure.
-
-        The arguments thus have to fulfill the following equations:
-            AW = A*W.
-            M*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,
-                 where Mr=get_projection(W, AW,...,inner_product).
-            inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.
-
-    Returns:
-        ritz_vals: an array with n+k Ritz values.
-        ritz_coeffs: a (n+k)x(n+k) array where the ritz_coeffs[:,i] are the
-            coefficients (in the basis [W,Vfull]) of the vector corresponding
-            the Ritz value ritz_vals[i]. The Ritz vectors then also are
-            orthonormal w.r.t. the M-inner-product, that is inner_product(
-            M^{-1}*ritz_vecs, ritz_vecs ) = I_{k+n}.
-        ritz_res_norm: an array with n+k residual norms. ritz_res_norm[i] is
-            the M^{-1}-norm of the residual
-                M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].
-            ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
-            residual norms are ascending.
-
-    Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
-    M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis [W,
-    Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of the
-    Ritz pair residual is computed. The computation of the residual norms do
-    not need the application of the operator A, but the preconditioner has to
-    be applied to the basis W. The computation of the residual norm may be
-    unstable (it seems as if residual norms below 1e-8 cannot be achieved...
-    note that the actual residual may be lower!).
-    """
-    N = Vfull.shape[0]
-    nVfull = Vfull.shape[1]
-    nW = 0 if W is None else W.shape[1]
-    # total number ritz vectors
-    nritz = nW + nVfull - 1
-
-    if issparse(Hfull):
-        Hfull = Hfull.todense()
-
-    if nW > 0:
-        B1 = inner_product(AW, Vfull)   # can (and should) be obtained from projection
-        
-        E = inner_product(W, AW)        # ~
-        Einv = numpy.linalg.inv(E) # can (and should) be obtained from earlier computation
-        # Apply preconditioner to AW (I don't see a way to get rid of this! -- André).
-        # cost: nW*APPLM
-        MAW = M * AW
-    else:
-        W = numpy.zeros((N,0))
-        AW = numpy.zeros((N,0))
-        B1 = numpy.zeros((0,nVfull))
-        E = numpy.zeros((0, 0))
-        Einv = numpy.zeros((0, 0))
-        MAW = numpy.zeros((W.shape[0], 0))
-    
-    B = B1[:, 0:-1]
-
-    # Stack matrices appropriately: [E, B;
-    #                                B', Hfull(1:end-1,:) + B'*Einv*B].
-    ritzmat = numpy.r_[ numpy.c_[E,          B],
-                     numpy.c_[B.T.conj(), Hfull[0:-1,:] + numpy.dot(B.T.conj(), numpy.dot(Einv, B))]
-                   ]
-    # Compute Ritz values / vectors.
-    ritz_values, ritz_coeffs = scipy.linalg.eigh(ritzmat)
-
-    # Calculate the Ritz-residuals in a smart way.
-    ritz_res_norm = numpy.zeros(nritz)
-    D = inner_product(AW, MAW)
-    for i in range(nritz):
-        w = ritz_coeffs[:W.shape[1],[i]]
-        v = ritz_coeffs[W.shape[1]:,[i]]
-        mu = ritz_values[i]
-
-        # The following computes  <z, CC*z>_2  with
-        #
-        #z = numpy.r_[ -mu*w,
-        #            w + numpy.dot(Einv, numpy.dot(B, v)),
-        #            numpy.dot(Hfull, v) - numpy.r_[mu*v, numpy.zeros((1,1))] ]
-        #z = numpy.reshape(z, (z.shape[0],1))
-        # cost: (nW^2)*IP
-        #zeros = numpy.zeros((nW,nVfull))
-        #CC = numpy.r_[ numpy.c_[ numpy.eye(nW),     E,           zeros],
-        #            numpy.c_[ E.T.conj(),     D,           B1],
-        #            numpy.c_[ zeros.T.conj(), B1.T.conj(), numpy.eye(nVfull)]
-        #          ]
-        #
-        # Attention:
-        # CC should be HPD (and thus $<z, CC*z>_2 > 0$).
-        # However, this only holds if the preconditioner M was solved exactly
-        # (then inner_product(Minv*W,W)=I).
-        # In this case, the computation seems to be stable.
-        z0 = -mu * w
-        z1 = w + numpy.dot(Einv, numpy.dot(B, v))
-        z2 = numpy.dot(Hfull, v) - numpy.r_[mu*v, numpy.zeros((1,1))]
-        res_ip = ip_euclid(z0, z0) + 2 * ip_euclid(z0, numpy.dot(E, z1)).real + ip_euclid(z1, numpy.dot(D, z1)) \
-               + 2 * ip_euclid(z1, numpy.dot(B1, z2)).real + ip_euclid(z2, z2)
-        res_ip = res_ip[0,0]
-
-        if res_ip.imag > 1e-13:
-            warnings.warn('res_ip.imag = %g > 1e-13. Preconditioner not symmetric?' % res_ip.imag)
-        if res_ip.real < -1e-10:
-            warnings.warn('res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
-        ritz_res_norm[i] = numpy.sqrt(abs(res_ip))
-
-        # Explicit computation of residual (this part only works for M=I)
-        #X = numpy.c_[W, Vfull[:,0:-1]]
-        #V = numpy.dot(X, numpy.r_[w,v])
-        #MAV = _apply(M,_apply(A, V))
-        #res_explicit = MAV - ritz_values[i]*V
-        #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
-        #assert( zz.imag<1e-13 )
-        #print abs(norm_ritz_res[i] - numpy.sqrt(abs(zz)))
-        #print 'Explicit residual: %g' % numpy.sqrt(abs(zz))
-
-    return ritz_values, ritz_coeffs, ritz_res_norm
 
 # ===================================================================
 class House:
@@ -556,6 +358,7 @@ class Projection:
         """
         return self.apply(numpy.eye(self.X.shape[0]))
 
+# ===================================================================
 def angles(X, Y, inner_product = ip_euclid):
     #TODO!
     pass
@@ -647,6 +450,7 @@ def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
 
     return V, H
 
+# ===================================================================
 def ritz(H, V=None, hermitian=False, type='ritz'):
     """Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.
 
@@ -712,6 +516,8 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
       * ``resnorm`` is a residual norm vector.
       * ``Z`` are the actual Ritz vectors, i.e. ``Z=dot(V,U)``.
     """
+    # TODO: enhance ritz to accept an augmented space
+
     n = H.shape[1]
     if V is not None and V.shape[1]!=H.shape[0]:
         raise ValueError('shape mismatch with V and H')
