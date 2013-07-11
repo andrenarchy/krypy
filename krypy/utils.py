@@ -670,7 +670,7 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
       be Hermitian. A Hermitian matrix :math:`H_n` allows for faster and
       often more accurate computation of Ritz pairs.
     :param type: (optional) type of Ritz pairs, may be one of ``'ritz'``,
-      ``'harmonic'`` or ``'harmonic_like'``. All choices of Ritz pairs fit
+      ``'harmonic'`` or ``'harmonic_like'``. Two choices of Ritz pairs fit
       in the following description:
 
       `Given two n-dimensional subspaces`
@@ -694,7 +694,10 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         array contains the improved Ritz values
         :math:`\\theta_i = u_i^* H_n u_i`, cf. section 2 in *Morgan, Zeng.
         Harmonic Projection Methods for Large Non-symmetric Eigenvalue
-        Problems. 1998.*
+        Problems. 1998.* It can be shown that the residual norm of improved
+        Ritz pairs is always less than or equal to the residual norm of the
+        harmonic Ritz pairs. However, the improved Ritz pairs do not fit into
+        the framework above since the orthogonality condition is lost.
 
     :return:
 
