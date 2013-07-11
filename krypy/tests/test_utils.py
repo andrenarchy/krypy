@@ -3,6 +3,7 @@ import numpy
 import itertools
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import csr_matrix
+import scipy.linalg
 
 def get_matrix_spd():
     a = numpy.array(range(1,11))
@@ -32,7 +33,7 @@ def get_matrix_herm_indef():
     return A
 
 def get_matrix_nonsymm():
-    a = numpy.array(range(1,11))
+    a = numpy.array(range(1,11), dtype=numpy.float)
     a[-1] = -1e2
     A = numpy.diag(a)
     A[0,-1] = 1e2
@@ -152,7 +153,7 @@ def test_arnoldi():
             get_matrix_comp_nonsymm()
             ]
     vs = [numpy.ones((10,1)), numpy.eye(10,1)]
-    maxiters = [1, 5, 9]
+    maxiters = [1, 5, 9, 10]
     orthos = ['mgs', 'dmgs', 'house']
     B = numpy.diag(numpy.linspace(1,5,10))
     inner_products = [
@@ -228,13 +229,87 @@ def assert_arnoldi(A, v, V, H, maxiter, ortho, inner_product=krypy.utils.ip_eucl
             ortho_tol = numpy.inf
         else:
             ortho_tol = ortho_const * (k**2) * N * eps * vAV_singvals[0]/vAV_singvals[-1]  # inequality (2.5) in [1]
-    assert( ortho_resn <= ortho_tol )
+    if ortho!='mgs' or N!=k: # mgs is not able to detect an invariant subspace reliably
+        assert( ortho_resn <= ortho_tol )
 
     # check projection residual \| <V_k, A*V_k> - H_k \|
     proj_res = inner_product(V, AV) - H
     proj_tol = proj_const*(ortho_resn * An + arnoldi_resn * krypy.utils.norm(V, inner_product=inner_product))
     assert( numpy.linalg.norm( proj_res, 2) <= proj_tol )
 
+def test_ritz():
+    # Hermitian matrices
+    matrices_herm = [
+            get_matrix_spd(),
+            #get_matrix_hpd(),
+            #get_matrix_symm_indef(),
+            #get_matrix_herm_indef(),
+            ]
+    matrices_nonherm = [
+            get_matrix_nonsymm(),
+            get_matrix_comp_nonsymm()
+            ]
+    vs = [numpy.ones((10,1)), numpy.eye(10,1)]
+    maxiters = [1, 5, 9, 10]
+    B = numpy.diag(numpy.linspace(1,5,10))
+    inner_products = [
+            krypy.utils.ip_euclid,
+            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
+            ]
+    types = ['ritz', 'harmonic', 'harmonic_improved']
+    for (matrix, v, maxiter, inner_product, with_V, type) in itertools.product(matrices_herm+matrices_nonherm, vs, maxiters, inner_products, [True, False], types):
+        hermitian = any(matrix is x for x in matrices_herm)
+        eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
+        Aevals, _ = eig(matrix)
+        An = numpy.linalg.norm(matrix, 2)
+        for A in get_operators(matrix):
+            yield run_ritz, A, v, maxiter, inner_product, Aevals, An, with_V, hermitian, type
+
+def run_ritz(A, v, maxiter, inner_product, Aevals, An, with_V, hermitian, type):
+    ortho = 'house' if inner_product==krypy.utils.ip_euclid else 'dmgs'
+    V, H = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, inner_product=inner_product)
+    N = v.shape[0]
+    n = H.shape[1]
+    A = krypy.utils.get_linearoperator((N,N), A)
+
+    Z = None
+    if with_V:
+        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=hermitian, type=type)
+    else:
+        theta, U, resnorm = krypy.utils.ritz(H, hermitian=hermitian, type=type)
+    # check Z
+    if Z is not None:
+        assert( numpy.linalg.norm( numpy.dot(V[:,:n], U) - Z, 2) <= 1e-14 )
+    else:
+        Z = numpy.dot(V[:,:n], U)
+
+    # check shapes
+    assert( theta.shape==(n,) )
+    assert( U.shape==(n,n) )
+    assert( resnorm.shape==(n,) )
+    assert( Z.shape==(N,n) )
+    # check norm of Ritz vectors
+    for i in range(n):
+        assert( numpy.abs( numpy.linalg.norm(U[:,i],2) - 1) <= 1e-14 )
+    # check residuals
+    R = A*Z - numpy.dot(Z, numpy.diag(theta))
+    for i in range(n):
+        rnorm = krypy.utils.norm(R[:,[i]], inner_product=inner_product)
+        assert( numpy.abs(rnorm - resnorm[i]) <= 1e-14*An )
+    # check Ritz projection property
+    if type=='ritz':
+        assert( numpy.linalg.norm( inner_product(V[:,:n], R), 2) <= 1e-14*An )
+    elif type=='harmonic':
+        AVortho = scipy.linalg.orth( A*V[:,:n] )
+        assert( numpy.linalg.norm( inner_product(AVortho, R), 2) <= 5e-14*An )
+    else:
+        pass
+
+    # compare Ritz values with eigenvalues if n==N
+    if n==N:
+        Aevals_sort = numpy.argsort(numpy.abs(Aevals))
+        theta_sort = numpy.argsort(numpy.abs(theta))
+        assert( (numpy.abs( Aevals[Aevals_sort] - theta[theta_sort] ) <= 5e-14*An).all() )
 
 if __name__ == '__main__':
     import nose
