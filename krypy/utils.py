@@ -372,7 +372,7 @@ def qr(X, inner_product = ip_euclid, reorthos=1):
     :return: Q, R where :math:`X=QR` with :math:`\\langle Q,Q \\rangle=I_k` and
       R upper triangular.
     """
-    if inner_product==ip_euclid:
+    if inner_product==ip_euclid and X.shape[1]>0:
         return scipy.linalg.qr(X, mode='economic')
     else:
         (N,k) = X.shape
@@ -389,9 +389,48 @@ def qr(X, inner_product = ip_euclid, reorthos=1):
         return Q, R
 
 # ===================================================================
-def angles(X, Y, inner_product = ip_euclid):
-    #TODO!
-    pass
+def angles(F, G, inner_product = ip_euclid):
+    """Principal angles between two subspaces.
+
+    This algorithm is based on algorithm 6.2 in `Knyazev, Argentati. Principal
+    angles between subspaces in an A-based scalar product: algorithms and
+    perturbation estimates. 2002.`
+
+    :param F: array with ``shape==(N,k)``.
+    :param G: array with ``shape==(N,l)``.
+    :param inner_product: (optional) angles are computed with respect to this
+      inner product. Defaults to :py:meth:`ip_euclid`.
+
+    :return: array with angles
+      :math:`0\\leq\\theta_1\\leq\\ldots\\leq\\theta_{\\min\\{k,l\\}}\\leq
+      \\frac{\\pi}{2}`.
+    """
+    if F.shape[1]==0 or G.shape[1]==0:
+        return numpy.ones(max(F.shape[1],G.shape[1]))*numpy.pi/2
+    else:
+        QF, _ = qr(F, inner_product=inner_product)
+        QG, _ = qr(G, inner_product=inner_product)
+        Y, s, Z = scipy.linalg.svd( inner_product(QF, QG) )
+        #Ucos = numpy.dot(QF, Y)
+        Vcos = numpy.dot(QG, Z.T.conj())
+        Ilarge = numpy.flatnonzero( (s**2) < 0.5)
+        Ismall = numpy.flatnonzero( (s**2) >= 0.5)
+        theta_large = numpy.arccos(s[Ilarge])
+        #RF = Ucos[:,Ismall]
+        RG = Vcos[:,Ismall]
+        SR = numpy.diag(s[Ismall])
+        S = RG - numpy.dot(QF, inner_product(QF, RG))
+        QS, _ = qr(S, inner_product=inner_product)
+        Y, u, Z = scipy.linalg.svd( inner_product( QS, S) )
+        #Vsin = numpy.dot(RG, Z)
+        #Usin = numpy.dot(RF, numpy.dot(inner_product(RF,Vsin), numpy.diag(1/s[Ismall]) ))
+        theta_small = numpy.arcsin( u[-(s.shape[0]-theta_large.shape[0]):])
+
+        # return
+        return numpy.r_[
+                numpy.ones(max(F.shape[1],G.shape[1])-s.shape[0])*numpy.pi/2,
+                theta_large[::-1],
+                theta_small ]
 
 # ===================================================================
 def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
