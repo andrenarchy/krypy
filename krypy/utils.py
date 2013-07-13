@@ -389,48 +389,85 @@ def qr(X, inner_product = ip_euclid, reorthos=1):
         return Q, R
 
 # ===================================================================
-def angles(F, G, inner_product = ip_euclid):
+def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
     """Principal angles between two subspaces.
 
     This algorithm is based on algorithm 6.2 in `Knyazev, Argentati. Principal
     angles between subspaces in an A-based scalar product: algorithms and
-    perturbation estimates. 2002.`
+    perturbation estimates. 2002.` This algorithm can also handle small angles
+    (in contrast to the naive cosine-based svd algorithm).
 
     :param F: array with ``shape==(N,k)``.
     :param G: array with ``shape==(N,l)``.
     :param inner_product: (optional) angles are computed with respect to this
       inner product. Defaults to :py:meth:`ip_euclid`.
+    :param compute_vectors: (optional) if set to ``False`` then only the angles
+      are returned (default). If set to ``True`` then also the principal
+      vectors are returned.
 
-    :return: array with angles
-      :math:`0\\leq\\theta_1\\leq\\ldots\\leq\\theta_{\\min\\{k,l\\}}\\leq
-      \\frac{\\pi}{2}`.
+    :return: 
+
+      * ``theta`` if ``compute_vectors==False``
+      * ``theta, U, V`` if ``compute_vectors==True``
+
+      where
+
+      * ``theta`` is the array with ``shape==(max(k,l),)`` containing the
+        principal angles
+        :math:`0\\leq\\theta_1\\leq\\ldots\\leq\\theta_{\\min\\{k,l\\}}\\leq
+        \\frac{\\pi}{2}`.
+      * ``U`` are the principal vectors from F.
+      * ``V`` are the principal vectors from G.
     """
-    if F.shape[1]==0 or G.shape[1]==0:
-        return numpy.ones(max(F.shape[1],G.shape[1]))*numpy.pi/2
+    # make sure that F.shape[1]>=G.shape[1]
+    reverse = False
+    if F.shape[1] < G.shape[1]:
+        reverse=True
+        F, G = G, F
+
+    QF, _ = qr(F, inner_product=inner_product)
+    QG, _ = qr(G, inner_product=inner_product)
+
+    # one or both matrices empty? (enough to check G here)
+    if G.shape[1]==0:
+        theta = numpy.ones(F.shape[1])*numpy.pi/2
+        U = QF
+        V = QG
     else:
-        QF, _ = qr(F, inner_product=inner_product)
-        QG, _ = qr(G, inner_product=inner_product)
         Y, s, Z = scipy.linalg.svd( inner_product(QF, QG) )
-        #Ucos = numpy.dot(QF, Y)
         Vcos = numpy.dot(QG, Z.T.conj())
-        Ilarge = numpy.flatnonzero( (s**2) < 0.5)
-        Ismall = numpy.flatnonzero( (s**2) >= 0.5)
-        theta_large = numpy.arccos(s[Ilarge])
-        #RF = Ucos[:,Ismall]
-        RG = Vcos[:,Ismall]
-        SR = numpy.diag(s[Ismall])
+        n_large = numpy.flatnonzero( (s**2) < 0.5).shape[0]
+        n_small = s.shape[0] - n_large
+        theta = numpy.r_[
+                numpy.arccos(s[n_small:]), # [-i:] does not work if i==0
+                numpy.ones(F.shape[1]-G.shape[1])*numpy.pi/2 ]
+        if compute_vectors:
+            Ucos = numpy.dot(QF, Y)
+            U = Ucos[:, n_small:]
+            V = Vcos[:, n_small:]
+
+        RG = Vcos[:,:n_small]
         S = RG - numpy.dot(QF, inner_product(QF, RG))
         QS, _ = qr(S, inner_product=inner_product)
         Y, u, Z = scipy.linalg.svd( inner_product( QS, S) )
-        #Vsin = numpy.dot(RG, Z)
-        #Usin = numpy.dot(RF, numpy.dot(inner_product(RF,Vsin), numpy.diag(1/s[Ismall]) ))
-        theta_small = numpy.arcsin( u[-(s.shape[0]-theta_large.shape[0]):])
+        theta = numpy.r_[
+                numpy.arcsin( u[::-1][:n_small]),
+                theta ]
 
-        # return
-        return numpy.r_[
-                numpy.ones(max(F.shape[1],G.shape[1])-s.shape[0])*numpy.pi/2,
-                theta_large[::-1],
-                theta_small ]
+        if compute_vectors:
+            RF = Ucos[:,:n_small]
+            Vsin = numpy.dot(RG, Z.T.conj())
+            # TODO: check Usin (smells fishy)
+            Usin = numpy.dot(RF, numpy.dot(inner_product(RF,Vsin), numpy.diag(1/s[:n_small]) ))
+            U = numpy.c_[Usin[:,::-1], U]
+            V = numpy.c_[Vsin[:,::-1], V]
+
+    if compute_vectors:
+        if reverse:
+            U, V = V, U
+        return theta, U, V
+    else:
+        return theta
 
 # ===================================================================
 def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
