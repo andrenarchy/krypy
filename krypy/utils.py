@@ -405,7 +405,7 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
       are returned (default). If set to ``True`` then also the principal
       vectors are returned.
 
-    :return: 
+    :return:
 
       * ``theta`` if ``compute_vectors==False``
       * ``theta, U, V`` if ``compute_vectors==True``
@@ -457,10 +457,11 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
         if compute_vectors:
             RF = Ucos[:,:n_small]
             Vsin = numpy.dot(RG, Z.T.conj())
-            # TODO: check Usin (smells fishy)
-            Usin = numpy.dot(RF, numpy.dot(inner_product(RF,Vsin), numpy.diag(1/s[:n_small]) ))
-            U = numpy.c_[Usin[:,::-1], U]
-            V = numpy.c_[Vsin[:,::-1], V]
+            # next line is hand-crafted since the line from the paper does
+            # not seem to work.
+            Usin = numpy.dot(RF, numpy.dot( numpy.diag(1/s[:n_small]), numpy.dot(Z.T.conj(), numpy.diag(s[:n_small]))))
+            U = numpy.c_[Usin, U]
+            V = numpy.c_[Vsin, V]
 
     if compute_vectors:
         if reverse:
