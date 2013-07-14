@@ -194,6 +194,8 @@ def run_angles(F, G, inner_product, compute_vectors):
 
     # check shape of theta
     assert(theta.shape == (max(F.shape[1],G.shape[1]),))
+    # check if theta is sorted
+    assert( ( (theta - numpy.sort(theta))==0).all() )
     # check pi/2 angles if dimensions differ
     n = abs(F.shape[1] - G.shape[1])
     if n>0:
