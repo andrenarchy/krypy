@@ -414,10 +414,23 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
 
       * ``theta`` is the array with ``shape==(max(k,l),)`` containing the
         principal angles
-        :math:`0\\leq\\theta_1\\leq\\ldots\\leq\\theta_{\\min\\{k,l\\}}\\leq
+        :math:`0\\leq\\theta_1\\leq\\ldots\\leq\\theta_{\\max\\{k,l\\}}\\leq
         \\frac{\\pi}{2}`.
-      * ``U`` are the principal vectors from F.
-      * ``V`` are the principal vectors from G.
+      * ``U`` are the principal vectors from F with
+        :math:`\\langle U,U \\rangle=I_k`.
+      * ``V`` are the principal vectors from G with
+        :math:`\\langle V,V \\rangle=I_l`.
+
+    The principal angles and vectors fulfill the relation
+    :math:`\\langle U,V \\rangle = \
+    \\begin{bmatrix} \
+    \\cos(\\Theta) & 0_{m,l-m} \\\\ \
+    0_{k-m,m} & 0_{k-m,l-m} \
+    \\end{bmatrix}`
+    where :math:`m=\\min\\{k,l\\}` and
+    :math:`\\cos(\\Theta)=\\operatorname{diag}(\\cos(\\theta_1),\\ldots,\\cos(\\theta_m))`.
+    Furthermore,
+    :math:`\\theta_{m+1}=\\ldots=\\theta_{\\max\\{k,l\\}}=\\frac{\\pi}{2}`.
     """
     # make sure that F.shape[1]>=G.shape[1]
     reverse = False
