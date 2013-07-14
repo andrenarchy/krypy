@@ -170,6 +170,47 @@ def run_qr(X, inner_product, reorthos):
     # check if R is upper triangular
     assert( numpy.linalg.norm( numpy.tril(R, -1) ) == 0 )
 
+def test_angles():
+    FGs = [
+            numpy.eye(10,1),
+            numpy.eye(10,4),
+            numpy.eye(10)[:,-4:],
+            numpy.dot(numpy.eye(10,4), numpy.diag([1,1e1,1e2,1e3])),
+            numpy.eye(10,4) + numpy.ones((10,4))
+            ]
+    B = numpy.diag(numpy.linspace(1,5,10))
+    inner_products = [
+            krypy.utils.ip_euclid,
+            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
+            ]
+    for F, G, inner_product, compute_vectors in itertools.product(FGs, FGs, inner_products, [False, True]):
+        yield run_angles, F, G, inner_product, compute_vectors
+
+def run_angles(F, G, inner_product, compute_vectors):
+    if compute_vectors:
+        theta, U, V = krypy.utils.angles(F, G, inner_product=inner_product, compute_vectors=compute_vectors)
+    else:
+        theta = krypy.utils.angles(F, G, inner_product=inner_product, compute_vectors=compute_vectors)
+
+    # check shape of theta
+    assert(theta.shape == (max(F.shape[1],G.shape[1]),))
+    # check pi/2 angles if dimensions differ
+    n = abs(F.shape[1] - G.shape[1])
+    if n>0:
+        assert( (numpy.abs( theta[-n:] - numpy.pi/2 ) == 0).all() ) # == 0 is safe here
+    # check 0 angles if F==G
+    if F is G:
+        assert( numpy.linalg.norm(theta) <= 1e-15 )
+
+    if compute_vectors:
+        # check shapes of U and V
+        assert( U.shape==F.shape )
+        assert( V.shape==G.shape )
+        # check that inner_product(U,V) = diag(cos(theta))
+        m = min(F.shape[1], G.shape[1])
+        UV = inner_product(U,V)
+        assert( numpy.linalg.norm( UV - numpy.diag(numpy.cos(theta))[:F.shape[1],:G.shape[1]] ) <= 1e-14 )
+
 def test_arnoldi():
     matrices = [
             get_matrix_spd(),
