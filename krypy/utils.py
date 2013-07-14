@@ -385,7 +385,8 @@ def qr(X, inner_product = ip_euclid, reorthos=1):
                     R[j,i] += alpha
                     Q[:,[i]] -= alpha * Q[:,[j]]
             R[i,i] = norm(Q[:,[i]], inner_product=inner_product)
-            Q[:,[i]] /= R[i,i]
+            if R[i,i] >= 1e-15:
+                Q[:,[i]] /= R[i,i]
         return Q, R
 
 # ===================================================================
@@ -459,22 +460,22 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
             U = Ucos[:, n_small:]
             V = Vcos[:, n_small:]
 
-        RG = Vcos[:,:n_small]
-        S = RG - numpy.dot(QF, inner_product(QF, RG))
-        QS, _ = qr(S, inner_product=inner_product)
-        Y, u, Z = scipy.linalg.svd( inner_product( QS, S) )
-        theta = numpy.r_[
-                numpy.arcsin( u[::-1][:n_small]),
-                theta ]
-
-        if compute_vectors:
-            RF = Ucos[:,:n_small]
-            Vsin = numpy.dot(RG, Z.T.conj())
-            # next line is hand-crafted since the line from the paper does
-            # not seem to work.
-            Usin = numpy.dot(RF, numpy.dot( numpy.diag(1/s[:n_small]), numpy.dot(Z.T.conj(), numpy.diag(s[:n_small]))))
-            U = numpy.c_[Usin, U]
-            V = numpy.c_[Vsin, V]
+        if n_small>0:
+            RG = Vcos[:,:n_small]
+            S = RG - numpy.dot(QF, inner_product(QF, RG))
+            _, R = qr(S, inner_product=inner_product)
+            Y, u, Z = scipy.linalg.svd( R )
+            theta = numpy.r_[
+                    numpy.arcsin( u[::-1][:n_small]),
+                    theta ]
+            if compute_vectors:
+                RF = Ucos[:,:n_small]
+                Vsin = numpy.dot(RG, Z.T.conj())
+                # next line is hand-crafted since the line from the paper does
+                # not seem to work.
+                Usin = numpy.dot(RF, numpy.dot( numpy.diag(1/s[:n_small]), numpy.dot(Z.T.conj(), numpy.diag(s[:n_small]))))
+                U = numpy.c_[Usin, U]
+                V = numpy.c_[Vsin, V]
 
     if compute_vectors:
         if reverse:
