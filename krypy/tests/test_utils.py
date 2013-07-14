@@ -46,6 +46,13 @@ def get_matrix_comp_nonsymm():
     A[0,-1] = 1.e2j
     return A
 
+def get_inner_products():
+    B = numpy.diag(numpy.linspace(1,5,10))
+    return [
+            krypy.utils.ip_euclid, 
+            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
+            ]
+
 def get_operators(A):
     return [ A,
                 LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
@@ -108,10 +115,7 @@ def run_givens(x):
 def test_projection():
     Xs = [ numpy.eye(10,1), numpy.eye(10,5), numpy.eye(10) ]
     B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = [
-            krypy.utils.ip_euclid, 
-            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
-            ]
+    inner_products = get_inner_products()
     for (X, inner_product) in itertools.product(Xs, inner_products):
         Ys = [ None, X, X + numpy.ones((10,X.shape[1])) ]
         for Y in Ys:
@@ -146,10 +150,7 @@ def run_projection(X, Y, inner_product, ipYX, ipYXinv):
 def test_qr():
     Xs = [ numpy.eye(10,5), scipy.linalg.hilbert(10)[:,:5] ]
     B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = [
-            krypy.utils.ip_euclid,
-            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
-            ]
+    inner_products = get_inner_products()
     reorthos = [0, 1, 2]
     for X, inner_product, reortho in itertools.product(Xs, inner_products, reorthos):
         yield run_qr, X, inner_product, reortho
@@ -179,10 +180,7 @@ def test_angles():
             numpy.eye(10,4) + numpy.ones((10,4))
             ]
     B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = [
-            krypy.utils.ip_euclid,
-            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
-            ]
+    inner_products = get_inner_products()
     for F, G, inner_product, compute_vectors in itertools.product(FGs, FGs, inner_products, [False, True]):
         yield run_angles, F, G, inner_product, compute_vectors
 
@@ -226,10 +224,7 @@ def test_arnoldi():
     maxiters = [1, 5, 9, 10]
     orthos = ['mgs', 'dmgs', 'house']
     B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = [
-            krypy.utils.ip_euclid,
-            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
-            ]
+    inner_products = get_inner_products()
 
     for (matrix, v, maxiter, ortho, inner_product) in itertools.product(matrices, vs, maxiters, orthos, inner_products):
         An = numpy.linalg.norm(matrix, 2)
@@ -322,10 +317,7 @@ def test_ritz():
     vs = [numpy.ones((10,1)), numpy.eye(10,1)]
     maxiters = [1, 5, 9, 10]
     B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = [
-            krypy.utils.ip_euclid,
-            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
-            ]
+    inner_products = get_inner_products()
     types = ['ritz', 'harmonic', 'harmonic_improved']
     for (matrix, v, maxiter, inner_product, with_V, type) in itertools.product(matrices_herm+matrices_nonherm, vs, maxiters, inner_products, [True, False], types):
         hermitian = any(matrix is x for x in matrices_herm)
