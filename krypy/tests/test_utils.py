@@ -178,7 +178,7 @@ def test_angles():
             numpy.eye(10,4),
             numpy.eye(10)[:,-4:],
             numpy.dot(numpy.eye(10,4), numpy.diag([1,1e1,1e2,1e3])),
-            numpy.eye(10,4) + 1j*numpy.ones((10,4))
+            numpy.eye(10,4)
             ]
     B = numpy.diag(numpy.linspace(1,5,10))
     inner_products = get_inner_products()
