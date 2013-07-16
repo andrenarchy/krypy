@@ -174,10 +174,11 @@ def run_qr(X, inner_product, reorthos):
 def test_angles():
     FGs = [
             numpy.eye(10,1),
+            1j*numpy.eye(10,1),
             numpy.eye(10,4),
             numpy.eye(10)[:,-4:],
             numpy.dot(numpy.eye(10,4), numpy.diag([1,1e1,1e2,1e3])),
-            numpy.eye(10,4) + numpy.ones((10,4))
+            numpy.eye(10,4) + 1j*numpy.ones((10,4))
             ]
     B = numpy.diag(numpy.linspace(1,5,10))
     inner_products = get_inner_products()
@@ -194,6 +195,9 @@ def run_angles(F, G, inner_product, compute_vectors):
     assert(theta.shape == (max(F.shape[1],G.shape[1]),))
     # check if theta is sorted
     assert( ( (theta - numpy.sort(theta))==0).all() )
+    # check that 0 <= theta <= pi/2
+    assert( (theta >= 0).all() )
+    assert( (theta <= numpy.pi/2).all() )
     # check pi/2 angles if dimensions differ
     n = abs(F.shape[1] - G.shape[1])
     if n>0:
