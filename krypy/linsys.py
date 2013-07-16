@@ -147,7 +147,6 @@ def cg(A, b,
     # resulting approximation is xk = x0 + Mr*yk
     yk = numpy.zeros((N,1), dtype=cdtype)
     xk = x0.copy()
-    info = 0
 
     rho_old = norm_MMlr0**2
 
@@ -200,7 +199,6 @@ def cg(A, b,
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
                         % (k+1, relresvec[-1], tol, norm_r_upd))
-                    info = 1
                 else:
                     warnings.warn(('Iter %d: Updated residual is below tolerance, '
                                 + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
@@ -209,7 +207,7 @@ def cg(A, b,
         k += 1
 
     ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-            'info': info,
+            'info': relresvec[-1] <= tol,
             'relresvec': relresvec
             }
     if exact_solution is not None:
@@ -384,7 +382,6 @@ def minres(A, b,
         # initial relative residual norm
         relresvec = [norm_MMlr0 / norm_MMlb]
     xk = x0.copy()
-    info = 0
 
     # compute error?
     if exact_solution is not None:
@@ -555,7 +552,6 @@ def minres(A, b,
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
                         % (k+1, relresvec[-1], tol, norm_r_upd))
-                    info = 1
                 else:
                     warnings.warn( ( 'Info (iter %d): Updated residual is below tolerance, '
                           + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
@@ -572,7 +568,7 @@ def minres(A, b,
     # end MINRES iteration
 
     ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-            'info': info,
+            'info': relresvec[-1] <= tol,
             'relresvec': relresvec
             }
     if exact_solution is not None:
@@ -731,7 +727,7 @@ def gmres( A, b,
         restart += 1
     ret = {
             'xk': xk,
-            'info': sol['info'],
+            'info': relresvec[-1] <= tol,
             'relresvec': relresvec
             }
     if exact_solution is not None:
@@ -827,7 +823,6 @@ def _gmres( A, b,
     else:
         # initial relative residual norm
         relresvec = [norm_MMlr0 / norm_MMlb]
-    info = 0
 
     # compute error?
     if exact_solution is not None:
@@ -899,7 +894,6 @@ def _gmres( A, b,
                     if conv_warning:
                         warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
                             % (k+1, relresvec[-1], tol, norm_ur))
-                    info = 1
                 else:
                     if conv_warning:
                         warnings.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
@@ -915,7 +909,7 @@ def _gmres( A, b,
 
     xk = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
     ret = { 'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-            'info': info,
+            'info': relresvec[-1] <= tol,
             'relresvec': relresvec
             }
     if exact_solution is not None:
