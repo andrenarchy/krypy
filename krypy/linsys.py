@@ -634,7 +634,7 @@ def gmres( A, b,
     If :math:`M` is used the memory consumption is 2*(maxiter+1).
 
     If the operator :math:`M_l A M_r` is self-adjoint then consider using
-    the MINRES method.
+    the MINRES method :py:meth:`minres`.
 
     :param A:
       a linear operator on :math:`\\mathbb{C}^N`.
