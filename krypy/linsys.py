@@ -30,12 +30,12 @@ def cg(A, b,
     positive definite with respect to the inner product
     :math:`\\langle \\cdot,\\cdot \\rangle` defined by ``inner_product``.
     The preconditioned CG method then computes (in exact arithmetics!)
-    iterates :math:`x_k \\in K_k := K_k(M M_l A M_r, r_0)` such that
+    iterates :math:`x_k \\in x_0 + M_r K_k` with
+    :math:`K_k:= K_k(M M_l A M_r, r_0)` such that
 
     .. math::
 
-      \\|x - x_k\\|_A = \\min_{z \\in K_k} \\|x - z\\|_A.
-
+      \\|x - x_k\\|_A = \\min_{z \\in x_0 + M_r K_k} \\|x - z\\|_A.
 
     The Lanczos alorithm is used with the operator
     :math:`M M_l A M_r` and the inner product defined by
@@ -50,7 +50,7 @@ def cg(A, b,
     * if ``return_basis==True``: about maxiter+1 vectors for the Lanczos basis.
       If :math:`M` is used the memory consumption is 2*(maxiter+1).
 
-    **Caution:** Convergence may be delayed significantly due to round-off
+    **Caution:** CG's convergence may be delayed significantly due to round-off
     errors, cf. chapter 5.9 in *Liesen, Strakos. Krylov subspace Methods.
     2013.*
 
@@ -108,11 +108,6 @@ def cg(A, b,
       * ``info``: convergence flag (0 if converged, 1 otherwise).
       * ``relresvec``: relative residual norms of all iterations, see
         parameter ``tol``.
-      * ``V``: present if ``return_basis=True``. The Arnoldi basis
-        vectors.
-      * ``H``: present if ``return_basis=True``. The Hessenberg matrix.
-      * ``P``: present if ``return_basis=True`` and ``M`` is provided.
-        The matrix :math:`P` fulfills :math:`V=MP`.
     '''
 
     N = len(b)
@@ -241,9 +236,26 @@ def minres(A, b,
            ):
     '''Preconditioned MINRES method.
 
-    Solves :math:`M M_l A M_r y = M M_l b` where :math:`x=M_r y`, where
-    :math:`M_l A M_r` has to be self-adjoint in the inner product
+    The *preconditioned minimal residual method* can be used to solve a
+    system of linear algebraic equations where the linear operator is
+    self-adjoint. Let the following linear algebraic
+    system be given:
+
+    .. math::
+
+      M M_l A M_r y = M M_l b,
+
+    where :math:`x=M_r y` and :math:`M_l A M_r` is self-adjoint with respect
+    to the inner product
     :math:`\\langle \\cdot,\\cdot \\rangle` defined by ``inner_product``.
+    The preconditioned CG method then computes (in exact arithmetics!)
+    iterates :math:`x_k \\in x_0 + M_r K_k` with
+    :math:`K_k:= K_k(M M_l A M_r, r_0)` such that
+
+    .. math::
+
+      \\|M M_l(b - A x_k)\\|_{M^{-1}} =
+      \\min_{z \\in x_0 + M_r K_k} \\|M M_l (b - A z)\\|_{M^{-1}}.
 
     The Lanczos alorithm is used with the operator
     :math:`M M_l A M_r` and the inner product defined by
@@ -254,60 +266,64 @@ def minres(A, b,
 
     Memory consumption is:
 
-    * if ``return_basis==False``: 3 vectors or 6 vectors (if :math:`M` is 
-      used).
+    * if ``return_basis==False``: 3 vectors or 6 vectors if :math:`M` is used.
     * if ``return_basis==True``: about maxiter+1 vectors for the Lanczos basis.
       If :math:`M` is used the memory consumption is 2*(maxiter+1).
 
+    **Caution:** MINRES' convergence may be delayed significantly or even
+    stagnate due to round-off errors, cf. chapter 5.9 in *Liesen, Strakos.
+    Krylov subspace Methods. 2013.*
+
     :param A:
-      a linear operator on :math:`\\mathbb{C}^n`. Note that
+      a linear operator on :math:`\\mathbb{C}^N`. Note that
       :math:`M_l A M_r` has to be self-adjoint in the inner product.
     :param b:
-      a vector in :math:`\\mathbb{C}^n`.
+      a vector in :math:`\\mathbb{C}^N`.
     :param x0: (optional) the initial guess to use. Defaults to zero vector.
       Unless you have a good reason to use a nonzero initial guess you should
       use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
       subspace methods. 2013*.
-    :param tol: the tolerance for the stopping criterion with respect to
-      the relative residual norm:
+    :param tol: (optional) the tolerance for the stopping criterion with
+      respect to the relative residual norm:
 
       .. math::
 
          \\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}}
          \leq \\text{tol}
 
-    :param maxiter: maximum number of iterations.
-    :param M:
-      a self-adjoint and positive definite linear operator on
-      :math:`\\mathbb{C}^n` with respect to ``inner_product``. The changes
+    :param maxiter: (optional) maximum number of iterations. Defaults to N.
+    :param M: (optional)
+      a self-adjoint and positive definite preconditioner, linear operator on
+      :math:`\\mathbb{C}^N` with respect to ``inner_product``. The changes
       the inner product used for orthogonalization to
       :math:`\\langle x,y\\rangle_M = \\langle Mx,y\\rangle` where
       :math:`\\langle \cdot,\cdot\\rangle` is the inner product defined
-      by the parameter ``inner_product``.
-      If set to ``None`` then :math:`M` is the identity.
-    :param Ml:
-      left preconditioner, linear operator on :math:`\\mathbb{C}^n`.
-      If set to ``None`` then :math:`M_l` is the identity.
-    :param Mr:
-      right preconditioner, linear operator on :math:`\\mathbb{C}^n`.
-      If set to ``None`` then :math:`M_r` is the identity.
-    :param inner_product:
-      a function that takes two arguments and computes
-      the (block-) inner product of the arguments.
-    :param explicit_residual:
-      if set to ``False``, the updated residual norm from the GMRES iteration is
-      used in each iteration. If set to ``True``, the residual is computed
-      explicitly in each iteration and thus requires an additional
+      by the parameter ``inner_product``. Defaults to the identity.
+    :param Ml: (optional)
+      left preconditioner, linear operator on :math:`\\mathbb{C}^N`. Defaults
+      to the identity.
+    :param Mr: (optional)
+      right preconditioner, linear operator on :math:`\\mathbb{C}^N`. Defaults
+      to the identity.
+    :param inner_product: (optional)
+      a function that takes two arguments and computes the (block-) inner
+      product of the arguments. Defaults to :py:meth:`~krypy.utils.ip_euclid`.
+    :param explicit_residual: (optional)
+      if set to ``False`` (default), the updated residual norm from the MINRES
+      iteration is used in each iteration. If set to ``True``, the residual is
+      computed explicitly in each iteration and thus requires an additional
       matrix-vector multiplication in each iteration.
-    :param return_basis:
-      if set to ``True`` then the computed Arnoldi basis and the Hessenberg
+    :param return_basis: (optional)
+      if set to ``True`` then the computed Lanczos basis and the tridiagonal
       matrix are returned in the result dictionary with the keys ``V``
       and ``H``. In exact
-    :param exact_solution:
+    :param exact_solution: (optional)
       if the solution vector :math:`x` is passed then the error norm
       :math:`\|x-x_k\|` will be computed in each iteration (with respect
-      to ``inner_product``) and returned as a
-      list in the result dictionary with the key ``errvec``.
+      to ``inner_product``) and returned as a list in the result dictionary
+      with the key ``errvec``. Defaults to ``None``, which means that no
+      errors are computed.
+
     :return:
       a dictionary with the following keys:
 
