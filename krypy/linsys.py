@@ -4,7 +4,7 @@ import warnings
 from scipy.sparse.linalg import aslinearoperator
 from . import utils
 
-def cg(A, b, 
+def cg(A, b,
        x0 = None,
        tol = 1.0e-5,
        maxiter = None,
@@ -132,7 +132,7 @@ def cg(A, b,
     return ret
 
 # ==============================================================================
-def minres(A, b, 
+def minres(A, b,
            x0 = None,
            tol = 1e-5,
            maxiter = None,
@@ -418,7 +418,7 @@ def minres(A, b,
     return ret
 
 # ==============================================================================
-def gmres( A, b, 
+def gmres( A, b,
            x0 = None,
            tol = 1e-5,
            maxiter = None,
@@ -446,16 +446,16 @@ def gmres( A, b,
     :param tol: the tolerance for the stopping criterion with respect to
         the relative residual norm:
 
-        .. math:: 
-        
-           \\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}} 
+        .. math::
+
+           \\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}}
            \leq \\text{tol}
 
-    :param maxiter: 
+    :param maxiter:
         maximum number of iterations per restart cycle, see ``max_restarts``.
         Has to fulfill :math:`\\text{maxiter}\leq n`.
-    :param M: 
-        a self-adjoint and positive definite linear operator on 
+    :param M:
+        a self-adjoint and positive definite linear operator on
         :math:`\\mathbb{C}^n` with respect to ``inner_product``. The changes
         the inner product used for orthogonalization to
         :math:`\\langle x,y\\rangle_M = \\langle Mx,y\\rangle` where
@@ -479,7 +479,7 @@ def gmres( A, b,
     :param return_basis:
         if set to ``True`` then the computed Arnoldi basis and the Hessenberg
         matrix are returned in the result dictionary with the keys ``V``
-        and ``H``. In exact 
+        and ``H``. In exact
     :param exact_solution:
         if the solution vector :math:`x` is passed then the error norm
         :math:`\|x-x_k\|` will be computed in each iteration (with respect
@@ -494,7 +494,7 @@ def gmres( A, b,
         * ``info``: convergence flag (0 if converged, 1 otherwise).
         * ``relresvec``: relative residual norms of all iterations, see
           parameter ``tol``.
-        * ``V``: present if ``return_basis=True``. The Arnoldi basis 
+        * ``V``: present if ``return_basis=True``. The Arnoldi basis
           vectors.
         * ``H``: present if ``return_basis=True``. The Hessenberg matrix.
         * ``P``: present if ``return_basis=True`` and ``M`` is provided.
