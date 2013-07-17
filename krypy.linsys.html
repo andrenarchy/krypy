@@ -62,56 +62,173 @@
 systems.</p>
 <span class="target" id="module-krypy.linsys"></span><dl class="function">
 <dt id="krypy.linsys.cg">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">cg</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596f560&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em><big>)</big><a class="headerlink" href="#krypy.linsys.cg" title="Permalink to this definition">¶</a></dt>
-<dd><p>Conjugate gradient method with different inner product.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.linsys.gmres">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">gmres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596f560&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=True</em>, <em>exact_solution=None</em>, <em>max_restarts=0</em><big>)</big><a class="headerlink" href="#krypy.linsys.gmres" title="Permalink to this definition">¶</a></dt>
-<dd><p>Preconditioned GMRES</p>
-<p>Solves <span class="math">\(M M_l A M_r y = M M_l b\)</span> where <span class="math">\(x=M_r y\)</span>.</p>
-<p>Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
-If <span class="math">\(M\)</span> is used the memory consumption is 2*(maxiter+1).</p>
+<tt class="descclassname">krypy.linsys.</tt><tt class="descname">cg</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59728c0&gt;</em>, <em>explicit_residual=False</em>, <em>exact_solution=None</em><big>)</big><a class="headerlink" href="#krypy.linsys.cg" title="Permalink to this definition">¶</a></dt>
+<dd><p>Preconditioned CG method.</p>
+<p>The <em>preconditioned conjugate gradient method</em> can be used to solve a
+system of linear algebraic equations where the linear operator is
+self-adjoint and positive definite. Let the following linear algebraic
+system be given:</p>
+<div class="math">
+\[M M_l A M_r y = M M_l b,\]</div>
+<p>where <span class="math">\(x=M_r y\)</span> and <span class="math">\(M_l A M_r\)</span> is self-adjoint and
+positive definite with respect to the inner product
+<span class="math">\(\langle \cdot,\cdot \rangle\)</span> defined by <tt class="docutils literal"><span class="pre">inner_product</span></tt>.
+The preconditioned CG method then computes (in exact arithmetics!)
+iterates <span class="math">\(x_k \in x_0 + M_r K_k\)</span> with
+<span class="math">\(K_k:= K_k(M M_l A M_r, r_0)\)</span> such that</p>
+<div class="math">
+\[\|x - x_k\|_A = \min_{z \in x_0 + M_r K_k} \|x - z\|_A.\]</div>
+<p>The Lanczos alorithm is used with the operator
+<span class="math">\(M M_l A M_r\)</span> and the inner product defined by
+<span class="math">\(\langle x,y \rangle_{M^{-1}} = \langle M^{-1}x,y \rangle\)</span>.
+The initial vector for Lanczos is
+<span class="math">\(r_0 = M M_l (b - Ax_0)\)</span> - note that <span class="math">\(M_r\)</span> is not used for
+the initial vector.</p>
+<p>Memory consumption is:</p>
+<ul class="simple">
+<li>if <tt class="docutils literal"><span class="pre">return_basis==False</span></tt>: 3 vectors or 6 vectors if <span class="math">\(M\)</span> is used.</li>
+<li>if <tt class="docutils literal"><span class="pre">return_basis==True</span></tt>: about maxiter+1 vectors for the Lanczos basis.
+If <span class="math">\(M\)</span> is used the memory consumption is 2*(maxiter+1).</li>
+</ul>
+<p><strong>Caution:</strong> CG&#8217;s convergence may be delayed significantly due to round-off
+errors, cf. chapter 5.9 in <em>Liesen, Strakos. Krylov subspace Methods.
+2013.</em></p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>A</strong> &#8211; a linear operator on <span class="math">\(\mathbb{C}^n\)</span>.</li>
-<li><strong>b</strong> &#8211; a vector in <span class="math">\(\mathbb{C}^n\)</span>.</li>
-<li><strong>tol</strong> &#8211; <p>the tolerance for the stopping criterion with respect to
+<li><strong>A</strong> &#8211; a linear operator on <span class="math">\(\mathbb{C}^N\)</span>. Note that
+<span class="math">\(M_l A M_r\)</span> has to be self-adjoint and positive definite in the
+inner product.</li>
+<li><strong>b</strong> &#8211; a vector in <span class="math">\(\mathbb{C}^N\)</span>.</li>
+<li><strong>x0</strong> &#8211; (optional) the initial guess to use. Defaults to zero vector.
+Unless you have a good reason to use a nonzero initial guess you should
+use the zero vector, cf. chapter 5.8.3 in <em>Liesen, Strakos. Krylov
+subspace methods. 2013</em>.</li>
+<li><strong>tol</strong> &#8211; <p>(optional) the tolerance for the stopping criterion with respect to
 the relative residual norm:</p>
 <div class="math">
-\[\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}} 
+\[\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}}
 \leq \text{tol}\]</div>
 </li>
-<li><strong>maxiter</strong> &#8211; maximum number of iterations per restart cycle, see <tt class="docutils literal"><span class="pre">max_restarts</span></tt>.
-Has to fulfill <span class="math">\(\text{maxiter}\leq n\)</span>.</li>
-<li><strong>M</strong> &#8211; a self-adjoint and positive definite linear operator on 
-<span class="math">\(\mathbb{C}^n\)</span> with respect to <tt class="docutils literal"><span class="pre">inner_product</span></tt>. The changes
-the inner product used for orthogonalization to
+<li><strong>maxiter</strong> &#8211; (optional) maximum number of iterations. Defaults to N.</li>
+<li><strong>M</strong> &#8211; (optional)
+a self-adjoint and positive definite preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span> with respect to <tt class="docutils literal"><span class="pre">inner_product</span></tt>. This
+preconditioner changes the inner product used for orthogonalization to
 <span class="math">\(\langle x,y\rangle_M = \langle Mx,y\rangle\)</span> where
 <span class="math">\(\langle \cdot,\cdot\rangle\)</span> is the inner product defined
-by the parameter <tt class="docutils literal"><span class="pre">inner_product</span></tt>.
-If set to <tt class="docutils literal"><span class="pre">None</span></tt> then <span class="math">\(M\)</span> is the identity.</li>
-<li><strong>Ml</strong> &#8211; left preconditioner, linear operator on <span class="math">\(\mathbb{C}^n\)</span>.
-If set to <tt class="docutils literal"><span class="pre">None</span></tt> then <span class="math">\(M_l\)</span> is the identity.</li>
-<li><strong>Mr</strong> &#8211; right preconditioner, linear operator on <span class="math">\(\mathbb{C}^n\)</span>.
-If set to <tt class="docutils literal"><span class="pre">None</span></tt> then <span class="math">\(M_r\)</span> is the identity.</li>
-<li><strong>inner_product</strong> &#8211; a function that takes two arguments and computes
-the (block-) inner product of the arguments.</li>
-<li><strong>explicit_residual</strong> &#8211; if set to False, the updated residual norm from the GMRES iteration is
-used in each iteration. If set to <tt class="docutils literal"><span class="pre">True</span></tt>, the residual is computed
-explicitly in each iteration and thus requires an additional
+by the parameter <tt class="docutils literal"><span class="pre">inner_product</span></tt>. Defaults to the identity.</li>
+<li><strong>Ml</strong> &#8211; (optional) left preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span>. Defaults to the identity.</li>
+<li><strong>Mr</strong> &#8211; (optional) right preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span>. Defaults to the identity.</li>
+<li><strong>inner_product</strong> &#8211; (optional) a function that takes two arguments and
+computes the (block-) inner product of the arguments. Defaults to
+<a class="reference internal" href="krypy.utils.html#krypy.utils.ip_euclid" title="krypy.utils.ip_euclid"><tt class="xref py py-meth docutils literal"><span class="pre">ip_euclid()</span></tt></a>.</li>
+<li><strong>explicit_residual</strong> &#8211; (optional)
+if set to <tt class="docutils literal"><span class="pre">False</span></tt> (default), the updated residual norm from the CG
+iteration is used in each iteration. If set to <tt class="docutils literal"><span class="pre">True</span></tt>, the residual is
+computed explicitly in each iteration and thus requires an additional
 matrix-vector multiplication in each iteration.</li>
-<li><strong>return_basis</strong> &#8211; if set to <tt class="docutils literal"><span class="pre">True</span></tt> then the computed Arnoldi basis and the Hessenberg
-matrix are returned in the result dictionary with the keys <tt class="docutils literal"><span class="pre">V</span></tt>
-and <tt class="docutils literal"><span class="pre">H</span></tt>. In exact</li>
-<li><strong>exact_solution</strong> &#8211; if the solution vector <span class="math">\(x\)</span> is passed then the error norm
+<li><strong>exact_solution</strong> &#8211; (optional)
+if the solution vector <span class="math">\(x\)</span> is passed then the error norm
 <span class="math">\(\|x-x_k\|\)</span> will be computed in each iteration (with respect
-to <tt class="docutils literal"><span class="pre">inner_product</span></tt>) and returned as a
-list in the result dictionary with the key <tt class="docutils literal"><span class="pre">errvec</span></tt>.</li>
+to <tt class="docutils literal"><span class="pre">inner_product</span></tt>) and returned as a list in the result dictionary
+with the key <tt class="docutils literal"><span class="pre">errvec</span></tt>. Defaults to <tt class="docutils literal"><span class="pre">None</span></tt>, which means that no
+errors are computed.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><p>a dictionary with the following keys:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">xk</span></tt>: the approximate solution <span class="math">\(x_k\)</span>.</li>
+<li><tt class="docutils literal"><span class="pre">info</span></tt>: convergence flag (0 if converged, 1 otherwise).</li>
+<li><tt class="docutils literal"><span class="pre">relresvec</span></tt>: relative residual norms of all iterations, see
+parameter <tt class="docutils literal"><span class="pre">tol</span></tt>.</li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="krypy.linsys.gmres">
+<tt class="descclassname">krypy.linsys.</tt><tt class="descname">gmres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59728c0&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=True</em>, <em>exact_solution=None</em>, <em>max_restarts=0</em><big>)</big><a class="headerlink" href="#krypy.linsys.gmres" title="Permalink to this definition">¶</a></dt>
+<dd><p>Preconditioned GMRES method.</p>
+<p>The <em>preconditioned generalized minimal residual method</em> can be used to
+solve a system of linear algebraic equations. Let the following linear
+algebraic system be given:</p>
+<div class="math">
+\[M M_l A M_r y = M M_l b,\]</div>
+<p>where <span class="math">\(x=M_r y\)</span>.
+The preconditioned GMRES method then computes (in exact arithmetics!)
+iterates <span class="math">\(x_k \in x_0 + M_r K_k\)</span> with
+<span class="math">\(K_k:= K_k(M M_l A M_r, r_0)\)</span> such that</p>
+<div class="math">
+\[\|M M_l(b - A x_k)\|_{M^{-1}} =
+\min_{z \in x_0 + M_r K_k} \|M M_l (b - A z)\|_{M^{-1}}.\]</div>
+<p>The Arnoldi alorithm is used with the operator
+<span class="math">\(M M_l A M_r\)</span> and the inner product defined by
+<span class="math">\(\langle x,y \rangle_{M^{-1}} = \langle M^{-1}x,y \rangle\)</span>.
+The initial vector for Arnoldi is
+<span class="math">\(r_0 = M M_l (b - Ax_0)\)</span> - note that <span class="math">\(M_r\)</span> is not used for
+the initial vector.</p>
+<p>Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
+If <span class="math">\(M\)</span> is used the memory consumption is 2*(maxiter+1).</p>
+<p>If the operator <span class="math">\(M_l A M_r\)</span> is self-adjoint then consider using
+the MINRES method <a class="reference internal" href="#krypy.linsys.minres" title="krypy.linsys.minres"><tt class="xref py py-meth docutils literal"><span class="pre">minres()</span></tt></a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>A</strong> &#8211; a linear operator on <span class="math">\(\mathbb{C}^N\)</span>.</li>
+<li><strong>b</strong> &#8211; a vector in <span class="math">\(\mathbb{C}^N\)</span>.</li>
+<li><strong>x0</strong> &#8211; (optional) the initial guess to use. Defaults to zero vector.
+Unless you have a good reason to use a nonzero initial guess you should
+use the zero vector, cf. chapter 5.8.3 in <em>Liesen, Strakos. Krylov
+subspace methods. 2013</em>.</li>
+<li><strong>tol</strong> &#8211; <p>(optional) the tolerance for the stopping criterion with
+respect to the relative residual norm:</p>
+<div class="math">
+\[\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}}
+\leq \text{tol}\]</div>
+</li>
+<li><strong>maxiter</strong> &#8211; (optional)
+maximum number of iterations per restart cycle, see <tt class="docutils literal"><span class="pre">max_restarts</span></tt>.
+Has to fulfill <span class="math">\(\text{maxiter}\leq N\)</span>. Defaults to N.</li>
+<li><strong>M</strong> &#8211; (optional)
+a self-adjoint and positive definite preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span> with respect to <tt class="docutils literal"><span class="pre">inner_product</span></tt>. This
+preconditioner changes the inner product used for orthogonalization to
+<span class="math">\(\langle x,y\rangle_M = \langle Mx,y\rangle\)</span> where
+<span class="math">\(\langle \cdot,\cdot\rangle\)</span> is the inner product defined by the
+parameter <tt class="docutils literal"><span class="pre">inner_product</span></tt>. Defaults to the identity.</li>
+<li><strong>Ml</strong> &#8211; (optional) left preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span>. Defaults to the identity.</li>
+<li><strong>Mr</strong> &#8211; (optional) right preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span>.  Defaults to the identity.</li>
+<li><strong>inner_product</strong> &#8211; (optional) a function that takes two arguments and
+computes the (block-) inner product of the arguments. Defaults to
+<a class="reference internal" href="krypy.utils.html#krypy.utils.ip_euclid" title="krypy.utils.ip_euclid"><tt class="xref py py-meth docutils literal"><span class="pre">ip_euclid()</span></tt></a>.</li>
+<li><strong>explicit_residual</strong> &#8211; (optional)
+if set to <tt class="docutils literal"><span class="pre">False</span></tt> (default), the updated residual norm from the GMRES
+iteration is used in each iteration. If set to <tt class="docutils literal"><span class="pre">True</span></tt>, the residual is
+computed explicitly in each iteration and thus requires an additional
+matrix-vector multiplication in each iteration.</li>
+<li><strong>return_basis</strong> &#8211; (optional)
+if set to <tt class="docutils literal"><span class="pre">True</span></tt> then the computed Arnoldi basis and the Hessenberg
+matrix are returned in the result dictionary with the keys <tt class="docutils literal"><span class="pre">V</span></tt>
+and <tt class="docutils literal"><span class="pre">H</span></tt>. Defaults to <tt class="docutils literal"><span class="pre">False</span></tt>.</li>
+<li><strong>exact_solution</strong> &#8211; if the solution vector <span class="math">\(x\)</span> is passed then the error norm
+<span class="math">\(\|x-x_k\|\)</span> will be computed in each iteration (with respect to
+<tt class="docutils literal"><span class="pre">inner_product</span></tt>) and returned as a list in the result dictionary with
+the key <tt class="docutils literal"><span class="pre">errvec</span></tt>. Defaults to <tt class="docutils literal"><span class="pre">None</span></tt>, which means that no errors
+are computed.</li>
 <li><strong>max_restarts</strong> &#8211; the maximum number of restarts. The maximum number of
 iterations is <tt class="docutils literal"><span class="pre">(max_restarts+1)*maxiter</span></tt>.</li>
 </ul>
@@ -123,7 +240,7 @@ iterations is <tt class="docutils literal"><span class="pre">(max_restarts+1)*ma
 <li><tt class="docutils literal"><span class="pre">info</span></tt>: convergence flag (0 if converged, 1 otherwise).</li>
 <li><tt class="docutils literal"><span class="pre">relresvec</span></tt>: relative residual norms of all iterations, see
 parameter <tt class="docutils literal"><span class="pre">tol</span></tt>.</li>
-<li><tt class="docutils literal"><span class="pre">V</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Arnoldi basis 
+<li><tt class="docutils literal"><span class="pre">V</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Arnoldi basis
 vectors.</li>
 <li><tt class="docutils literal"><span class="pre">H</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Hessenberg matrix.</li>
 <li><tt class="docutils literal"><span class="pre">P</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt> and <tt class="docutils literal"><span class="pre">M</span></tt> is provided.
@@ -138,19 +255,106 @@ The matrix <span class="math">\(P\)</span> fulfills <span class="math">\(V=MP\)<
 
 <dl class="function">
 <dt id="krypy.linsys.minres">
-<tt class="descclassname">krypy.linsys.</tt><tt class="descname">minres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab596f560&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em>, <em>timer=False</em><big>)</big><a class="headerlink" href="#krypy.linsys.minres" title="Permalink to this definition">¶</a></dt>
-<dd><p>Preconditioned MINRES</p>
-<p>This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
-where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the
-inner_product. M has to be self-adjoint and positive-definite w.r.t.
-inner_product.</p>
-<p>Details:
-The Lanczos procedure is used with the operator M*Ml*A*Mr and the
-inner product defined by inner_product(M^{-1}x,y). The initial vector
-for Lanczos is r0 = M*Ml*(b - A*x0) &#8211; note that Mr is not used for
-the initial vector!</p>
-<p>Stopping criterion is
-||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} &lt;= tol</p>
+<tt class="descclassname">krypy.linsys.</tt><tt class="descname">minres</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0=None</em>, <em>tol=1e-05</em>, <em>maxiter=None</em>, <em>M=None</em>, <em>Ml=None</em>, <em>Mr=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59728c0&gt;</em>, <em>explicit_residual=False</em>, <em>return_basis=False</em>, <em>full_reortho=False</em>, <em>exact_solution=None</em>, <em>timer=False</em><big>)</big><a class="headerlink" href="#krypy.linsys.minres" title="Permalink to this definition">¶</a></dt>
+<dd><p>Preconditioned MINRES method.</p>
+<p>The <em>preconditioned minimal residual method</em> can be used to solve a
+system of linear algebraic equations where the linear operator is
+self-adjoint. Let the following linear algebraic
+system be given:</p>
+<div class="math">
+\[M M_l A M_r y = M M_l b,\]</div>
+<p>where <span class="math">\(x=M_r y\)</span> and <span class="math">\(M_l A M_r\)</span> is self-adjoint with respect
+to the inner product
+<span class="math">\(\langle \cdot,\cdot \rangle\)</span> defined by <tt class="docutils literal"><span class="pre">inner_product</span></tt>.
+The preconditioned MINRES method then computes (in exact arithmetics!)
+iterates <span class="math">\(x_k \in x_0 + M_r K_k\)</span> with
+<span class="math">\(K_k:= K_k(M M_l A M_r, r_0)\)</span> such that</p>
+<div class="math">
+\[\|M M_l(b - A x_k)\|_{M^{-1}} =
+\min_{z \in x_0 + M_r K_k} \|M M_l (b - A z)\|_{M^{-1}}.\]</div>
+<p>The Lanczos alorithm is used with the operator
+<span class="math">\(M M_l A M_r\)</span> and the inner product defined by
+<span class="math">\(\langle x,y \rangle_{M^{-1}} = \langle M^{-1}x,y \rangle\)</span>.
+The initial vector for Lanczos is
+<span class="math">\(r_0 = M M_l (b - Ax_0)\)</span> - note that <span class="math">\(M_r\)</span> is not used for
+the initial vector.</p>
+<p>Memory consumption is:</p>
+<ul class="simple">
+<li>if <tt class="docutils literal"><span class="pre">return_basis==False</span></tt>: 3 vectors or 6 vectors if <span class="math">\(M\)</span> is used.</li>
+<li>if <tt class="docutils literal"><span class="pre">return_basis==True</span></tt>: about maxiter+1 vectors for the Lanczos basis.
+If <span class="math">\(M\)</span> is used the memory consumption is 2*(maxiter+1).</li>
+</ul>
+<p><strong>Caution:</strong> MINRES&#8217; convergence may be delayed significantly or even
+stagnate due to round-off errors, cf. chapter 5.9 in <em>Liesen, Strakos.
+Krylov subspace Methods. 2013.</em></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>A</strong> &#8211; a linear operator on <span class="math">\(\mathbb{C}^N\)</span>. Note that
+<span class="math">\(M_l A M_r\)</span> has to be self-adjoint in the inner product.</li>
+<li><strong>b</strong> &#8211; a vector in <span class="math">\(\mathbb{C}^N\)</span>.</li>
+<li><strong>x0</strong> &#8211; (optional) the initial guess to use. Defaults to zero vector.
+Unless you have a good reason to use a nonzero initial guess you should
+use the zero vector, cf. chapter 5.8.3 in <em>Liesen, Strakos. Krylov
+subspace methods. 2013</em>.</li>
+<li><strong>tol</strong> &#8211; <p>(optional) the tolerance for the stopping criterion with
+respect to the relative residual norm:</p>
+<div class="math">
+\[\frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }{ \|M M_l b\|_{M^{-1}}}
+\leq \text{tol}\]</div>
+</li>
+<li><strong>maxiter</strong> &#8211; (optional) maximum number of iterations. Defaults to N.</li>
+<li><strong>M</strong> &#8211; (optional)
+a self-adjoint and positive definite preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span> with respect to <tt class="docutils literal"><span class="pre">inner_product</span></tt>. This
+preconditioner changes the inner product used for orthogonalization to
+<span class="math">\(\langle x,y\rangle_M = \langle Mx,y\rangle\)</span> where
+<span class="math">\(\langle \cdot,\cdot\rangle\)</span> is the inner product defined by the
+parameter <tt class="docutils literal"><span class="pre">inner_product</span></tt>. Defaults to the identity.</li>
+<li><strong>Ml</strong> &#8211; (optional) left preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span>. Defaults to the identity.</li>
+<li><strong>Mr</strong> &#8211; (optional) right preconditioner, linear operator on
+<span class="math">\(\mathbb{C}^N\)</span>. Defaults to the identity.</li>
+<li><strong>inner_product</strong> &#8211; (optional) a function that takes two arguments and
+computes the (block-) inner product of the arguments. Defaults to
+<a class="reference internal" href="krypy.utils.html#krypy.utils.ip_euclid" title="krypy.utils.ip_euclid"><tt class="xref py py-meth docutils literal"><span class="pre">ip_euclid()</span></tt></a>.</li>
+<li><strong>explicit_residual</strong> &#8211; (optional)
+if set to <tt class="docutils literal"><span class="pre">False</span></tt> (default), the updated residual norm from the MINRES
+iteration is used in each iteration. If set to <tt class="docutils literal"><span class="pre">True</span></tt>, the residual is
+computed explicitly in each iteration and thus requires an additional
+matrix-vector multiplication in each iteration.</li>
+<li><strong>return_basis</strong> &#8211; (optional)
+if set to <tt class="docutils literal"><span class="pre">True</span></tt> then the computed Lanczos basis and the tridiagonal
+matrix are returned in the result dictionary with the keys <tt class="docutils literal"><span class="pre">V</span></tt>
+and <tt class="docutils literal"><span class="pre">H</span></tt>. Defaults to <tt class="docutils literal"><span class="pre">False</span></tt>.</li>
+<li><strong>exact_solution</strong> &#8211; (optional)
+if the solution vector <span class="math">\(x\)</span> is passed then the error norm
+<span class="math">\(\|x-x_k\|\)</span> will be computed in each iteration (with respect to
+<tt class="docutils literal"><span class="pre">inner_product</span></tt>) and returned as a list in the result dictionary with
+the key <tt class="docutils literal"><span class="pre">errvec</span></tt>. Defaults to <tt class="docutils literal"><span class="pre">None</span></tt>, which means that no errors are
+computed.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><p>a dictionary with the following keys:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">xk</span></tt>: the approximate solution <span class="math">\(x_k\)</span>.</li>
+<li><tt class="docutils literal"><span class="pre">info</span></tt>: convergence flag (0 if converged, 1 otherwise).</li>
+<li><tt class="docutils literal"><span class="pre">relresvec</span></tt>: relative residual norms of all iterations, see
+parameter <tt class="docutils literal"><span class="pre">tol</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">V</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Arnoldi basis
+vectors.</li>
+<li><tt class="docutils literal"><span class="pre">H</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt>. The Hessenberg matrix.</li>
+<li><tt class="docutils literal"><span class="pre">P</span></tt>: present if <tt class="docutils literal"><span class="pre">return_basis=True</span></tt> and <tt class="docutils literal"><span class="pre">M</span></tt> is provided.
+The matrix <span class="math">\(P\)</span> fulfills <span class="math">\(V=MP\)</span>.</li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </div>
