@@ -180,7 +180,6 @@ def test_angles():
             numpy.dot(numpy.eye(10,4), numpy.diag([1,1e1,1e2,1e3])),
             numpy.eye(10,4)
             ]
-    B = numpy.diag(numpy.linspace(1,5,10))
     inner_products = get_inner_products()
     for F, G, inner_product, compute_vectors in itertools.product(FGs, FGs, inner_products, [False, True]):
         yield run_angles, F, G, inner_product, compute_vectors
@@ -214,6 +213,54 @@ def run_angles(F, G, inner_product, compute_vectors):
         m = min(F.shape[1], G.shape[1])
         UV = inner_product(U,V)
         assert( numpy.linalg.norm( UV - numpy.diag(numpy.cos(theta))[:F.shape[1],:G.shape[1]] ) <= 1e-14 )
+
+def test_hegedus():
+    matrices = [
+            get_matrix_spd(),
+            get_matrix_hpd(),
+            get_matrix_symm_indef(),
+            get_matrix_herm_indef(),
+            get_matrix_nonsymm(),
+            get_matrix_comp_nonsymm()
+            ]
+    xs = [
+            numpy.ones((10,1)),
+            (1.j+1)*numpy.ones((10,1))
+            ]
+    x0s = [
+            numpy.zeros((10,1)),
+            numpy.linspace(1,5,10).reshape((10,1)),
+            ] + xs
+    m = numpy.array(range(1,11))
+    m[-1] = 1.
+    Ms = [None, numpy.diag(m)]
+    Mls = [None, numpy.diag(m)]
+    inner_products = get_inner_products()
+
+    for matrix, x, x0, M, Ml, inner_product in itertools.product(matrices,
+            xs, x0s, Ms, Mls, inner_products):
+        b = numpy.dot(matrix, x)
+        for A in get_operators(matrix):
+            yield run_hegedus, A, b, x0, M, Ml, inner_product
+
+def run_hegedus(A, b, x0, M, Ml, inner_product):
+    x0new = krypy.utils.hegedus(A, b, x0, M, Ml, inner_product)
+
+    N = len(b)
+    shape = (N,N)
+    A = krypy.utils.get_linearoperator(shape, A)
+    M = krypy.utils.get_linearoperator(shape, M)
+    Ml = krypy.utils.get_linearoperator(shape, Ml)
+
+    Mlr0 = Ml*(b - A*x0)
+    MMlr0_norm = krypy.utils.norm( Mlr0, M*Mlr0, inner_product=inner_product)
+
+    Mlr0new = Ml*(b - A*x0new)
+    MMlr0new_norm = krypy.utils.norm( Mlr0new, M*Mlr0new, inner_product=inner_product)
+
+    print(MMlr0new_norm)
+    print(MMlr0_norm)
+    assert(  MMlr0new_norm <= MMlr0_norm  + 1e-13 )
 
 def test_arnoldi():
     matrices = [

@@ -63,7 +63,7 @@ def cg(A, b,
     :param x0: (optional) the initial guess to use. Defaults to zero vector.
       Unless you have a good reason to use a nonzero initial guess you should
       use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
-      subspace methods. 2013*.
+      subspace methods. 2013*. See also :py:meth:`~krypy.utils.hegedus`.
     :param tol: (optional) the tolerance for the stopping criterion with respect to
       the relative residual norm:
 
@@ -278,7 +278,7 @@ def minres(A, b,
     :param x0: (optional) the initial guess to use. Defaults to zero vector.
       Unless you have a good reason to use a nonzero initial guess you should
       use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
-      subspace methods. 2013*.
+      subspace methods. 2013*. See also :py:meth:`~krypy.utils.hegedus`.
     :param tol: (optional) the tolerance for the stopping criterion with
       respect to the relative residual norm:
 
@@ -639,7 +639,7 @@ def gmres( A, b,
     :param x0: (optional) the initial guess to use. Defaults to zero vector.
       Unless you have a good reason to use a nonzero initial guess you should
       use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
-      subspace methods. 2013*.
+      subspace methods. 2013*. See also :py:meth:`~krypy.utils.hegedus`.
     :param tol: (optional) the tolerance for the stopping criterion with
       respect to the relative residual norm:
 

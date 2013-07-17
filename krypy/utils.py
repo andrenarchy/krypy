@@ -485,6 +485,47 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
         return theta
 
 # ===================================================================
+def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
+    """Rescale initial guess appropriately (Hegedüs trick).
+
+    The Hegedüs trick rescales the initial guess to :math:`\\gamma_{\\min} x_0`
+    such that
+
+    .. math ::
+
+      \\|r_0\\|_{M^{-1}}
+      = \\| M M_l (b - A \\gamma_{\\min} x_0) \\|_{M^{-1}}
+      = \\min_{\\gamma\\in\\mathbb{C}} \\| M M_l (b - A \\gamma x_0) \\|_{M^{-1}}
+      \\leq \\| M M_l b \\|_{M^{-1}}.
+
+    This is achieved by
+    :math:`\\gamma_{\\min} = \\frac{\\langle z, M M_l b \\rangle_{M^{-1}}}{\\|z\\|_{M^{-1}}^2}` for
+    :math:`z=M M_l A x_0` because then :math:`r_0=P_{z^\\perp}b`. (Note that
+    the right hand side of formula (5.8.16) in *Liesen, Strakos. Krylov
+    subspace methods. 2013.* has to be complex conjugated.)
+
+    The parameters are the parameters you want to pass to
+    :py:meth:`~krypy.linsys.gmres`,
+    :py:meth:`~krypy.linsys.minres` or
+    :py:meth:`~krypy.linsys.cg`.
+
+    :return: the adapted initial guess with the above property.
+    """
+    N = len(b)
+    shape = (N,N)
+    A = get_linearoperator(shape, A)
+    M = get_linearoperator(shape, M)
+    Ml = get_linearoperator(shape, Ml)
+
+    MlAx0 = Ml*(A*x0)
+    z = M*MlAx0
+    znorm2 = inner_product(z, MlAx0)
+    if znorm2 <= 1e-15:
+        return numpy.zeros((N,1))
+    gamma = inner_product(z, Ml*b) / znorm2
+    return gamma*x0
+
+# ===================================================================
 def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
     """Arnoldi algorithm.
 
