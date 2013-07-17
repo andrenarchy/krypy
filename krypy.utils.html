@@ -111,7 +111,7 @@ the resulting matrix is dense.</p>
 
 <dl class="class">
 <dt id="krypy.utils.Projection">
-<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
 <p>Generic projection.</p>
 <p>This class can represent any projection (orthogonal and oblique)
@@ -211,7 +211,7 @@ the resulting matrix is dense.</p>
 
 <dl class="function">
 <dt id="krypy.utils.angles">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>F</em>, <em>G</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em>, <em>compute_vectors=False</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>F</em>, <em>G</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em>, <em>compute_vectors=False</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
 <dd><p>Principal angles between two subspaces.</p>
 <p>This algorithm is based on algorithm 6.2 in <cite>Knyazev, Argentati. Principal
 angles between subspaces in an A-based scalar product: algorithms and
@@ -262,7 +262,7 @@ Furthermore,
 
 <dl class="function">
 <dt id="krypy.utils.arnoldi">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
 <dd><p>Arnoldi algorithm.</p>
 <p>Computes V and H such that <span class="math">\(AV_n=V_{n+1}\underline{H}_n\)</span>.
 If the Krylov subspace becomes A-invariant then V and H are truncated such
@@ -310,6 +310,36 @@ ignored (most notably None).</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="krypy.utils.hegedus">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">hegedus</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0</em>, <em>M=None</em>, <em>Ml=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.hegedus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rescale initial guess appropriately (Hegedüs trick).</p>
+<p>The Hegedüs trick rescales the initial guess to <span class="math">\(\gamma_{\min} x_0\)</span>
+such that</p>
+<div class="math">
+\[\|r_0\|_{M^{-1}}
+= \| M M_l (b - A \gamma_{\min} x_0) \|_{M^{-1}}
+= \min_{\gamma\in\mathbb{C}} \| M M_l (b - A \gamma x_0) \|_{M^{-1}}
+\leq \| M M_l b \|_{M^{-1}}.\]</div>
+<p>This is achieved by
+<span class="math">\(\gamma_{\min} = \frac{\langle z, M M_l b \rangle_{M^{-1}}}{\|z\|_{M^{-1}}^2}\)</span> for
+<span class="math">\(z=M M_l A x_0\)</span> because then <span class="math">\(r_0=P_{z^\perp}b\)</span>. (Note that
+the right hand side of formula (5.8.16) in <em>Liesen, Strakos. Krylov
+subspace methods. 2013.</em> has to be complex conjugated.)</p>
+<p>The parameters are the parameters you want to pass to
+<a class="reference internal" href="krypy.linsys.html#krypy.linsys.gmres" title="krypy.linsys.gmres"><tt class="xref py py-meth docutils literal"><span class="pre">gmres()</span></tt></a>,
+<a class="reference internal" href="krypy.linsys.html#krypy.linsys.minres" title="krypy.linsys.minres"><tt class="xref py py-meth docutils literal"><span class="pre">minres()</span></tt></a> or
+<a class="reference internal" href="krypy.linsys.html#krypy.linsys.cg" title="krypy.linsys.cg"><tt class="xref py py-meth docutils literal"><span class="pre">cg()</span></tt></a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">the adapted initial guess with the above property.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
 <dt id="krypy.utils.ip_euclid">
 <tt class="descclassname">krypy.utils.</tt><tt class="descname">ip_euclid</tt><big>(</big><em>X</em>, <em>Y</em><big>)</big><a class="headerlink" href="#krypy.utils.ip_euclid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Euclidean inner product.</p>
@@ -334,24 +364,24 @@ transpose.</p>
 
 <dl class="function">
 <dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.qr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">qr</tt><big>(</big><em>X</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab5976950&gt;</em>, <em>reorthos=1</em><big>)</big><a class="headerlink" href="#krypy.utils.qr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">qr</tt><big>(</big><em>X</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59769e0&gt;</em>, <em>reorthos=1</em><big>)</big><a class="headerlink" href="#krypy.utils.qr" title="Permalink to this definition">¶</a></dt>
 <dd><p>QR factorization with customizable inner product.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
