@@ -7,6 +7,7 @@ This method provides functions like inner products, norms, ...
 
 import numpy
 import warnings
+import time
 import scipy.linalg
 from scipy.sparse import issparse, isspmatrix
 from scipy.sparse.linalg import LinearOperator, aslinearoperator
@@ -729,3 +730,53 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         return theta, U, resnorm, numpy.dot(V[:,:n], U)
 
     return theta, U, resnorm
+
+class Timer:
+    """Measure execution time of multiple code blocks with ``with``.
+
+    Example: ::
+
+        t = Timer()
+        with t:
+            print('time me!')
+        print('don\\\'t time me!')
+        with t:
+            print('time me, too!')
+        print(t)
+
+    Result: ::
+
+        time me!
+        don't time me!
+        time me, too!
+        [6.389617919921875e-05, 6.008148193359375e-05]
+
+    If you want to measure different types of code blocks you can use
+    ``defaultdict`` as a timer manager: ::
+
+        from collections import defaultdict
+
+        tm = defaultdict(Timer)
+        with tm['class1']:
+            print('code that belongs to class1')
+        with tm['class2']:
+            print('code that belongs to class2')
+        with tm['class1']:
+            print('code that belongs to class1')
+        print(tm)
+
+    Result: ::
+
+        code that belongs to class1
+        code that belongs to class2
+        code that belongs to class1
+        defaultdict(<class krypy.utils.Timer at 0x23810b8>, {'class2': [2.9087066650390625e-05], 'class1': [4.696846008300781e-05, 3.2901763916015625e-05]})
+    """
+    def __init__(self):
+        self.times = []
+    def __enter__(self):
+        self.tstart = time.time()
+    def __exit__(self, a,b,c):
+        self.times.append( time.time() - self.tstart )
+    def __repr__(self):
+        return self.times.__repr__()
