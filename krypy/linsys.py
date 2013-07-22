@@ -227,8 +227,7 @@ def minres(A, b,
            explicit_residual = False,
            return_basis = False,
            full_reortho = False,
-           exact_solution = None,
-           timer = False
+           exact_solution = None
            ):
     '''Preconditioned MINRES method.
 
@@ -344,25 +343,6 @@ def minres(A, b,
     Mr = utils.get_linearoperator(shape, Mr)
     cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
 
-    if timer:
-        import time
-        times = {'setup': numpy.empty(1),
-                 'apply Ml*A*Mr': numpy.empty(maxiter),
-                 'Lanczos': numpy.empty(maxiter),
-                 'reortho': numpy.empty(maxiter),
-                 'apply prec': numpy.empty(maxiter),
-                 'extend Krylov': numpy.empty(maxiter),
-                 'construct full basis': numpy.empty(maxiter),
-                 'implicit QR': numpy.empty(maxiter),
-                 'update solution': numpy.empty(maxiter),
-                 'update residual': numpy.empty(maxiter)
-                 }
-    else:
-        times = None
-
-    if timer:
-        start = time.time()
-
     # Compute M-norm of M*Ml*b.
     Mlb = Ml * b
     MMlb = M * Mlb
@@ -410,38 +390,25 @@ def minres(A, b,
         # resulting approximation is xk = x0 + Mr*yk
         yk = numpy.zeros((N,1), dtype=cdtype)
 
-        if timer:
-            times['setup'][0] = time.time()-start
-
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
     # --------------------------------------------------------------------------
     while relresvec[-1] > tol and k < maxiter:
         # ---------------------------------------------------------------------
         # Lanczos
-        if timer:
-            start = time.time()
         tsold = ts
         z  = Mr * V[:,[1]]
         z  = A * z
         z  = Ml * z
-        if timer:
-            times['apply Ml*A*Mr'][k] = time.time()-start
-
-        if timer:
-            start = time.time()
         z  = z - tsold * P[:,[0]]
+
         # Should be real! (diagonal element):
         td = inner_product(V[:,[1]], z)[0,0]
         if abs(td.imag) > 1.0e-12:
             warnings.warn('Iter %d: abs(td.imag) = %g > 1e-12' % (k+1, abs(td.imag)))
         td = td.real
         z  = z - td * P[:,[1]]
-        if timer:
-            times['Lanczos'][k] = time.time()-start
 
-        if timer:
-            start = time.time()
         # double reortho
         for l in range(0,2):
             # full reortho?
@@ -455,8 +422,6 @@ def minres(A, b,
                     if abs(ip) > 1.0e-9:
                         warnings.warn('Iter %d: abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0)))
                     z -= ip * Pfull[:,[i]]
-        if timer:
-            times['reortho'][k] = time.time()-start
 
         # needed for QR-update:
         R = numpy.zeros( (4,1) )
@@ -465,29 +430,19 @@ def minres(A, b,
             R[:2] = G1.apply(R[:2])
 
         # Apply the preconditioner.
-        if timer:
-            start = time.time()
         v  = M * z
         ts = utils.norm(z, Mx=v, inner_product=inner_product)
 
-        if timer:
-            times['apply prec'][k] = time.time()-start
 
-        if timer:
-            start = time.time()
         if ts > 0.0:
             P  = numpy.c_[P[:,[1]], z / ts]
             V  = numpy.c_[V[:,[1]], v / ts]
         else:
             P  = numpy.c_[P[:,[1]], numpy.zeros(N)]
             V  = numpy.c_[V[:,[1]], numpy.zeros(N)]
-        if timer:
-            times['extend Krylov'][k] = time.time()-start
 
 
         # store new vectors in full basis
-        if timer:
-            start = time.time()
         if return_basis or full_reortho:
             if ts>0.0:
                 Vfull[:,[k+1]] = v / ts
@@ -496,13 +451,9 @@ def minres(A, b,
             Hfull[k+1,k] = ts      # subdiagonal
             if k+1 < maxiter:
                 Hfull[k,k+1] = ts  # superdiagonal
-        if timer:
-            times['construct full basis'][k] = time.time()-start
 
         # ----------------------------------------------------------------------
         # (implicit) update of QR-factorization of Lanczos matrix
-        if timer:
-            start = time.time()
         R[2:4,0] = [td, ts]
         if G2 is not None:
             R[1:3] = G2.apply(R[1:3])
@@ -512,23 +463,15 @@ def minres(A, b,
         R[2] = G2.r
         R[3] = 0.0
         y = G2.apply(y)
-        if timer:
-            times['implicit QR'][k] = time.time()-start
 
         # ----------------------------------------------------------------------
         # update solution
-        if timer:
-            start = time.time()
         z  = (V[:,0:1] - R[0]*W[:,0:1] - R[1]*W[:,1:2]) / R[2]
         W  = numpy.c_[W[:,1:2], z]
         yk = yk + y[0] * z
         y  = [y[1], 0]
-        if timer:
-            times['update solution'][k] = time.time()-start
 
         # update residual
-        if timer:
-            start = time.time()
         if exact_solution is not None:
             xk = x0 + Mr * yk
             errvec.append(utils.norm(exact_solution - xk, inner_product=inner_product))
@@ -558,8 +501,6 @@ def minres(A, b,
                           + 'resup=%g)\n' \
                           ) % (k+1, relresvec[-1], tol, norm_r_upd) )
 
-        if timer:
-            times['update residual'][k] = time.time()-start
 
         # limit relative residual to machine precision (an exact 0 is rare but
         # seems to occur with pyamg...).
@@ -577,11 +518,6 @@ def minres(A, b,
         ret['V'] = Vfull[:,0:k+1]
         ret['P'] = Pfull[:,0:k+1]
         ret['H'] = Hfull[0:k+1,0:k]
-    if timer:
-        # properly cut down times
-        for key in times:
-            times[key] = times[key][:k]
-        ret['times'] = times
     return ret
 
 # ==============================================================================
