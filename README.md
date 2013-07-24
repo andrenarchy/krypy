@@ -45,7 +45,7 @@ from krypy.linsys import gmres
 
 # Installing
 ### Ubuntu
-There's an [Ubuntu PPA](https://launchpad.net/~andrenarchy/+archive/python) with a package of the Python 2 version.
+There's an [Ubuntu PPA](https://launchpad.net/~andrenarchy/+archive/python) with packages for Python 2 and Python 3.
 
 ### Installing from source
 KryPy has the following dependencies:
