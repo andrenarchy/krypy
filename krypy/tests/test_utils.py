@@ -144,6 +144,10 @@ def run_projection(X, Y, inner_product, ipYX, ipYXinv):
     assert( numpy.linalg.norm( inner_product( X if Y is None else Y, I - P.apply(I) ), 2) <= 5e-14)
     # check that the complementary projection is correct
     assert( numpy.linalg.norm( I-P.apply(I) -P.apply_complement(I), 2) <= 1e-14 )
+    # check that operator()*z executes apply(z)
+    assert( numpy.linalg.norm( P.operator()*z - P.apply(z)) == 0 )
+    # check that operator_complement()*z executes apply_complement(z)
+    assert( numpy.linalg.norm( P.operator_complement()*z - P.apply_complement(z)) == 0 )
     # check that the matrix representation is correct
     assert( numpy.linalg.norm( P.matrix() - P.apply(I), 2) <= 1e-14 )
 

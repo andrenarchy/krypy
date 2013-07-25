@@ -347,6 +347,25 @@ class Projection:
         """
         return z - self.apply(z)
 
+    def _get_operator(self, fun):
+        N = self.X.shape[0]
+        t = numpy.find_common_type([self.X.dtype, self.Y.dtype], [])
+        return LinearOperator((N,N), fun, None, fun, t)
+
+    def operator(self):
+        """Get a ``LinearOperator`` corresponding to apply().
+
+        :return: a LinearOperator that calls apply().
+        """
+        return self._get_operator(self.apply)
+
+    def operator_complement(self):
+        """Get a ``LinearOperator`` corresponding to apply_complement().
+
+        :return: a LinearOperator that calls apply_complement().
+        """
+        return self._get_operator(self.apply_complement)
+
     def matrix(self):
         """Builds matrix representation of projection.
 
