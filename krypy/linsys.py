@@ -4,6 +4,8 @@ import warnings
 from scipy.sparse.linalg import aslinearoperator
 from . import utils
 
+__all__ = ['cg', 'minres', 'gmres']
+
 def cg(A, b,
        x0 = None,
        tol = 1.0e-5,

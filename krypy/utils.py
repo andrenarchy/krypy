@@ -22,6 +22,10 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
+__all__ = ['Givens', 'House', 'Projection', 'Timer', 'angles', 'arnoldi',
+        'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
+        'norm_squared', 'qr', 'ritz', 'shape_vec', 'shape_vecs']
+
 # ===================================================================
 def find_common_dtype(*args):
     '''Returns common dtype of numpy and scipy objects.
