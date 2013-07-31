@@ -169,7 +169,7 @@ def cg(A, b,
         # update current guess and residual
         alpha = rho_old / inner_product( p, Ap )
         if abs(alpha.imag) > 1e-12:
-            warnings.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
+            warnings.warn('Iter %d: abs(alpha.imag) = %g > 1e-12. Is your matrix Hermitian?' % (k+1, abs(alpha.imag)))
         alpha = alpha.real
         yk += alpha * p
 
@@ -407,7 +407,7 @@ def minres(A, b,
         # Should be real! (diagonal element):
         td = inner_product(V[:,[1]], z)[0,0]
         if abs(td.imag) > 1.0e-12:
-            warnings.warn('Iter %d: abs(td.imag) = %g > 1e-12' % (k+1, abs(td.imag)))
+            warnings.warn('Iter %d: abs(td.imag) = %g > 1e-12. Is your matrix Hermitian?' % (k+1, abs(td.imag)))
         td = td.real
         z  = z - td * P[:,[1]]
 
