@@ -111,7 +111,7 @@ the resulting matrix is dense.</p>
 
 <dl class="class">
 <dt id="krypy.utils.Projection">
-<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">krypy.utils.</tt><tt class="descname">Projection</tt><big>(</big><em>X</em>, <em>Y=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em>, <em>ipYX=None</em>, <em>ipYXinv='explicit'</em><big>)</big><a class="headerlink" href="#krypy.utils.Projection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">builtins.object</span></tt></p>
 <p>Generic projection.</p>
 <p>This class can represent any projection (orthogonal and oblique)
@@ -207,6 +207,34 @@ should not be used in production codes for high dimensions since
 the resulting matrix is dense.</p>
 </dd></dl>
 
+<dl class="method">
+<dt id="krypy.utils.Projection.operator">
+<tt class="descname">operator</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.utils.Projection.operator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a <tt class="docutils literal"><span class="pre">LinearOperator</span></tt> corresponding to apply().</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a LinearOperator that calls apply().</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="krypy.utils.Projection.operator_complement">
+<tt class="descname">operator_complement</tt><big>(</big><big>)</big><a class="headerlink" href="#krypy.utils.Projection.operator_complement" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a <tt class="docutils literal"><span class="pre">LinearOperator</span></tt> corresponding to apply_complement().</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a LinearOperator that calls apply_complement().</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="class">
@@ -254,7 +282,7 @@ defaultdict(&lt;class krypy.utils.Timer at 0x23810b8&gt;, {&#x27;class2&#x27;: [
 
 <dl class="function">
 <dt id="krypy.utils.angles">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>F</em>, <em>G</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em>, <em>compute_vectors=False</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">angles</tt><big>(</big><em>F</em>, <em>G</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em>, <em>compute_vectors=False</em><big>)</big><a class="headerlink" href="#krypy.utils.angles" title="Permalink to this definition">¶</a></dt>
 <dd><p>Principal angles between two subspaces.</p>
 <p>This algorithm is based on algorithm 6.2 in <cite>Knyazev, Argentati. Principal
 angles between subspaces in an A-based scalar product: algorithms and
@@ -305,45 +333,78 @@ Furthermore,
 
 <dl class="function">
 <dt id="krypy.utils.arnoldi">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>A</em>, <em>v</em>, <em>maxiter=None</em>, <em>ortho='mgs'</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
-<dd><p>Arnoldi algorithm.</p>
-<p>Computes V and H such that <span class="math">\(AV_n=V_{n+1}\underline{H}_n\)</span>.
-If the Krylov subspace becomes A-invariant then V and H are truncated such
-that <span class="math">\(AV_n = V_n H_n\)</span>.</p>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi</tt><big>(</big><em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="krypy.utils.arnoldi_projected">
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">arnoldi_projected</tt><big>(</big><em>H</em>, <em>P</em>, <em>k</em>, <em>ortho='mgs'</em><big>)</big><a class="headerlink" href="#krypy.utils.arnoldi_projected" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute (perturbed) Arnoldi relation for projected operator.</p>
+<p>Assume that you have computed an Arnoldi relation</p>
+<div class="math">
+\[A V_n = V_{n+1} \underline{H}_n\]</div>
+<p>where <span class="math">\(V_{n+1}\in\mathbb{C}^{N,n+1}\)</span> has orthogonal columns
+(with respect to an inner product <span class="math">\(\langle\cdot,\cdot\rangle\)</span>)
+and <span class="math">\(\underline{H}_n\in\mathbb{C}^{n+1,n}\)</span> is an extended
+upper Hessenberg matrix.</p>
+<p>For <span class="math">\(k&lt;n\)</span> you choose full rank matrices
+<span class="math">\(X\in\mathbb{C}^{n-1,k}\)</span> and <span class="math">\(Y\in\mathbb{C}^{n,k}\)</span> and
+define <span class="math">\(\tilde{X}:=A V_{n_1}X = V_n \underline{H}_{n-1} X\)</span> and
+<span class="math">\(\tilde{Y}:=V_n Y\)</span> such that
+<span class="math">\(\langle \tilde{Y}, \tilde{X} \rangle = Y^*\underline{H}_{n-1} X\)</span>
+is invertible. Then the projections <span class="math">\(P\)</span> and <span class="math">\(\tilde{P}\)</span>
+characterized by</p>
+<ul class="simple">
+<li><span class="math">\(\tilde{P}x = x -
+\tilde{X} \langle \tilde{Y},\tilde{X} \rangle^{-1}
+\langle\tilde{Y},x\rangle\)</span></li>
+<li><span class="math">\(P = I - \underline{H}_{n-1}X (Y^*\underline{H}_{n-1}X)^{-1}Y^*\)</span></li>
+</ul>
+<p>are well defined and <span class="math">\(\tilde{P}V_{n+1} = [V_n P, v_{n+1}]\)</span> holds.</p>
+<p>This method computes for <span class="math">\(i&lt;n-k\)</span> the Arnoldi relation</p>
+<div class="math">
+\[(\tilde{P}A + E_i) W_i
+= W_{i+1} \underline{G}_i\]</div>
+<p>where <span class="math">\(W_{i+1}=V_n U_{i+1}\)</span> has orthogonal columns with respect
+to <span class="math">\(\langle\cdot,\cdot\rangle\)</span>,
+<span class="math">\(\underline{G}_i\)</span> is an extended upper Hessenberg matrix
+and <span class="math">\(E_i x = v_{n+1} F_i \langle W_i,x\rangle\)</span> with
+<span class="math">\(F_i=[f_1,\ldots,f_i]\in\mathbb{C}^{1,i}\)</span>.</p>
+<p>The perturbed Arnoldi relation can also be generated with the operator
+<span class="math">\(P_{V_n} \tilde{P} A\)</span>:</p>
+<div class="math">
+\[P_{V_n} \tilde{P} A W_i
+= W_{i+1} \underline{G}_i.\]</div>
+<p>In a sense the perturbed Arnoldi relation is the best prediction for the
+behavior of the Krylov subspace <span class="math">\(K_i(\tilde{P}A,\tilde{P}v_1)\)</span>
+that can be generated only with the data from <span class="math">\(K_{n+1}(A,v_1)\)</span> and
+without carrying out further matrix-vector multiplications with A.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>A</strong> &#8211; a linear operator that can be used with scipy&#8217;s aslinearoperator
-with <tt class="docutils literal"><span class="pre">shape==(N,N)</span></tt>.</li>
-<li><strong>v</strong> &#8211; the initial vector with <tt class="docutils literal"><span class="pre">shape==(N,1)</span></tt>.</li>
-<li><strong>maxiter</strong> &#8211; (optional) maximal number of iterations. Default: N.</li>
-<li><strong>ortho</strong> &#8211; <p>(optional) orthogonalization algorithm: may be one of</p>
-<ul>
-<li><tt class="docutils literal"><span class="pre">'mgs'</span></tt>: modified Gram-Schmidt (default).</li>
-<li><tt class="docutils literal"><span class="pre">'dmgs'</span></tt>: double Modified Gram-Schmidt.</li>
-<li><tt class="docutils literal"><span class="pre">'house'</span></tt>: Householder.</li>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>H</strong> &#8211; the extended upper Hessenberg matrix
+<span class="math">\(\underline{H}_n\)</span> with <tt class="docutils literal"><span class="pre">shape==(n+1,n)</span></tt>.</li>
+<li><strong>P</strong> &#8211; the projection
+<span class="math">\(P:\mathbb{C}^n\longrightarrow\mathbb{C}^n\)</span> (has to be
+compatible with <a class="reference internal" href="#krypy.utils.get_linearoperator" title="krypy.utils.get_linearoperator"><tt class="xref py py-meth docutils literal"><span class="pre">get_linearoperator()</span></tt></a>).</li>
+<li><strong>k</strong> &#8211; the dimension of the null space of P.</li>
 </ul>
-</li>
-<li><strong>inner_product</strong> &#8211; (optional) the inner product to use (has to be the
-Euclidean inner product if <tt class="docutils literal"><span class="pre">ortho=='house'</span></tt>). It&#8217;s unclear to me
-(andrenarchy), how a variant of the Householder QR algorithm can be
-used with a non-Euclidean inner product. Compare
-<a class="reference external" href="http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products">http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products</a></li>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><p>U, G, F where</p>
+<ul class="simple">
+<li>U is the coefficient matrix <span class="math">\(U_{i+1}\)</span> with <tt class="docutils literal"><span class="pre">shape==(n,i+1)</span></tt>,</li>
+<li>G is the extended upper Hessenberg matrix <span class="math">\(\underline{G}_i\)</span>
+with <tt class="docutils literal"><span class="pre">shape==(i+1,i)</span></tt>,</li>
+<li>F is the error matrix <span class="math">\(F_i\)</span> with <tt class="docutils literal"><span class="pre">shape==(1,i)</span></tt>.</li>
 </ul>
+</p>
 </td>
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-<dl class="function">
-<dt id="krypy.utils.find_common_dtype">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">find_common_dtype</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#krypy.utils.find_common_dtype" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns common dtype of numpy and scipy objects.</p>
-<p>Recognizes ndarray, spmatrix and LinearOperator. All other objects are
-ignored (most notably None).</p>
 </dd></dl>
 
 <dl class="function">
@@ -354,7 +415,7 @@ ignored (most notably None).</p>
 
 <dl class="function">
 <dt id="krypy.utils.hegedus">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">hegedus</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0</em>, <em>M=None</em>, <em>Ml=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.hegedus" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">hegedus</tt><big>(</big><em>A</em>, <em>b</em>, <em>x0</em>, <em>M=None</em>, <em>Ml=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.hegedus" title="Permalink to this definition">¶</a></dt>
 <dd><p>Rescale initial guess appropriately (Hegedüs trick).</p>
 <p>The Hegedüs trick rescales the initial guess to <span class="math">\(\gamma_{\min} x_0\)</span>
 such that</p>
@@ -407,24 +468,24 @@ transpose.</p>
 
 <dl class="function">
 <dt id="krypy.utils.norm">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_MMlr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_MMlr</tt><big>(</big><em>M</em>, <em>Ml</em>, <em>A</em>, <em>Mr</em>, <em>b</em>, <em>x0</em>, <em>yk</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_MMlr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.norm_squared">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">norm_squared</tt><big>(</big><em>x</em>, <em>Mx=None</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em><big>)</big><a class="headerlink" href="#krypy.utils.norm_squared" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the norm^2 w.r.t. to a given scalar product.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="krypy.utils.qr">
-<tt class="descclassname">krypy.utils.</tt><tt class="descname">qr</tt><big>(</big><em>X</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab47b9b90&gt;</em>, <em>reorthos=1</em><big>)</big><a class="headerlink" href="#krypy.utils.qr" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">krypy.utils.</tt><tt class="descname">qr</tt><big>(</big><em>X</em>, <em>inner_product=&lt;function ip_euclid at 0x2aaab59740e0&gt;</em>, <em>reorthos=1</em><big>)</big><a class="headerlink" href="#krypy.utils.qr" title="Permalink to this definition">¶</a></dt>
 <dd><p>QR factorization with customizable inner product.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
