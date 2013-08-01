@@ -551,92 +551,132 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
     return gamma*x0
 
 # ===================================================================
-def arnoldi(A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
-    """Arnoldi algorithm.
+class Arnoldi:
+    def __init__(self, A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
+        """Arnoldi algorithm.
 
-    Computes V and H such that :math:`AV_n=V_{n+1}\\underline{H}_n`.
-    If the Krylov subspace becomes A-invariant then V and H are truncated such
-    that :math:`AV_n = V_n H_n`.
+        Computes V and H such that :math:`AV_n=V_{n+1}\\underline{H}_n`.
+        If the Krylov subspace becomes A-invariant then V and H are truncated such
+        that :math:`AV_n = V_n H_n`.
 
-    :param A: a linear operator that can be used with scipy's aslinearoperator
-        with ``shape==(N,N)``.
-    :param v: the initial vector with ``shape==(N,1)``.
-    :param maxiter: (optional) maximal number of iterations. Default: N.
-    :param ortho: (optional) orthogonalization algorithm: may be one of
+        :param A: a linear operator that can be used with scipy's aslinearoperator
+            with ``shape==(N,N)``.
+        :param v: the initial vector with ``shape==(N,1)``.
+        :param maxiter: (optional) maximal number of iterations. Default: N.
+        :param ortho: (optional) orthogonalization algorithm: may be one of
 
-        * ``'mgs'``: modified Gram-Schmidt (default).
-        * ``'dmgs'``: double Modified Gram-Schmidt.
-        * ``'house'``: Householder.
-    :param inner_product: (optional) the inner product to use (has to be the
-        Euclidean inner product if ``ortho=='house'``). It's unclear to me
-        (andrenarchy), how a variant of the Householder QR algorithm can be
-        used with a non-Euclidean inner product. Compare
-        http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
-    """
-    dtype = find_common_dtype(A, v)
-    N = v.shape[0]
-    A = get_linearoperator((N,N), A)
-    V = numpy.zeros((N, maxiter+1), dtype=dtype) # Arnoldi basis
-    H = numpy.zeros((maxiter+1, maxiter), dtype=dtype) # Hessenberg matrix
+            * ``'mgs'``: modified Gram-Schmidt (default).
+            * ``'dmgs'``: double Modified Gram-Schmidt.
+            * ``'house'``: Householder.
+        :param inner_product: (optional) the inner product to use (has to be the
+            Euclidean inner product if ``ortho=='house'``). It's unclear to me
+            (andrenarchy), how a variant of the Householder QR algorithm can be
+            used with a non-Euclidean inner product. Compare
+            http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
+        """
+        N = v.shape[0]
 
-    if ortho=='house':
-        if inner_product!=ip_euclid:
-            raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
-        houses = [House(v)]
-        V[:,[0]] = v / numpy.linalg.norm(v, 2)
-    elif ortho in ['mgs','dmgs']:
-        reorthos = 0
-        if ortho=='dmgs':
-            reorthos = 1
-        V[:,[0]] = v / norm(v, inner_product=inner_product)
-    else:
-        raise ValueError('Unknown orthogonalization method "%s"' % ortho)
+        # save parameters
+        self.A = get_linearoperator((N,N), A)
+        self.v = v
+        self.maxiter = N if maxiter is None else maxiter
+        self.ortho = ortho
+        self.inner_product = inner_product
 
-    invariant = False
-    for k in range(maxiter):
-        Av = A * V[:,[k]]
+        self.dtype = find_common_dtype(A, v)
+        self.iter = 0  # number of iterations
+        self.V = numpy.zeros((N,maxiter+1), dtype=self.dtype)  # Arnoldi basis
+        self.H = numpy.zeros((maxiter+1,maxiter), dtype=self.dtype) # Hessenberg matrix
+        self.invariant = False # flag indicating if Krylov subspace is invariant
 
         if ortho=='house':
+            if inner_product!=ip_euclid:
+                raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
+            self.houses = [House(v)]
+            self.vnorm = numpy.linalg.norm(v, 2)
+            self.V[:,[0]] = v / self.vnorm
+        elif ortho in ['mgs','dmgs']:
+            self.reorthos = 0
+            if ortho=='dmgs':
+                self.reorthos = 1
+            self.vnorm = norm(v, inner_product=inner_product)
+            self.V[:,[0]] = v / self.vnorm
+        else:
+            raise ValueError('Unknown orthogonalization method "%s"' % ortho)
+
+    def advance(self):
+        """Carry out one iteration of Arnoldi."""
+        if self.iter>=self.maxiter:
+            raise ValueError('Maximum number of iterations reached.')
+        if self.invariant:
+            raise ValueError('Krylov subspace was found to be invariant in the previous iteration.')
+
+
+        N = self.V.shape[0]
+        k = self.iter
+
+        # the matrix-vector multiplication
+        Av = self.A * self.V[:,[k]]
+
+        if self.ortho=='house':
             # Householder
             for j in range(k+1):
-                Av[j:] = houses[j].apply(Av[j:])
-                Av[j] *= numpy.conj(houses[j].alpha)
+                Av[j:] = self.houses[j].apply(Av[j:])
+                Av[j] *= numpy.conj(self.houses[j].alpha)
             if k+1<N:
-                houses.append( House(Av[k+1:]) )
-                Av[k+1:] = houses[-1].apply(Av[k+1:]) * numpy.conj(houses[-1].alpha)
-                H[:k+2,[k]] = Av[:k+2]
+                house = House(Av[k+1:])
+                self.houses.append( house )
+                Av[k+1:] = house.apply(Av[k+1:]) * numpy.conj(house.alpha)
+                self.H[:k+2,[k]] = Av[:k+2]
             else:
-                H[:k+1,[k]] = Av[:k+1]
-            H[k+1,k] = numpy.abs(H[k+1,k]) # safe due to the multiplications with alpha
-            if H[k+1,k] <= 1e-15:
-                invariant = True
-                break
-
-            vnew = numpy.zeros((N,1), dtype=dtype)
-            vnew[k+1] = 1
-            for j in range(k+1,-1,-1):
-                vnew[j:] = houses[j].apply(vnew[j:])
-            V[:,[k+1]] = vnew * houses[-1].alpha
+                self.H[:k+1,[k]] = Av[:k+1]
+            self.H[k+1,k] = numpy.abs(self.H[k+1,k]) # safe due to the multiplications with alpha
+            if self.H[k+1,k] <= 1e-15:
+                self.invariant = True
+            else:
+                vnew = numpy.zeros((N,1), dtype=self.dtype)
+                vnew[k+1] = 1
+                for j in range(k+1,-1,-1):
+                    vnew[j:] = self.houses[j].apply(vnew[j:])
+                self.V[:,[k+1]] = vnew * self.houses[-1].alpha
         else:
             # (double) modified Gram-Schmidt
-            for reortho in range(reorthos+1):
+            for reortho in range(self.reorthos+1):
                 for j in range(k+1):
-                    alpha = inner_product(V[:, [j]], Av)[0,0]
-                    H[j,k] += alpha
-                    Av -= alpha * V[:,[j]]
-            H[k+1,k] = norm(Av, inner_product=inner_product)
-            if H[k+1,k] <= 5e-14:
-                invariant = True
-                break
-            V[:,[k+1]] = Av / H[k+1,k]
+                    alpha = self.inner_product(self.V[:, [j]], Av)[0,0]
+                    self.H[j,k] += alpha
+                    Av -= alpha * self.V[:,[j]]
+            self.H[k+1,k] = norm(Av, inner_product=self.inner_product)
+            if self.H[k+1,k] <= 5e-14:
+                self.invariant = True
+            else:
+                self.V[:,[k+1]] = Av / self.H[k+1,k]
 
-    # if V is A-invariant: shorten Arnoldi vectors and Hessenberg matrix
-    if invariant:
-        V = V[:,:k+1]
-        H = H[:k+1,:k+1]
+        # increase iteration counter
+        self.iter += 1
 
-    return V, H
+    def get(self):
+        k = self.iter
+        if self.invariant:
+            return self.V[:,:k], self.H[:k,:k]
+        else:
+            return self.V[:,:k+1], self.H[:k+1,:k]
 
+    def get_last(self):
+        k = self.iter
+        if self.invariant:
+            return None, self.H[:k,[k-1]]
+        else:
+            return self.V[:,[k]], self.H[:k+1,[k-1]]
+
+# ===================================================================
+def arnoldi(*args, **kwargs):
+    _arnoldi = Arnoldi(*args, **kwargs)
+    while _arnoldi.iter<_arnoldi.maxiter and not _arnoldi.invariant:
+        _arnoldi.advance()
+    return _arnoldi.get()
+
+# ===================================================================
 def arnoldi_projected(H, P, k):
     """Compute (perturbed) Arnoldi relation for projected operator.
 
