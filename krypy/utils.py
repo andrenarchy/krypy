@@ -585,8 +585,8 @@ class Arnoldi:
 
         self.dtype = find_common_dtype(A, v)
         self.iter = 0  # number of iterations
-        self.V = numpy.zeros((N,maxiter+1), dtype=self.dtype)  # Arnoldi basis
-        self.H = numpy.zeros((maxiter+1,maxiter), dtype=self.dtype) # Hessenberg matrix
+        self.V = numpy.zeros((N,self.maxiter+1), dtype=self.dtype)  # Arnoldi basis
+        self.H = numpy.zeros((self.maxiter+1,self.maxiter), dtype=self.dtype) # Hessenberg matrix
         self.invariant = False # flag indicating if Krylov subspace is invariant
 
         if ortho=='house':
@@ -676,7 +676,7 @@ def arnoldi(*args, **kwargs):
     return _arnoldi.get()
 
 # ===================================================================
-def arnoldi_projected(H, P, k):
+def arnoldi_projected(H, P, k, ortho='mgs'):
     """Compute (perturbed) Arnoldi relation for projected operator.
 
     Assume that you have computed an Arnoldi relation
@@ -745,6 +745,25 @@ def arnoldi_projected(H, P, k):
       * F is the error matrix :math:`F_i` with ``shape==(1,i)``.
     """
     n = H.shape[1]
+    dtype = find_common_dtype(H, P)
+    invariant = H.shape[0]==n
+    hlast = 0 if invariant else H[-1,-1]
+    H = get_linearoperator((n,n), H if invariant else H[:-1,:])
+    P = get_linearoperator((n,n), P)
+    v = P * numpy.eye(n,1)
+    maxiter = n-k
+    F = numpy.zeros((1,maxiter), dtype=dtype)
+    PH = lambda x: P*(H*x)
+    PH = LinearOperator((n,n), PH, None, PH, dtype=dtype)
+    _arnoldi = Arnoldi(PH, P*numpy.eye(n,1), maxiter=n-k, \
+                       ortho=ortho)
+    while _arnoldi.iter<_arnoldi.maxiter and not _arnoldi.invariant:
+        u, _ = _arnoldi.get_last()
+        F[0,_arnoldi.iter] = hlast * u[-1,0]
+        _arnoldi.advance()
+    U, G = _arnoldi.get()
+    return U, G, F[0,:_arnoldi.iter]
+
 
 # ===================================================================
 def ritz(H, V=None, hermitian=False, type='ritz'):
