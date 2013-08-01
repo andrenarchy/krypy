@@ -594,15 +594,14 @@ class Arnoldi:
                 raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
             self.houses = [House(v)]
             self.vnorm = numpy.linalg.norm(v, 2)
-            self.V[:,[0]] = v / self.vnorm
         elif ortho in ['mgs','dmgs']:
             self.reorthos = 0
             if ortho=='dmgs':
                 self.reorthos = 1
             self.vnorm = norm(v, inner_product=inner_product)
-            self.V[:,[0]] = v / self.vnorm
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
+        self.V[:,[0]] = v / self.vnorm
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""
