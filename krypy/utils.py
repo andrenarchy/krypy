@@ -751,18 +751,18 @@ def arnoldi_projected(H, P, k, ortho='mgs'):
     H = get_linearoperator((n,n), H if invariant else H[:-1,:])
     P = get_linearoperator((n,n), P)
     v = P * numpy.eye(n,1)
-    maxiter = n-k
+    maxiter = n-k+1
     F = numpy.zeros((1,maxiter), dtype=dtype)
     PH = lambda x: P*(H*x)
     PH = LinearOperator((n,n), PH, None, PH, dtype=dtype)
-    _arnoldi = Arnoldi(PH, P*numpy.eye(n,1), maxiter=n-k, \
+    _arnoldi = Arnoldi(PH, v, maxiter=maxiter, \
                        ortho=ortho)
     while _arnoldi.iter<_arnoldi.maxiter and not _arnoldi.invariant:
         u, _ = _arnoldi.get_last()
         F[0,_arnoldi.iter] = hlast * u[-1,0]
         _arnoldi.advance()
     U, G = _arnoldi.get()
-    return U, G, F[0,:_arnoldi.iter]
+    return U, G, F[[0],:_arnoldi.iter]
 
 
 # ===================================================================
