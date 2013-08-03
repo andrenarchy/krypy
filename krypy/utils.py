@@ -23,9 +23,9 @@ except ImportError:
     import scipy.linalg.blas as blas
 
 __all__ = ['Givens', 'House', 'Projection', 'Timer', 'angles', 'arnoldi',
-        'arnoldi_projected', 'get_linearoperator', 'hegedus', 'ip_euclid',
-        'norm', 'norm_MMlr', 'norm_squared', 'qr', 'ritz', 'shape_vec',
-        'shape_vecs']
+        'arnoldi_res', 'arnoldi_projected', 'get_linearoperator', 'hegedus',
+        'ip_euclid', 'norm', 'norm_MMlr', 'norm_squared', 'orthonormality',
+        'qr', 'ritz', 'shape_vec', 'shape_vecs']
 
 # ===================================================================
 def find_common_dtype(*args):
@@ -133,6 +133,42 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip_euclid):
         norm_MMlr = norm(Mlr, MMlr, inner_product=inner_product)
     # return xk and ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}}
     return xk, Mlr, MMlr, norm_MMlr
+
+# ===================================================================
+def orthonormality(V, inner_product=ip_euclid):
+    """Measure orthonormality of given basis.
+
+    :param V: a matrix :math:`V=[v_1,\ldots,v_n]` with ``shape==(N,n)``.
+    :param inner_product: (optional) the inner product to use, default is
+      :py:meth:`ip_euclid`.
+    :return: :math:`\\| I_n - \\langle V,V \\rangle \\|_2`.
+    """
+    return norm(numpy.eye(V.shape[1]) - inner_product(V,V))
+
+# ===================================================================
+def arnoldi_res(A, V, H, inner_product=ip_euclid):
+    """Measure Arnoldi residual.
+
+    :param A: a linear operator that can be used with scipy's aslinearoperator
+      with ``shape==(N,N)``.
+    :param V: Arnoldi basis matrix with ``shape==(N,n)``.
+    :param H: Hessenberg matrix: either :math:`\\underline{H}_{n-1}` with
+      ``shape==(n,n-1)`` or :math:`H_n` with ``shape==(n,n)`` (if the Arnoldi
+      basis spans an A-invariant subspace).
+    :param inner_product: (optional) the inner product to use, default is
+      :py:meth:`ip_euclid`.
+
+    :returns: either :math:`\\|AV_{n-1} - V_n \\underline{H}_{n-1}\\|` or
+      :math:`\\|A V_n - V_n H_n\\|` (in the invariant case).
+    """
+    N = V.shape[0]
+    invariant = H.shape[0]==H.shape[1]
+    A = get_linearoperator((N,N), A)
+    if invariant:
+        res = A*V - numpy.dot(V, H)
+    else:
+        res = A*V[:,:-1] - numpy.dot(V,H)
+    return norm(res, inner_product=inner_product)
 
 # ===================================================================
 class House:
