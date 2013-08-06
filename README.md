@@ -20,7 +20,7 @@ Some features of KryPy are:
 Here is the [documentation](http://andrenarchy.github.io/krypy/).
 
 ### Example
-The following example shows how to solve a linear system `A*x=b` with [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres) and print the found solution.
+The following example shows how to use [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres) to solve a linear system `A*x=b` with the diagonal matrix `A=diag(1,...,10)` and the right hand side `b=[1,...,1]`. The found solution is printed afterwards.
 ```python
 from numpy import ones
 from scipy.sparse import spdiags
@@ -33,7 +33,7 @@ b = ones((N,1))
 sol = gmres(A, b)
 print (sol['xk'])
 ```
-Of course, this is just a toy example. KryPy can handle arbitrary large matrices - as long as the (hopefully sparse) matrices and the generated Krylov basis fit into your memory. ;) Furthermore, in real applications, you definitely want to adjust [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres)'s parameters such as the residual tolerance.
+Of course, this is just a toy example where you would not use GMRES in practice. KryPy can handle arbitrary large matrices - as long as the (hopefully sparse) matrices and the generated Krylov basis fit into your memory. ;) Furthermore, in actual applications, you definitely want to adjust [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres)'s parameters such as the residual tolerance.
 
 ### Help
 
