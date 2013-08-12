@@ -1,7 +1,6 @@
 import krypy
 import numpy
 import itertools
-from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import csr_matrix
 import scipy.linalg
 
@@ -54,11 +53,7 @@ def get_inner_products():
             ]
 
 def get_operators(A):
-    return [ A,
-                LinearOperator(A.shape, lambda x: numpy.dot(A,x), 
-                    dtype=A.dtype),
-                csr_matrix(A)
-                ]
+    return [ A, krypy.utils.MatrixLinearOperator(A), csr_matrix(A)]
 
 def get_vecs(v):
     return [ v, numpy.reshape(v, (v.shape[0],)) ]
