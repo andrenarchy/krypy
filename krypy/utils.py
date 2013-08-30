@@ -22,7 +22,7 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
-__all__ = ['Givens', 'House', 'IdentityLinearOperaor', 'LinearOperator',
+__all__ = ['Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
         'MatrixLinearOperator', 'Projection', 'Timer',
         'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected',
         'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
