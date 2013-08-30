@@ -21,13 +21,13 @@ In practice, a preconditioned linear algebraic system has to be solved:
 
     M M_l A M_r y = M M_l b,\quad \text{with}~x=M_r y,
 
-where the inner product is change to :math:`\langle\cdot,\cdot\rangle_{M^{-1}}`
+where the inner product is changed to :math:`\langle\cdot,\cdot\rangle_{M^{-1}}`
 defined by :math:`\langle x,y\rangle_{M^{-1}}=\langle M^{-1}x,y\rangle`.
 The semantics of the involved preconditioners :math:`M, M_l` and :math:`M_r`
-is explained in :py:meth:`~krypy.linsys.cg`, :py:meth:`~krypy.linsys.minres`
-and :py:meth:`~krypy.linsys.gmres`. Deflation then should address the
-preconditioned operator :math:`M M_l A M_r`. In order to reduce the notational
-overhead we define
+is explained in detail in :py:meth:`~krypy.linsys.cg`,
+:py:meth:`~krypy.linsys.minres` and :py:meth:`~krypy.linsys.gmres`. Deflation
+then should address the preconditioned operator :math:`M M_l A M_r`. In order
+to reduce the notational overhead we define
 
 .. math::
 
@@ -59,8 +59,8 @@ applied to the deflated linear system
 
     P_M M M_l A M_r y = P_M M M_l b.
 
-However, some restrictions have to be made concerning the choice of
-:math:`U` and :math:`V`:
+However, in order to guarantee convergence (in exact arithmetic), some
+restrictions have to be made concerning the choice of :math:`U` and :math:`V`:
 
 * for :py:meth:`~krypy.linsys.cg`: the projected operator :math:`PB` has to be
   self-adjoint and positive definite with respect to
@@ -68,9 +68,11 @@ However, some restrictions have to be made concerning the choice of
   :math:`V=U`.
 * for :py:meth:`~krypy.linsys.gmres`: the condition 
   :math:`\operatorname{Im}(U)\cap\operatorname{Im}(V)^{\perp_{M^{-1}}}=\{0\}`
-  has to be fulfilled. This can be achieved by either :math:`V=U` or
+  has to be fulfilled, see [GauGLN13]_. This can be achieved by either :math:`V=U` or
   :math:`V=BU`.
-* for :py:meth:`~krypy.linsys.minres`: 
+* for :py:meth:`~krypy.linsys.minres`: the same as for 
+  :py:meth:`~krypy.linsys.gmres` and additionally the operator
+  :math:`PB` has to be self-adjoint with respect to
 
 .. automodule:: krypy.deflation
     :members:

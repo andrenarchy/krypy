@@ -14,12 +14,13 @@ the source code or bug reports, take a look at `KryPy's github page
 <https://github.com/andrenarchy/krypy>`_. These pages provide the
 documentation of KryPy's API.
 
-Contents:
----------
+Contents
+--------
 .. toctree::
    :maxdepth: 3
 
    krypy
+   bibliography
 
 
 Indices and tables

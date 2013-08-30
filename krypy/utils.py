@@ -573,8 +573,7 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
     This is achieved by
     :math:`\\gamma_{\\min} = \\frac{\\langle z, M M_l b \\rangle_{M^{-1}}}{\\|z\\|_{M^{-1}}^2}` for
     :math:`z=M M_l A x_0` because then :math:`r_0=P_{z^\\perp}b`. (Note that
-    the right hand side of formula (5.8.16) in *Liesen, Strakos. Krylov
-    subspace methods. 2013.* has to be complex conjugated.)
+    the right hand side of formula (5.8.16) in [LieS13]_ has to be complex conjugated.)
 
     The parameters are the parameters you want to pass to
     :py:meth:`~krypy.linsys.gmres`,
