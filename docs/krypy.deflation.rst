@@ -72,7 +72,9 @@ restrictions have to be made concerning the choice of :math:`U` and :math:`V`:
   :math:`V=BU`.
 * for :py:meth:`~krypy.linsys.minres`: the same as for 
   :py:meth:`~krypy.linsys.gmres` and additionally the operator
-  :math:`PB` has to be self-adjoint with respect to
+  :math:`PB` or the operator :math:`PBP` has to be self-adjoint with respect to
+  :math:`\langle\cdot,\cdot\rangle`. This can be fulfilled by choosing
+  :math:`V=U` or :math:`V=BU`.
 
 .. automodule:: krypy.deflation
     :members:
