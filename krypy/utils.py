@@ -24,10 +24,10 @@ except ImportError:
 
 __all__ = ['Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
         'MatrixLinearOperator', 'Projection', 'Timer',
-        'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected',
+        'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected', 'gap',
         'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
         'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
-        'shape_vecs']
+        'shape_vecs', 'strakos']
 
 # ===================================================================
 def find_common_dtype(*args):
@@ -1176,5 +1176,67 @@ class MatrixLinearOperator(LinearOperator):
 
 
 def strakos(n, l_min=0.1, l_max=100, rho=0.9):
-    d = [l_min + (i-1)*1./(n-1)*(l_max-l_min)*(rho**(n-i)) for i in range(1, n+1)]
+    """Return the Strakoš matrix.
+
+    See [Str92]_.
+    """
+    d = [l_min + (i-1)*1./(n-1)*(l_max-l_min)*(rho**(n-i))
+         for i in range(1, n+1)]
     return numpy.diag(d)
+
+
+def gap(lamda, sigma, mode='individual'):
+    """Compute spectral gap.
+
+    Useful for eigenvalue/eigenvector bounds. Computes the gap
+    :math:`\delta\geq 0` between two sets of real numbers ``lamda`` and
+    ``sigma``. The gap can be computed in several ways and may not exist, see
+    the ``mode`` parameter.
+
+    :param lamda: a non-empty set
+      :math:`\Lambda=\{\lambda_1,\ldots,\lambda_n\}` given as a single real
+      number or a list or ``numpy.array`` with real numbers.
+    :param sigma: a non-empty set :math:`\Sigma=\{\sigma_1,\ldots,\sigma_m\}`.
+      See ``lamda``.
+    :param mode: (optional). Defines how the gap should be computed. May be one
+      of
+
+      * ``'individual'`` (default):
+        :math:`\delta=\min_{\substack{i\in\{1,\ldots,n\}\\\\j\in\{1,\ldots,m\}}} |\lambda_i - \sigma_j|`.
+        With this mode, the gap is always be defined.
+      * ``'interval'``: determine the maximal :math:`\delta` such that
+        :math:`\Sigma\subset\mathbb{R}\setminus[\min_{\lambda\in\Lambda}\lambda-\delta,\max_{\lambda\in\Lambda}\lambda+\delta]`.
+        If the gap does not exists, ``None`` is returned.
+
+    :return: :math:`\delta` or ``None``.
+    """
+    # sanitize input
+    if numpy.isscalar(lamda):
+        lamda = [lamda]
+    lamda = numpy.array(lamda)
+    if numpy.isscalar(sigma):
+        sigma = [sigma]
+    sigma = numpy.array(sigma)
+
+    if not numpy.isreal(lamda).all() or not numpy.isreal(sigma).all():
+        raise ValueError('comlex spectra not yet implemented')
+
+    if mode == 'individual':
+        return numpy.min(numpy.abs(numpy.reshape(lamda, (len(lamda), 1))
+                         - numpy.reshape(sigma, (1, len(sigma)))))
+    elif mode == 'interval':
+        lamda = numpy.sort(lamda)
+        lamda_min, lamda_max = numpy.min(lamda), numpy.max(lamda)
+        # determine all values in sigma<lamda_min or >lamda_max
+        sigma_lo = sigma < lamda_min
+        sigma_hi = sigma > lamda_max
+        # is a sigma value in lamda interval?
+        if not numpy.all(sigma_lo + sigma_hi):
+            return None
+        delta = numpy.Infinity
+        if numpy.any(sigma_lo):
+            delta = lamda_min - numpy.max(sigma[sigma_lo])
+        if numpy.any(sigma_hi):
+            delta = numpy.min([delta, numpy.min(sigma[sigma_hi]) - lamda_max])
+
+        return delta
