@@ -3,6 +3,7 @@ import numpy
 import itertools
 from scipy.sparse import csr_matrix
 import scipy.linalg
+from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 def get_matrix_spd():
     a = numpy.array(range(1,11))
@@ -422,6 +423,16 @@ def run_ritz(A, v, maxiter, inner_product, Aevals, An, with_V, hermitian, type):
         Aevals_sort = numpy.argsort(numpy.abs(Aevals))
         theta_sort = numpy.argsort(numpy.abs(theta))
         assert( (numpy.abs( Aevals[Aevals_sort] - theta[theta_sort] ) <= 5e-14*An).all() )
+
+
+def test_gap():
+    assert_almost_equal(krypy.utils.gap([1, 2], [-4, 3]), 1)
+    assert_almost_equal(krypy.utils.gap(5, -5), 10)
+    assert_almost_equal(krypy.utils.gap([-5, 5], -5), 0)
+    assert_almost_equal(krypy.utils.gap(5, -5, mode='interval'), 10)
+    assert_almost_equal(krypy.utils.gap(5, [-5, 6], mode='interval'), 1)
+    assert_almost_equal(krypy.utils.gap(-5, [-5, 6], mode='interval'), 0)
+    assert(krypy.utils.gap([-5, 5], [0], mode='interval') is None)
 
 if __name__ == '__main__':
     import nose

@@ -1225,11 +1225,10 @@ def gap(lamda, sigma, mode='individual'):
         return numpy.min(numpy.abs(numpy.reshape(lamda, (len(lamda), 1))
                          - numpy.reshape(sigma, (1, len(sigma)))))
     elif mode == 'interval':
-        lamda = numpy.sort(lamda)
         lamda_min, lamda_max = numpy.min(lamda), numpy.max(lamda)
         # determine all values in sigma<lamda_min or >lamda_max
-        sigma_lo = sigma < lamda_min
-        sigma_hi = sigma > lamda_max
+        sigma_lo = sigma <= lamda_min
+        sigma_hi = sigma >= lamda_max
         # is a sigma value in lamda interval?
         if not numpy.all(sigma_lo + sigma_hi):
             return None
