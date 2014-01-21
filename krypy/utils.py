@@ -1174,3 +1174,7 @@ class MatrixLinearOperator(LinearOperator):
             self._A_adj = self._A.T.conj()
         return self._A_adj.dot(X)
 
+
+def strakos(n, l_min=0.1, l_max=100, rho=0.9):
+    d = [l_min + (i-1)*1./(n-1)*(l_max-l_min)*(rho**(n-i)) for i in range(1, n+1)]
+    return numpy.diag(d)
