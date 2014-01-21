@@ -34,15 +34,12 @@ to reduce the notational overhead we define
     B := M_l A M_r.
 
 Let two matrices :math:`U,V\in\mathbb{C}^{N,d}` such that
-:math:`\langle V,B U\rangle\in\mathbb{C}^{d,d}` is non-singular. 
+:math:`\langle V,B U\rangle\in\mathbb{C}^{d,d}` is non-singular.
 Then a projection :math:`P_M` can be defined by
 
 .. math::
-    
-    P_M x = x - MBU\langle V,MBU\rangle_{M^{-1}}^{-1}\langle V,x\rangle_{M^{-1}}.
 
-..
-    TODO: explain what happens if U spans an invariant subspace.
+    P_M x = x - MBU\langle V,MBU\rangle_{M^{-1}}^{-1}\langle V,x\rangle_{M^{-1}}.
 
 Furthermore, the projections :math:`P` and :math:`\tilde{P}` can be
 defined by
@@ -66,15 +63,29 @@ restrictions have to be made concerning the choice of :math:`U` and :math:`V`:
   self-adjoint and positive definite with respect to
   :math:`\langle\cdot,\cdot\rangle`. This can be assured by choosing
   :math:`V=U`.
-* for :py:meth:`~krypy.linsys.gmres`: the condition 
+* for :py:meth:`~krypy.linsys.gmres`: the condition
   :math:`\operatorname{Im}(U)\cap\operatorname{Im}(V)^{\perp_{M^{-1}}}=\{0\}`
   has to be fulfilled, see [GauGLN13]_. This can be achieved by either :math:`V=U` or
-  :math:`V=BU`.
-* for :py:meth:`~krypy.linsys.minres`: the same as for 
+  :math:`V=MBU`.
+* for :py:meth:`~krypy.linsys.minres`: the same as for
   :py:meth:`~krypy.linsys.gmres` and additionally the operator
   :math:`PB` or the operator :math:`PBP` has to be self-adjoint with respect to
   :math:`\langle\cdot,\cdot\rangle`. This can be fulfilled by choosing
-  :math:`V=U` or :math:`V=BU`.
+  :math:`V=U` or :math:`V=MBU`.
+
+..
+    One motivation for deflation becomes clear when one assumes that
+    :math:`\operatorname{Im}(U)` is an invariant subspace of :math:`MB`.
+    Let furthermore :math:`MB=
+    \begin{bmatrix} X_1    & X_2   \end{bmatrix}
+    \begin{bmatrix} J_1 & \\ & J_2 \end{bmatrix}
+    \begin{bmatrix} Y_1^* \\ Y_2^* \end{bmatrix}`
+    with
+    :math:`\begin{bmatrix} Y_1^* \\ Y_2^* \end{bmatrix}
+    \begin{bmatrix} X_1    & X_2   \end{bmatrix}
+    = I_N`
+    and :math:`J_1` and :math:`J_2` block diagonal with Jordan blocks .
+    be a Jordan decomposition of :math:`MB`.
 
 .. automodule:: krypy.deflation
     :members:
