@@ -24,7 +24,8 @@ except ImportError:
 
 __all__ = ['Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
         'MatrixLinearOperator', 'Projection', 'Timer',
-        'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected', 'gap',
+        'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected', 'bound_cg',
+        'bound_minres', 'gap',
         'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
         'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
         'shape_vecs', 'strakos']
@@ -1239,3 +1240,116 @@ def gap(lamda, sigma, mode='individual'):
             delta = numpy.min([delta, numpy.min(sigma[sigma_hi]) - lamda_max])
 
         return delta
+
+
+def bound_cg(evals, steps=None):
+    r"""CG residual norm bound.
+
+    Computes the :math:`\kappa`-bound for the CG error :math:`A`-norm when the
+    eigenvalues of the operator are given, see [LieS13]_.
+
+    :param evals: an array of eigenvalues
+      :math:`\lambda_1,\ldots,\lambda_N\in\mathbb{R}`. The eigenvalues will be
+      sorted internally such that
+      :math:`0=\lambda_1=\ldots=\lambda_{t-1}<\lambda_t\leq\ldots\lambda_N`
+      for :math:`t\in\mathbb{N}`.
+    :param steps: (optional) the number of steps :math:`k` to compute the bound
+      for. If steps is ``None`` (default), then :math:`k=N` is used.
+
+    :return: array :math:`[\eta_0,\ldots,\eta_k]` with
+
+      .. math::
+
+         \eta_n = 2 \left(
+           \frac{\sqrt{\kappa_{\text{eff}}} - 1}
+           {\sqrt{\kappa_{\text{eff}}} + 1}
+         \right)^n
+         \quad\text{for}\quad
+         n\in\{0,\ldots,k\}
+
+      where :math:`\kappa_{\text{eff}}=\frac{\lambda_N}{\lambda_t}`.
+    """
+    # sanitize input
+    if steps is None:
+        steps = len(evals)
+
+    # all evals real?
+    if not numpy.isreal(evals).all():
+        raise ValueError('non-real evals encountered!')
+
+    # sort
+    evals = numpy.sort(evals)
+
+    # normalize
+    evals /= evals[-1]
+
+    # check that all are non-negative
+    assert(evals[0] > -1e-15)
+
+    # compute effective condition number
+    kappa = 1/numpy.min(evals[evals > 1e-15])
+    return [2*((numpy.sqrt(kappa)-1)/(numpy.sqrt(kappa)+1))**n
+            for n in range(steps+1)]
+
+
+def bound_minres(evals, steps=None):
+    r"""MINRES residual norm bound.
+
+    Computes a bound for the MINRES residual norm when the eigenvalues of the
+    operator are given, see [Gre97]_.
+
+    :param evals: an array of eigenvalues
+      :math:`\lambda_1,\ldots,\lambda_N\in\mathbb{R}`. The eigenvalues will be
+      sorted internally such that
+      :math:`\lambda_1\leq\ldots\lambda_s<0=\lambda_{s+1}=\ldots=\lambda_{s+t-1}<\lambda_t\leq\ldots\lambda_N`
+      for :math:`s,t\in\mathbb{N}` and :math:`s<t`.
+    :param steps: (optional) the number of steps :math:`k` to compute the bound
+      for. If steps is ``None`` (default), then :math:`k=N` is used.
+
+    :return: array :math:`[\eta_0,\ldots,\eta_k]` with
+
+      .. math::
+
+         \eta_n = 2 \left(
+         \frac{ \sqrt{|\lambda_1\lambda_N|} - \sqrt{|\lambda_s\lambda_t|}}
+         { \sqrt{|\lambda_1\lambda_N|} + \sqrt{|\lambda_s\lambda_t|}}
+         \right)^{\left[\frac{n}{2}\right]}
+         \quad\text{for}\quad
+         n\in\{0,\ldots,k\}
+
+      if :math:`s>0`. If :math:`s=0`, i.e., if the eigenvalues are
+      non-negative, then the result of :py:meth:`bound_cg` is returned.
+    """
+    # sanitize input
+    if steps is None:
+        steps = len(evals)
+
+    # all evals real?
+    if not numpy.isreal(evals).all():
+        raise ValueError('non-real evals encountered!')
+
+    # sort
+    evals = numpy.sort(evals)
+
+    # normalize and categorize evals
+    evals /= numpy.max(numpy.abs(evals))
+    negative = evals < -1e-15
+    positive = evals > 1e-15
+
+    # only non-negative evals? then use cg bound
+    if negative.sum() == 0:
+        return bound_cg(evals, steps)
+
+    # only non-positive evals? then also use cg bound
+    if positive.sum() == 0:
+        return bound_cg(-evals, steps)
+
+    lambda_1 = numpy.min(evals[negative])
+    lambda_s = numpy.max(evals[negative])
+    lambda_t = numpy.min(evals[positive])
+    lambda_N = numpy.max(evals[positive])
+
+    a = numpy.sqrt(numpy.abs(lambda_1*lambda_N))
+    b = numpy.sqrt(numpy.abs(lambda_s*lambda_t))
+
+    return [2*((a-b)/(a+b))**numpy.floor(n/2.) for n in range(steps+1)]
