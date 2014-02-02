@@ -25,7 +25,7 @@ except ImportError:
 __all__ = ['Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
         'MatrixLinearOperator', 'Projection', 'Timer',
         'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected', 'bound_cg',
-        'bound_minres', 'gap',
+        'bound_minres', 'bound_perturbed_gmres', 'gap',
         'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
         'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
         'shape_vecs', 'strakos']
@@ -1353,3 +1353,29 @@ def bound_minres(evals, steps=None):
     b = numpy.sqrt(numpy.abs(lambda_s*lambda_t))
 
     return [2*((a-b)/(a+b))**numpy.floor(n/2.) for n in range(steps+1)]
+
+
+def bound_perturbed_gmres(pseudo, p, epsilon, deltas):
+    '''Compute GMRES perturbation bound based on pseudospectrum
+
+    Computes the GMRES bound from [SifEM13]_.
+    '''
+    if not numpy.all(numpy.array(deltas) > epsilon):
+        raise ValueError('all deltas have to be greater than epsilon')
+
+    bound = []
+    for delta in deltas:
+        # get boundary paths
+        paths = pseudo.contour_paths(delta)
+
+        # get vertices on boundary
+        vertices = paths.vertices()
+
+        # evaluate polynomial
+        supremum = numpy.max(numpy.abs(p(vertices)))
+
+        # compute bound
+        bound.append(epsilon/(delta-epsilon)
+                     * paths.length()/(2*numpy.pi*delta)
+                     * supremum)
+    return bound
