@@ -1242,6 +1242,127 @@ def gap(lamda, sigma, mode='individual'):
         return delta
 
 
+class Interval(object):
+    '''An Interval on the real line. May also be a single point.'''
+    def __init__(self, left, right):
+        if left > right:
+            raise ValueError('left > right not allowed.')
+        self.left = left
+        self.right = right
+
+    def __and__(self, other):
+        '''Return intersection interval or None'''
+        left = numpy.max([self.left, other.left])
+        right = numpy.min([self.right, other.right])
+        if left <= right:
+            return Interval(left, right)
+        return None
+
+    def __or__(self, other):
+        '''Return union of intervals if they intersect or None.'''
+        if self & other:
+            left = numpy.min([self.left, other.left])
+            right = numpy.max([self.right, other.right])
+            return Interval(left, right)
+        return None
+
+    def __repr__(self):
+        return '[{0},{1}]'.format(self.left, self.right)
+
+    def contains(self, alpha):
+        '''Returns True if alpha is an element of the interval.'''
+        return self.left <= alpha and alpha <= self.right
+
+    def distance(self, other):
+        '''Returns the distance to other (0 if intersection is nonempty).'''
+        if self & other:
+            return 0
+        return numpy.max([other.left-self.right, self.left-other.right])
+
+
+class Intervals(object):
+    '''A set of non-intersecting intervals.'''
+    def __init__(self, intervals=None):
+        self.intervals = set()
+        if intervals is not None:
+            for interval in intervals:
+                self.add(interval)
+
+    def add(self, new):
+        intersecting = {interval for interval in self.intervals
+                        if interval & new}
+        # compute union
+        for interval in intersecting:
+            new = new | interval
+        self.intervals = self.intervals.difference(intersecting)
+        self.intervals.add(new)
+
+    def contains(self, alpha):
+        for interval in self.intervals:
+            if interval.contains(alpha):
+                return True
+        return False
+
+    def __len__(self):
+        return len(self.intervals)
+
+    def __iter__(self):
+        return self.intervals.__iter__()
+
+    def __repr__(self):
+        return ', '.join([interval.__repr__() for interval in self.intervals])
+
+    def min(self):
+        if self.__len__() == 0:
+            return ValueError('empty set has no minimum.')
+        return numpy.min(map(lambda i: i.left, self.intervals))
+
+    def max(self):
+        if self.__len__() == 0:
+            return ValueError('empty set has no maximum.')
+        return numpy.max(map(lambda i: i.right, self.intervals))
+
+    def min_pos(self):
+        '''Returns minimal positive value or None.'''
+        if self.__len__() == 0:
+            return ValueError('empty set has no minimum positive value.')
+        if self.contains(0):
+            return None
+        positive = [interval for interval in self.intervals
+                    if interval.left > 0]
+        if len(positive) == 0:
+            return None
+        return numpy.min(map(lambda i: i.left, positive))
+
+    def max_neg(self):
+        '''Returns maximum negative value or None.'''
+        if self.__len__() == 0:
+            return ValueError('empty set has no maximum negative value.')
+        if self.contains(0):
+            return None
+        negative = [interval for interval in self.intervals
+                    if interval.right < 0]
+        if len(negative) == 0:
+            return None
+        return numpy.min(map(lambda i: i.right, negative))
+
+    def min_abs(self):
+        '''Returns minimum absolute value.'''
+        if self.__len__() == 0:
+            return ValueError('empty set has no minimum absolute value.')
+        if self.contains(0):
+            return 0
+        return numpy.min([numpy.abs(val)
+                          for val in [self.max_neg(), self.min_pos()]
+                          if val is not None])
+
+    def max_abs(self):
+        '''Returns maximum absolute value.'''
+        if self.__len__() == 0:
+            return ValueError('empty set has no maximum absolute value.')
+        return numpy.max(numpy.abs([self.max(), self.min()]))
+
+
 def bound_cg(evals, steps=None):
     r"""CG residual norm bound.
 
