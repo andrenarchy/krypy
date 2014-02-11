@@ -434,6 +434,43 @@ def test_gap():
     assert_almost_equal(krypy.utils.gap(-5, [-5, 6], mode='interval'), 0)
     assert(krypy.utils.gap([-5, 5], [0], mode='interval') is None)
 
+
+def test_Interval():
+    Interval = krypy.utils.Interval
+    Intervals = krypy.utils.Intervals
+
+    I = Interval(-2, -1)
+    J = Interval(1, 2)
+    K = Interval(-10, 1.5)
+    assert((I & J) is None)
+    assert((I | J) is None)
+    assert((J & K).left == 1)
+    assert((J & K).right == 1.5)
+    assert((J | K).left == -10)
+    assert((J | K).right == 2)
+
+    ints = Intervals([I, I])
+    assert(ints.max() == -1)
+    assert(ints.min() == -2)
+    assert(ints.max_neg() == -1)
+    assert(ints.min_pos() is None)
+
+    ints = Intervals([I, J])
+    assert(ints.max() == 2)
+    assert(ints.min_pos() == 1)
+    assert(ints.max_neg() == -1)
+    assert(ints.min() == -2)
+    assert(ints.contains(0) is False)
+
+    ints = Intervals([I, J, K])
+    assert(ints.max() == 2)
+    assert(ints.min_pos() is None)
+    assert(ints.max_neg() is None)
+    assert(ints.min() == -10)
+    assert(ints.max_abs() == 10)
+    assert(ints.contains(0) is True)
+
+
 if __name__ == '__main__':
     import nose
     nose.main()
