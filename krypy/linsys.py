@@ -522,6 +522,18 @@ def minres(A, b,
         ret['H'] = Hfull[0:k+1,0:k]
     return ret
 
+
+def get_minres_operations(nsteps):
+    '''Returns the number of operations needed for nsteps of MINRES'''
+    return {'A': 1 + nsteps,
+            'M': 2 + nsteps,
+            'Ml': 2 + nsteps,
+            'Mr': 1 + nsteps,
+            'ip': 2 + 2*nsteps,
+            'axpy': 4 + 8*nsteps
+            }
+
+
 # ==============================================================================
 def gmres( A, b,
            x0 = None,
