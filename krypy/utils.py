@@ -347,8 +347,7 @@ class Projection:
         # case below)
         if Y is X and B is None:
             self.U = scipy.linalg.orth(X)
-            self.V = self.U
-            self.Q = None
+            self.V_H = self.U.T.conj()
             self.R = None
         # general case
         else:
@@ -356,15 +355,15 @@ class Projection:
             if B is not None:
                 B = get_linearoperator((N, N), B)
                 Y = B*Y
-            self.V = scipy.linalg.orth(Y)
-            M = numpy.dot(self.V.T.conj(), self.U)
-            self.Q, self.R = scipy.linalg.qr(M)
+            V = scipy.linalg.orth(Y)
+            M = numpy.dot(V.T.conj(), self.U)
+            Q, self.R = scipy.linalg.qr(M)
+            self.V_H = V.dot(Q).T.conj()
 
     def _apply(self, a):
         '''Single application of the projection.'''
-        c = self.V.T.conj().dot(a)
-        if self.Q is not None:
-            c = self.Q.T.conj().dot(c)
+        c = self.V_H.dot(a)
+        if self.R is not None:
             c = scipy.linalg.solve_triangular(self.R, c)
         return numpy.dot(self.U, c)
 
@@ -405,7 +404,7 @@ class Projection:
 
     def _get_operator(self, fun):
         N = self.U.shape[0]
-        t = numpy.find_common_type([self.U.dtype, self.V.dtype], [])
+        t = numpy.find_common_type([self.U.dtype, self.U.dtype], [])
         return LinearOperator((N, N), t, fun)
 
     def operator(self):
