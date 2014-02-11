@@ -398,7 +398,6 @@ class Projection:
         z = a - x
         for i in range(self.iterations-1):
             w = self._apply(z)
-            x = x + w
             z = z - w
         return z
 

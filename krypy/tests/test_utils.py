@@ -113,7 +113,7 @@ def run_givens(x):
 def test_projection():
     Xs = [numpy.eye(10, 1), numpy.eye(10, 5), numpy.eye(10)]
     Bs = [None, numpy.eye(10), numpy.diag(numpy.linspace(1, 5, 10))]
-    its = [1, 2]
+    its = [1, 2, 3]
     for (X, B, iterations) in itertools.product(Xs, Bs, its):
         Ys = [None, X, X + numpy.ones((10, X.shape[1]))]
         for Y in Ys:
