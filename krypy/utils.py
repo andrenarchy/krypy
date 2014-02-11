@@ -1243,8 +1243,10 @@ def gap(lamda, sigma, mode='individual'):
 
 
 class Interval(object):
-    '''An Interval on the real line. May also be a single point.'''
-    def __init__(self, left, right):
+    '''A closed interval on the real line (may also be a single point).'''
+    def __init__(self, left, right=None):
+        if right is None:
+            right = left
         if left > right:
             raise ValueError('left > right not allowed.')
         self.left = left

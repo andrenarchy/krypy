@@ -442,6 +442,8 @@ def test_Interval():
     I = Interval(-2, -1)
     J = Interval(1, 2)
     K = Interval(-10, 1.5)
+    L = Interval(5)
+
     assert((I & J) is None)
     assert((I | J) is None)
     assert((J & K).left == 1)
@@ -462,8 +464,8 @@ def test_Interval():
     assert(ints.min() == -2)
     assert(ints.contains(0) is False)
 
-    ints = Intervals([I, J, K])
-    assert(ints.max() == 2)
+    ints = Intervals([I, J, K, L])
+    assert(ints.max() == 5)
     assert(ints.min_pos() is None)
     assert(ints.max_neg() is None)
     assert(ints.min() == -10)
