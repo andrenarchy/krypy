@@ -477,6 +477,17 @@ def test_Interval():
     assert_array_equal(ints.get_endpoints(), [-10, 2, 5])
 
 
+def test_BoundCG():
+    b = krypy.utils.BoundCG([1, 2])
+    assert_almost_equal(b.eval_step(8), 1.5018239652065932e-06)
+    assert(b.get_step(1e-6) == 9)
+
+    b = krypy.utils.BoundCG(krypy.utils.Intervals(
+        [krypy.utils.Interval(1, 1.2), krypy.utils.Interval(2)]))
+    assert_almost_equal(b.eval_step(8), 1.5018239652065932e-06)
+    assert(b.get_step(1e-6) == 9)
+
+
 if __name__ == '__main__':
     import nose
     nose.main()

@@ -1375,6 +1375,54 @@ class Intervals(object):
         return numpy.max(numpy.abs([self.max(), self.min()]))
 
 
+class AssumptionError(ValueError):
+    pass
+
+
+class BoundCG(object):
+    def __init__(self, evals, exclude_zeros=False):
+        '''Initialize with array/list of eigenvalues or Intervals object.'''
+        if isinstance(evals, Intervals):
+            evals = [evals.min(), evals.max()]
+            if evals[0] <= 0:
+                raise AssumptionError(
+                    'non-positive eigenvalues not allowed with intervals')
+
+        # all evals real?
+        if not numpy.isreal(evals).all():
+            raise AssumptionError('non-real eigenvalues not allowed')
+
+        # sort
+        evals = numpy.sort(numpy.array(evals, dtype=numpy.float))
+
+        # normalize
+        evals /= evals[-1]
+
+        if exclude_zeros is False and not (evals > 1e-15).all():
+            raise AssumptionError(
+                'non-positive eigenvalues not allowed (use exclude_zeros?)')
+
+        # check that all are non-negative
+        assert(evals[0] > -1e-15)
+
+        # compute effective condition number
+        kappa = 1/numpy.min(evals[evals > 1e-15])
+        self.base = (numpy.sqrt(kappa)-1) / (numpy.sqrt(kappa)+1)
+
+    def eval_step(self, step):
+        '''Evaluate bound for given step.'''
+        return 2 * self.base**step
+
+    def get_step(self, tol):
+        '''Return step at which bound falls below tolerance.'''
+        return int(numpy.ceil(numpy.log(tol/2)/numpy.log(self.base)))
+
+
+#class BoundMinres(object):
+#    def __init__(self, evals):
+
+
+
 def bound_cg(evals, steps=None):
     r"""CG residual norm bound.
 
