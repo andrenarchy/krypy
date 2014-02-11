@@ -217,7 +217,18 @@ def cg(A, b,
 
     return ret
 
-# ==============================================================================
+
+def get_cg_operations(nsteps):
+    '''Returns the number of operations needed for nsteps of CG'''
+    return {'A': 1 + nsteps,
+            'M': 2 + nsteps,
+            'Ml': 2 + nsteps,
+            'Mr': 1 + nsteps,
+            'ip': 2 + 2*nsteps,
+            'axpy': 2 + 2*nsteps
+            }
+
+
 def minres(A, b,
            x0 = None,
            tol = 1e-5,
