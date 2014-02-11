@@ -9,9 +9,9 @@ import numpy
 import warnings
 import time
 import scipy.linalg
-from scipy.sparse import issparse, isspmatrix
+from scipy.sparse import isspmatrix
 #from scipy.sparse.linalg import LinearOperator, aslinearoperator
-from scipy.sparse.sputils import upcast, isintlike
+from scipy.sparse.sputils import isintlike
 
 # for Givens rotations
 try:
@@ -25,12 +25,12 @@ except ImportError:
 __all__ = ['BoundCG', 'BoundMinres', 'Givens', 'House',
            'IdentityLinearOperator', 'LinearOperator', 'MatrixLinearOperator',
            'Projection', 'Timer', 'angles', 'arnoldi', 'arnoldi_res',
-           'arnoldi_projected', 'bound_cg', 'bound_minres',
-           'bound_perturbed_gmres', 'gap', 'get_linearoperator', 'hegedus',
-           'ip_euclid', 'norm', 'norm_MMlr', 'norm_squared', 'orthonormality',
-           'qr', 'ritz', 'shape_vec', 'shape_vecs', 'strakos']
+           'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
+           'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
+           'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
+           'shape_vecs', 'strakos']
 
-# ===================================================================
+
 def find_common_dtype(*args):
     '''Returns common dtype of numpy and scipy objects.
 
@@ -44,15 +44,16 @@ def find_common_dtype(*args):
             if hasattr(arg, 'dtype'):
                 dtypes.append(arg.dtype)
             else:
-                warnings.warn('object %s does not have a dtype.' % arg.__repr__)
+                warnings.warn('object %s does not have a dtype.'
+                              % arg.__repr__)
     return numpy.find_common_type(dtypes, [])
 
-# ===================================================================
+
 def shape_vec(x):
     '''Take a (n,) ndarray and return it as (n,1) ndarray.'''
     return numpy.reshape(x, (x.shape[0], 1))
 
-# ===================================================================
+
 def shape_vecs(*args):
     '''Reshape all ndarrays with ``shape==(n,)`` to ``shape==(n,1)``.
 
@@ -61,15 +62,15 @@ def shape_vecs(*args):
     flat_vecs = True
     for arg in args:
         if type(arg) is numpy.ndarray:
-            if len(arg.shape)==1:
+            if len(arg.shape) == 1:
                 arg = shape_vec(arg)
             else:
                 flat_vecs = False
         ret_args.append(arg)
     return flat_vecs, ret_args
 
-# ===================================================================
-def ip_euclid(X,Y):
+
+def ip_euclid(X, Y):
     '''Euclidean inner product.
 
     numpy.vdot only works for vectors and numpy.dot does not use the conjugate
@@ -82,32 +83,32 @@ def ip_euclid(X,Y):
     '''
     return numpy.dot(X.T.conj(), Y)
 
-# ===================================================================
-def norm_squared( x, Mx = None, inner_product = ip_euclid ):
+
+def norm_squared(x, Mx=None, inner_product=ip_euclid):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
-    assert( len(x.shape)==2 )
+    assert(len(x.shape) == 2)
     if Mx is None:
         rho = inner_product(x, x)
     else:
-        assert( len(Mx.shape)==2 )
+        assert(len(Mx.shape) == 2)
         rho = inner_product(x, Mx)
 
-    if rho.shape==(1,1):
-        if abs(rho[0,0].imag) > abs(rho[0,0]) *1e-10 or rho[0,0].real < 0.0:
-            raise ValueError( '<x,Mx> = %g. M not positive definite?' % rho[0,0] )
+    if rho.shape == (1, 1):
+        if abs(rho[0, 0].imag) > abs(rho[0, 0])*1e-10 or rho[0, 0].real < 0.0:
+            raise ValueError('<x,Mx> = %g. M not positive definite?'
+                             % rho[0, 0])
 
     return numpy.linalg.norm(rho, 2)
 
 
-# ===================================================================
-def norm( x, Mx = None, inner_product = ip_euclid ):
+def norm(x, Mx=None, inner_product=ip_euclid):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    if Mx is None and inner_product==ip_euclid:
+    if Mx is None and inner_product == ip_euclid:
         return numpy.linalg.norm(x, 2)
     else:
-        return numpy.sqrt(norm_squared( x, Mx = Mx, inner_product = inner_product ) )
+        return numpy.sqrt(norm_squared(x, Mx=Mx, inner_product=inner_product))
 
-# ===================================================================
+
 def get_linearoperator(shape, A):
     """Enhances aslinearoperator if A is None."""
     ret = None
@@ -121,12 +122,12 @@ def get_linearoperator(shape, A):
         ret = MatrixLinearOperator(numpy.atleast_2d(numpy.asarray(A)))
     else:
         raise TypeError('type not understood')
-    if shape!=ret.shape:
+    if shape != ret.shape:
         raise ValueError('shape mismatch')
     return ret
 
-# ===================================================================
-def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip_euclid):
+
+def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product=ip_euclid):
     xk = x0 + Mr * yk
     r = b - A * xk
     Mlr = Ml * r
@@ -136,7 +137,7 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip_euclid):
     # TODO for testing: 2-norm
     norm_Mlr = norm(Mlr)
     if norm_Mlr == 0:
-        MMlr = numpy.zeros( Mlr.shape )
+        MMlr = numpy.zeros(Mlr.shape)
         norm_MMlr = 0
     else:
         nMlr = Mlr / norm_Mlr
@@ -146,7 +147,7 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = ip_euclid):
     # return xk and ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}}
     return xk, Mlr, MMlr, norm_MMlr
 
-# ===================================================================
+
 def orthonormality(V, inner_product=ip_euclid):
     """Measure orthonormality of given basis.
 
@@ -155,9 +156,9 @@ def orthonormality(V, inner_product=ip_euclid):
       :py:meth:`ip_euclid`.
     :return: :math:`\\| I_n - \\langle V,V \\rangle \\|_2`.
     """
-    return norm(numpy.eye(V.shape[1]) - inner_product(V,V))
+    return norm(numpy.eye(V.shape[1]) - inner_product(V, V))
 
-# ===================================================================
+
 def arnoldi_res(A, V, H, inner_product=ip_euclid):
     """Measure Arnoldi residual.
 
@@ -174,20 +175,20 @@ def arnoldi_res(A, V, H, inner_product=ip_euclid):
       :math:`\\|A V_n - V_n H_n\\|` (in the invariant case).
     """
     N = V.shape[0]
-    invariant = H.shape[0]==H.shape[1]
-    A = get_linearoperator((N,N), A)
+    invariant = H.shape[0] == H.shape[1]
+    A = get_linearoperator((N, N), A)
     if invariant:
         res = A*V - numpy.dot(V, H)
     else:
-        res = A*V[:,:-1] - numpy.dot(V,H)
+        res = A*V[:, :-1] - numpy.dot(V, H)
     return norm(res, inner_product=inner_product)
 
-# ===================================================================
+
 class House:
     def __init__(self, x):
         """Compute Householder transformation for given vector.
 
-        Initialize Householder transformation :math:`H` such that 
+        Initialize Householder transformation :math:`H` such that
         :math:`Hx = \\alpha \|x\|_2 e_1` with :math:`|\\alpha|=1`
 
         The algorithm is a combination of Algorithm 5.1.1 on page 236
@@ -195,30 +196,30 @@ class House:
         in Golub, Van Loan. Matrix computations. Fourth Edition. 2013.
         """
         # make sure that x is a vector ;)
-        if len(x.shape)!=2 or x.shape[1]!=1:
+        if len(x.shape) != 2 or x.shape[1] != 1:
             raise ValueError('x is not a vector of dim (N,1)')
 
         v = x.copy()
 
         gamma = numpy.asscalar(v[0])
         v[0] = 1
-        if x.shape[0]==1:
+        if x.shape[0] == 1:
             sigma = 0
             xnorm = numpy.abs(gamma)
             beta = 0
-            alpha = 1 if gamma==0 else gamma/xnorm
+            alpha = 1 if gamma == 0 else gamma/xnorm
         else:
-            sigma = numpy.linalg.norm(v[1:],2)
+            sigma = numpy.linalg.norm(v[1:], 2)
             xnorm = numpy.sqrt(numpy.abs(gamma)**2+sigma**2)
 
             # is x the multiple of first unit vector?
-            if sigma==0:
+            if sigma == 0:
                 beta = 0
                 xnorm = numpy.abs(gamma)
-                alpha = 1 if gamma==0 else gamma/xnorm
+                alpha = 1 if gamma == 0 else gamma/xnorm
             else:
                 beta = 2
-                if gamma==0:
+                if gamma == 0:
                     v[0] = -sigma
                     alpha = 1
                 else:
@@ -226,7 +227,7 @@ class House:
                     alpha = - gamma/numpy.abs(gamma)
 
         self.xnorm = xnorm
-        self.v = v/numpy.sqrt( numpy.abs(v[0])**2 + sigma**2)
+        self.v = v/numpy.sqrt(numpy.abs(v[0])**2 + sigma**2)
         self.alpha = alpha
         self.beta = beta
 
@@ -236,9 +237,9 @@ class House:
         Applies the Householder transformation efficiently to the given vector.
         """
         # make sure that x is a (N,*) matrix
-        if len(x.shape)!=2:
+        if len(x.shape) != 2:
             raise ValueError('x is not a matrix of shape (N,*)')
-        if self.beta==0:
+        if self.beta == 0:
             return x
         return x - self.beta * self.v * numpy.dot(self.v.T.conj(), x)
 
@@ -253,9 +254,9 @@ class House:
         the resulting matrix is dense.
         """
         n = self.v.shape[0]
-        return numpy.eye(n,n) - self.beta * numpy.dot(self.v, self.v.T.conj())
+        return numpy.eye(n, n) - self.beta * numpy.dot(self.v, self.v.T.conj())
 
-# ===================================================================
+
 class Givens:
     def __init__(self, x):
         """Compute Givens rotation for provided vector x.
@@ -266,17 +267,17 @@ class Givens:
         :math:`Gx=\\begin{bmatrix}r\\\\0\\end{bmatrix}`.
         """
         # make sure that x is a vector ;)
-        if x.shape!=(2,1):
+        if x.shape != (2, 1):
             raise ValueError('x is not a vector of shape (2,1)')
 
         a = numpy.asscalar(x[0])
         b = numpy.asscalar(x[1])
         # real vector
         if numpy.isrealobj(x):
-            c, s = blas.drotg(a,b)
+            c, s = blas.drotg(a, b)
         # complex vector
         else:
-            c, s = blas.zrotg(a,b)
+            c, s = blas.zrotg(a, b)
 
         self.c = c
         self.s = s
@@ -287,13 +288,13 @@ class Givens:
         """Apply Givens rotation to vector x."""
         return numpy.dot(self.G, x)
 
-# ===================================================================
+
 class Projection:
     def __init__(self, X,
-            Y = None,
-            inner_product = ip_euclid,
-            ipYX = None,
-            ipYXinv = 'explicit'):
+                 Y=None,
+                 inner_product=ip_euclid,
+                 ipYX=None,
+                 ipYXinv='explicit'):
         """Generic projection.
 
         This class can represent any projection (orthogonal and oblique)
@@ -341,7 +342,7 @@ class Projection:
         # special case of orthogonal projection in Euclidean inner product
         # (the case of non-Euclidean inner products is handled in the general
         # case below)
-        if Y is X and inner_product==ip_euclid:
+        if Y is X and inner_product == ip_euclid:
             X = scipy.linalg.orth(X)
             Y = X
             ipYX = None
@@ -349,7 +350,7 @@ class Projection:
         # general case
         else:
             ipYX = inner_product(Y, X) if ipYX is None else ipYX
-            if ipYX.shape != (k,k):
+            if ipYX.shape != (k, k):
                 raise ValueError('ipYX does not have shape==(k,k)')
 
             if ipYXinv == 'explicit':
@@ -357,10 +358,11 @@ class Projection:
             elif ipYXinv == 'ondemand':
                 pass
             elif type(ipYXinv) == numpy.ndarray:
-                if ipYXinv.shape != (k,k):
+                if ipYXinv.shape != (k, k):
                     raise ValueError('ipYXinv does not have shape==(k,k)')
             else:
-                raise ValueError('unknown value for ipYXinv: {0}'.format(ipYXinv))
+                raise ValueError('unknown value for ipYXinv: {0}'
+                                 .format(ipYXinv))
 
         # save computed quantities in object
         self.X = X
@@ -386,7 +388,7 @@ class Projection:
         if self.ipYXinv is not None:
             if type(self.ipYXinv) == numpy.ndarray:
                 z = numpy.dot(self.ipYXinv, z)
-            else: # ondemand
+            else:  # ondemand
                 z = numpy.linalg.solve(self.ipYX, z)
         return numpy.dot(self.X, z)
 
@@ -403,7 +405,7 @@ class Projection:
     def _get_operator(self, fun):
         N = self.X.shape[0]
         t = numpy.find_common_type([self.X.dtype, self.Y.dtype], [])
-        return LinearOperator((N,N), t, fun)
+        return LinearOperator((N, N), t, fun)
 
     def operator(self):
         """Get a ``LinearOperator`` corresponding to apply().
@@ -431,8 +433,8 @@ class Projection:
         """
         return self.apply(numpy.eye(self.X.shape[0]))
 
-# ===================================================================
-def qr(X, inner_product = ip_euclid, reorthos=1):
+
+def qr(X, inner_product=ip_euclid, reorthos=1):
     """QR factorization with customizable inner product.
 
     :param X: array with ``shape==(N,k)``
@@ -445,25 +447,25 @@ def qr(X, inner_product = ip_euclid, reorthos=1):
     :return: Q, R where :math:`X=QR` with :math:`\\langle Q,Q \\rangle=I_k` and
       R upper triangular.
     """
-    if inner_product==ip_euclid and X.shape[1]>0:
+    if inner_product == ip_euclid and X.shape[1] > 0:
         return scipy.linalg.qr(X, mode='economic')
     else:
-        (N,k) = X.shape
+        (N, k) = X.shape
         Q = X.copy()
-        R = numpy.zeros((k,k), dtype=X.dtype)
+        R = numpy.zeros((k, k), dtype=X.dtype)
         for i in range(k):
             for reortho in range(reorthos+1):
                 for j in range(i):
-                    alpha = inner_product(Q[:, [j]], Q[:,[i]])[0,0]
-                    R[j,i] += alpha
-                    Q[:,[i]] -= alpha * Q[:,[j]]
-            R[i,i] = norm(Q[:,[i]], inner_product=inner_product)
-            if R[i,i] >= 1e-15:
-                Q[:,[i]] /= R[i,i]
+                    alpha = inner_product(Q[:, [j]], Q[:, [i]])[0, 0]
+                    R[j, i] += alpha
+                    Q[:, [i]] -= alpha * Q[:, [j]]
+            R[i, i] = norm(Q[:, [i]], inner_product=inner_product)
+            if R[i, i] >= 1e-15:
+                Q[:, [i]] /= R[i, i]
         return Q, R
 
-# ===================================================================
-def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
+
+def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
     """Principal angles between two subspaces.
 
     This algorithm is based on algorithm 6.2 in `Knyazev, Argentati. Principal
@@ -509,44 +511,46 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
     # make sure that F.shape[1]>=G.shape[1]
     reverse = False
     if F.shape[1] < G.shape[1]:
-        reverse=True
+        reverse = True
         F, G = G, F
 
     QF, _ = qr(F, inner_product=inner_product)
     QG, _ = qr(G, inner_product=inner_product)
 
     # one or both matrices empty? (enough to check G here)
-    if G.shape[1]==0:
+    if G.shape[1] == 0:
         theta = numpy.ones(F.shape[1])*numpy.pi/2
         U = QF
         V = QG
     else:
-        Y, s, Z = scipy.linalg.svd( inner_product(QF, QG) )
+        Y, s, Z = scipy.linalg.svd(inner_product(QF, QG))
         Vcos = numpy.dot(QG, Z.T.conj())
-        n_large = numpy.flatnonzero( (s**2) < 0.5).shape[0]
+        n_large = numpy.flatnonzero((s**2) < 0.5).shape[0]
         n_small = s.shape[0] - n_large
         theta = numpy.r_[
-                numpy.arccos(s[n_small:]), # [-i:] does not work if i==0
-                numpy.ones(F.shape[1]-G.shape[1])*numpy.pi/2 ]
+            numpy.arccos(s[n_small:]),  # [-i:] does not work if i==0
+            numpy.ones(F.shape[1]-G.shape[1])*numpy.pi/2]
         if compute_vectors:
             Ucos = numpy.dot(QF, Y)
             U = Ucos[:, n_small:]
             V = Vcos[:, n_small:]
 
-        if n_small>0:
-            RG = Vcos[:,:n_small]
+        if n_small > 0:
+            RG = Vcos[:, :n_small]
             S = RG - numpy.dot(QF, inner_product(QF, RG))
             _, R = qr(S, inner_product=inner_product)
-            Y, u, Z = scipy.linalg.svd( R )
+            Y, u, Z = scipy.linalg.svd(R)
             theta = numpy.r_[
-                    numpy.arcsin( u[::-1][:n_small]),
-                    theta ]
+                numpy.arcsin(u[::-1][:n_small]),
+                theta]
             if compute_vectors:
-                RF = Ucos[:,:n_small]
+                RF = Ucos[:, :n_small]
                 Vsin = numpy.dot(RG, Z.T.conj())
                 # next line is hand-crafted since the line from the paper does
                 # not seem to work.
-                Usin = numpy.dot(RF, numpy.dot( numpy.diag(1/s[:n_small]), numpy.dot(Z.T.conj(), numpy.diag(s[:n_small]))))
+                Usin = numpy.dot(RF, numpy.dot(
+                    numpy.diag(1/s[:n_small]),
+                    numpy.dot(Z.T.conj(), numpy.diag(s[:n_small]))))
                 U = numpy.c_[Usin, U]
                 V = numpy.c_[Vsin, V]
 
@@ -557,7 +561,7 @@ def angles(F, G, inner_product = ip_euclid, compute_vectors=False):
     else:
         return theta
 
-# ===================================================================
+
 def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
     """Rescale initial guess appropriately (Hegedüs trick).
 
@@ -568,13 +572,15 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
 
       \\|r_0\\|_{M^{-1}}
       = \\| M M_l (b - A \\gamma_{\\min} x_0) \\|_{M^{-1}}
-      = \\min_{\\gamma\\in\\mathbb{C}} \\| M M_l (b - A \\gamma x_0) \\|_{M^{-1}}
+      = \\min_{\\gamma\\in\\mathbb{C}}
+        \\| M M_l (b - A \\gamma x_0) \\|_{M^{-1}}
       \\leq \\| M M_l b \\|_{M^{-1}}.
 
     This is achieved by
     :math:`\\gamma_{\\min} = \\frac{\\langle z, M M_l b \\rangle_{M^{-1}}}{\\|z\\|_{M^{-1}}^2}` for
     :math:`z=M M_l A x_0` because then :math:`r_0=P_{z^\\perp}b`. (Note that
-    the right hand side of formula (5.8.16) in [LieS13]_ has to be complex conjugated.)
+    the right hand side of formula (5.8.16) in [LieS13]_ has to be complex
+    conjugated.)
 
     The parameters are the parameters you want to pass to
     :py:meth:`~krypy.linsys.gmres`,
@@ -584,7 +590,7 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
     :return: the adapted initial guess with the above property.
     """
     N = len(b)
-    shape = (N,N)
+    shape = (N, N)
     A = get_linearoperator(shape, A)
     M = get_linearoperator(shape, M)
     Ml = get_linearoperator(shape, Ml)
@@ -593,21 +599,25 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
     z = M*MlAx0
     znorm2 = inner_product(z, MlAx0)
     if znorm2 <= 1e-15:
-        return numpy.zeros((N,1))
+        return numpy.zeros((N, 1))
     gamma = inner_product(z, Ml*b) / znorm2
     return gamma*x0
 
-# ===================================================================
+
 class Arnoldi:
-    def __init__(self, A, v, maxiter=None, ortho='mgs', inner_product=ip_euclid):
+    def __init__(self, A, v,
+                 maxiter=None,
+                 ortho='mgs',
+                 inner_product=ip_euclid
+                 ):
         """Arnoldi algorithm.
 
-        Computes V and H such that :math:`AV_n=V_{n+1}\\underline{H}_n`.
-        If the Krylov subspace becomes A-invariant then V and H are truncated such
+        Computes V and H such that :math:`AV_n=V_{n+1}\\underline{H}_n`.  If
+        the Krylov subspace becomes A-invariant then V and H are truncated such
         that :math:`AV_n = V_n H_n`.
 
-        :param A: a linear operator that can be used with scipy's aslinearoperator
-            with ``shape==(N,N)``.
+        :param A: a linear operator that can be used with scipy's
+          aslinearoperator with ``shape==(N,N)``.
         :param v: the initial vector with ``shape==(N,1)``.
         :param maxiter: (optional) maximal number of iterations. Default: N.
         :param ortho: (optional) orthogonalization algorithm: may be one of
@@ -615,88 +625,95 @@ class Arnoldi:
             * ``'mgs'``: modified Gram-Schmidt (default).
             * ``'dmgs'``: double Modified Gram-Schmidt.
             * ``'house'``: Householder.
-        :param inner_product: (optional) the inner product to use (has to be the
-            Euclidean inner product if ``ortho=='house'``). It's unclear to me
-            (andrenarchy), how a variant of the Householder QR algorithm can be
-            used with a non-Euclidean inner product. Compare
+        :param inner_product: (optional) the inner product to use (has to be
+            the Euclidean inner product if ``ortho=='house'``). It's unclear to
+            me (andrenarchy), how a variant of the Householder QR algorithm can
+            be used with a non-Euclidean inner product. Compare
             http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
         """
         N = v.shape[0]
 
         # save parameters
-        self.A = get_linearoperator((N,N), A)
+        self.A = get_linearoperator((N, N), A)
         self.v = v
         self.maxiter = N if maxiter is None else maxiter
         self.ortho = ortho
         self.inner_product = inner_product
 
         self.dtype = find_common_dtype(A, v)
-        self.iter = 0  # number of iterations
-        self.V = numpy.zeros((N,self.maxiter+1), dtype=self.dtype)  # Arnoldi basis
-        self.H = numpy.zeros((self.maxiter+1,self.maxiter), dtype=self.dtype) # Hessenberg matrix
-        self.invariant = False # flag indicating if Krylov subspace is invariant
+        # number of iterations
+        self.iter = 0
+        # Arnoldi basis
+        self.V = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
+        # Hessenberg matrix
+        self.H = numpy.zeros((self.maxiter+1, self.maxiter),
+                             dtype=self.dtype)
+        # flag indicating if Krylov subspace is invariant
+        self.invariant = False
 
-        if ortho=='house':
-            if inner_product!=ip_euclid:
-                raise ValueError('Only euclidean inner product allowed with Householder orthogonalization')
+        if ortho == 'house':
+            if inner_product != ip_euclid:
+                raise ValueError('Only euclidean inner product allowed with '
+                                 'Householder orthogonalization')
             self.houses = [House(v)]
             self.vnorm = numpy.linalg.norm(v, 2)
-        elif ortho in ['mgs','dmgs']:
+        elif ortho in ['mgs', 'dmgs']:
             self.reorthos = 0
-            if ortho=='dmgs':
+            if ortho == 'dmgs':
                 self.reorthos = 1
             self.vnorm = norm(v, inner_product=inner_product)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        self.V[:,[0]] = v / self.vnorm
+        self.V[:, [0]] = v / self.vnorm
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""
-        if self.iter>=self.maxiter:
+        if self.iter >= self.maxiter:
             raise ValueError('Maximum number of iterations reached.')
         if self.invariant:
-            raise ValueError('Krylov subspace was found to be invariant in the previous iteration.')
-
+            raise ValueError('Krylov subspace was found to be invariant '
+                             'in the previous iteration.')
 
         N = self.V.shape[0]
         k = self.iter
 
         # the matrix-vector multiplication
-        Av = self.A * self.V[:,[k]]
+        Av = self.A * self.V[:, [k]]
 
-        if self.ortho=='house':
+        if self.ortho == 'house':
             # Householder
             for j in range(k+1):
                 Av[j:] = self.houses[j].apply(Av[j:])
                 Av[j] *= numpy.conj(self.houses[j].alpha)
-            if k+1<N:
+            if k+1 < N:
                 house = House(Av[k+1:])
-                self.houses.append( house )
+                self.houses.append(house)
                 Av[k+1:] = house.apply(Av[k+1:]) * numpy.conj(house.alpha)
-                self.H[:k+2,[k]] = Av[:k+2]
+                self.H[:k+2, [k]] = Av[:k+2]
             else:
-                self.H[:k+1,[k]] = Av[:k+1]
-            self.H[k+1,k] = numpy.abs(self.H[k+1,k]) # safe due to the multiplications with alpha
-            if self.H[k+1,k] <= 1e-15:
+                self.H[:k+1, [k]] = Av[:k+1]
+            # next line is safe due to the multiplications with alpha
+            self.H[k+1, k] = numpy.abs(self.H[k+1, k])
+            if self.H[k+1, k] <= 1e-15:
                 self.invariant = True
             else:
-                vnew = numpy.zeros((N,1), dtype=self.dtype)
+                vnew = numpy.zeros((N, 1), dtype=self.dtype)
                 vnew[k+1] = 1
-                for j in range(k+1,-1,-1):
+                for j in range(k+1, -1, -1):
                     vnew[j:] = self.houses[j].apply(vnew[j:])
-                self.V[:,[k+1]] = vnew * self.houses[-1].alpha
+                self.V[:, [k+1]] = vnew * self.houses[-1].alpha
         else:
             # (double) modified Gram-Schmidt
             for reortho in range(self.reorthos+1):
                 for j in range(k+1):
-                    alpha = self.inner_product(self.V[:, [j]], Av)[0,0]
-                    self.H[j,k] += alpha
-                    Av -= alpha * self.V[:,[j]]
-            self.H[k+1,k] = norm(Av, inner_product=self.inner_product)
-            if self.H[k+1,k] <= 5e-14:
+                    alpha = self.inner_product(self.V[:, [j]], Av)[0, 0]
+                    self.H[j, k] += alpha
+                    Av -= alpha * self.V[:, [j]]
+            self.H[k+1, k] = norm(Av, inner_product=self.inner_product)
+            if self.H[k+1, k] <= 5e-14:
                 self.invariant = True
             else:
-                self.V[:,[k+1]] = Av / self.H[k+1,k]
+                self.V[:, [k+1]] = Av / self.H[k+1, k]
 
         # increase iteration counter
         self.iter += 1
@@ -704,25 +721,25 @@ class Arnoldi:
     def get(self):
         k = self.iter
         if self.invariant:
-            return self.V[:,:k], self.H[:k,:k]
+            return self.V[:, :k], self.H[:k, :k]
         else:
-            return self.V[:,:k+1], self.H[:k+1,:k]
+            return self.V[:, :k+1], self.H[:k+1, :k]
 
     def get_last(self):
         k = self.iter
         if self.invariant:
-            return None, self.H[:k,[k-1]]
+            return None, self.H[:k, [k-1]]
         else:
-            return self.V[:,[k]], self.H[:k+1,[k-1]]
+            return self.V[:, [k]], self.H[:k+1, [k-1]]
 
-# ===================================================================
+
 def arnoldi(*args, **kwargs):
     _arnoldi = Arnoldi(*args, **kwargs)
-    while _arnoldi.iter<_arnoldi.maxiter and not _arnoldi.invariant:
+    while _arnoldi.iter < _arnoldi.maxiter and not _arnoldi.invariant:
         _arnoldi.advance()
     return _arnoldi.get()
 
-# ===================================================================
+
 def arnoldi_projected(H, P, k, ortho='mgs'):
     """Compute (perturbed) Arnoldi relation for projected operator.
 
@@ -793,31 +810,29 @@ def arnoldi_projected(H, P, k, ortho='mgs'):
     """
     n = H.shape[1]
     dtype = find_common_dtype(H, P)
-    invariant = H.shape[0]==n
-    hlast = 0 if invariant else H[-1,-1]
-    H = get_linearoperator((n,n), H if invariant else H[:-1,:])
-    P = get_linearoperator((n,n), P)
-    v = P * numpy.eye(n,1)
+    invariant = H.shape[0] == n
+    hlast = 0 if invariant else H[-1, -1]
+    H = get_linearoperator((n, n), H if invariant else H[:-1, :])
+    P = get_linearoperator((n, n), P)
+    v = P * numpy.eye(n, 1)
     maxiter = n-k+1
-    F = numpy.zeros((1,maxiter), dtype=dtype)
+    F = numpy.zeros((1, maxiter), dtype=dtype)
     PH = lambda x: P*(H*x)
-    PH = LinearOperator((n,n), dtype, PH)
-    _arnoldi = Arnoldi(PH, v, maxiter=maxiter, \
-                       ortho=ortho)
-    while _arnoldi.iter<_arnoldi.maxiter and not _arnoldi.invariant:
+    PH = LinearOperator((n, n), dtype, PH)
+    _arnoldi = Arnoldi(PH, v, maxiter=maxiter, ortho=ortho)
+    while _arnoldi.iter < _arnoldi.maxiter and not _arnoldi.invariant:
         u, _ = _arnoldi.get_last()
-        F[0,_arnoldi.iter] = hlast * u[-1,0]
+        F[0, _arnoldi.iter] = hlast * u[-1, 0]
         _arnoldi.advance()
     U, G = _arnoldi.get()
-    return U, G, F[[0],:_arnoldi.iter]
+    return U, G, F[[0], :_arnoldi.iter]
 
 
-# ===================================================================
 def ritz(H, V=None, hermitian=False, type='ritz'):
     """Compute several kinds of Ritz pairs from an Arnoldi/Lanczos relation.
 
-    This function computes Ritz, harmonic Ritz or improved harmonic Ritz values and
-    vectors with respect to the Krylov subspace :math:`K_n(A,v)` from the
+    This function computes Ritz, harmonic Ritz or improved harmonic Ritz values
+    and vectors with respect to the Krylov subspace :math:`K_n(A,v)` from the
     extended Hessenberg matrix :math:`\\underline{H}_n` generated with n
     iterations the Arnoldi algorithm applied to A and v.
 
@@ -881,54 +896,57 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
     # TODO: enhance ritz to accept an augmented space
 
     n = H.shape[1]
-    if V is not None and V.shape[1]!=H.shape[0]:
+    if V is not None and V.shape[1] != H.shape[0]:
         raise ValueError('shape mismatch with V and H')
     if not H.shape[0] in [n, n+1]:
         raise ValueError('H not of shape (n+1,n) or (n,n)')
-    symmres = numpy.linalg.norm(H[:n,:] - H[:n,:].T.conj())
+    symmres = numpy.linalg.norm(H[:n, :] - H[:n, :].T.conj())
     if hermitian and symmres >= 5e-14:
-        warnings.warn('Hessenberg matrix is not symmetric: |H-H^*|={0}'.format(symmres))
+        warnings.warn('Hessenberg matrix is not symmetric: |H-H^*|={0}'
+                      .format(symmres))
 
     # choose eig for Hermitian or non-Hermitian matrices
     eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
 
-    if type=='ritz':
-        theta, U = eig(H[:n,:])
-        beta = 0 if H.shape[0]==n else H[-1,-1]
-        resnorm = numpy.abs( beta * U[-1,:] )
-    elif type=='harmonic':
-        theta, U = eig(H[:n,:].T.conj(), numpy.dot(H.T.conj(),H))
+    if type == 'ritz':
+        theta, U = eig(H[:n, :])
+        beta = 0 if H.shape[0] == n else H[-1, -1]
+        resnorm = numpy.abs(beta * U[-1, :])
+    elif type == 'harmonic':
+        theta, U = eig(H[:n, :].T.conj(), numpy.dot(H.T.conj(), H))
         theta = 1/theta
         resnorm = []
         for i in range(n):
-            U[:,i] /= numpy.linalg.norm(U[:,i], 2)
-            resi = numpy.dot(H, U[:,i])
-            if resi.dtype!=numpy.complex and theta.dtype==numpy.complex:
+            U[:, i] /= numpy.linalg.norm(U[:, i], 2)
+            resi = numpy.dot(H, U[:, i])
+            if resi.dtype != numpy.complex and theta.dtype == numpy.complex:
                 resi = numpy.array(resi, dtype=numpy.complex)
-            resi[:n] -= theta[i]*U[:,i]
-            resnorm.append( numpy.linalg.norm( resi, 2) )
+            resi[:n] -= theta[i]*U[:, i]
+            resnorm.append(numpy.linalg.norm(resi, 2))
         resnorm = numpy.array(resnorm)
-    elif type=='harmonic_improved':
-        theta, U = eig(H[:n,:].T.conj(), numpy.dot(H.T.conj(),H))
+    elif type == 'harmonic_improved':
+        theta, U = eig(H[:n, :].T.conj(), numpy.dot(H.T.conj(), H))
         rho = []
         for i in range(n):
-            U[:,i] /= numpy.linalg.norm(U[:,i], 2)
-            rho.append( numpy.dot( U[:,i].T.conj(), numpy.dot(H[:n,:], U[:,i])) )
+            U[:, i] /= numpy.linalg.norm(U[:, i], 2)
+            rho.append(numpy.dot(U[:, i].T.conj(),
+                                 numpy.dot(H[:n, :], U[:, i])))
         theta = numpy.array(rho)
         resnorm = []
         for i in range(n):
-            resi = numpy.dot(H, U[:,i])
-            resi[:n] -= theta[i]*U[:,i]
-            resnorm.append( numpy.linalg.norm( resi, 2) )
+            resi = numpy.dot(H, U[:, i])
+            resi[:n] -= theta[i]*U[:, i]
+            resnorm.append(numpy.linalg.norm(resi, 2))
         resnorm = numpy.array(resnorm)
         pass
     else:
         raise ValueError('unknown Ritz type {0}'.format(type))
 
     if V is not None:
-        return theta, U, resnorm, numpy.dot(V[:,:n], U)
+        return theta, U, resnorm, numpy.dot(V[:, :n], U)
 
     return theta, U, resnorm
+
 
 class Timer:
     """Measure execution time of multiple code blocks with ``with``.
@@ -973,12 +991,16 @@ class Timer:
     """
     def __init__(self):
         self.times = []
+
     def __enter__(self):
         self.tstart = time.time()
-    def __exit__(self, a,b,c):
-        self.times.append( time.time() - self.tstart )
+
+    def __exit__(self, a, b, c):
+        self.times.append(time.time() - self.tstart)
+
     def __repr__(self):
         return self.times.__repr__()
+
 
 class LinearOperator(object):
     """Linear operator.
@@ -986,10 +1008,11 @@ class LinearOperator(object):
     Is partly based on the LinearOperator from scipy (BSD License).
     """
     def __init__(self, shape, dtype, dot=None, dot_adj=None):
-        if len(shape)!=2 or not isintlike(shape[0]) or not isintlike(shape[1]):
+        if len(shape) != 2 or not isintlike(shape[0]) \
+                or not isintlike(shape[1]):
             raise ValueError('shape must be (m,n) with m and n integer')
         self.shape = shape
-        self.dtype = numpy.dtype(dtype) # defaults to float64
+        self.dtype = numpy.dtype(dtype)  # defaults to float64
         if dot is None and dot_adj is None:
             raise ValueError('dot or dot_adj have to be defined')
         self._dot = dot
@@ -998,7 +1021,7 @@ class LinearOperator(object):
     def dot(self, X):
         X = numpy.asanyarray(X)
         m, n = self.shape
-        if X.shape[0]!=n:
+        if X.shape[0] != n:
             raise ValueError('dimension mismatch')
         if self._dot is None:
             raise ValueError('dot undefined')
@@ -1007,7 +1030,7 @@ class LinearOperator(object):
     def dot_adj(self, X):
         X = numpy.asanyarray(X)
         m, n = self.shape
-        if X.shape[0]!=m:
+        if X.shape[0] != m:
             raise ValueError('dimension mismatch')
         if self._dot_adj is None:
             raise ValueError('dot_adj undefined')
@@ -1043,7 +1066,7 @@ class LinearOperator(object):
     def __add__(self, X):
         try:
             return _SumLinearOperator(self, X)
-        except ValueError as e:
+        except ValueError:
             return NotImplemented
 
     def __neg__(self):
@@ -1058,7 +1081,9 @@ class LinearOperator(object):
 
     def __repr__(self):
         m, n = self.shape
-        return '<%dx%d %s with dtype=%s>' % (m, n, self.__class__.__name__, str(self.dtype))
+        return '<%dx%d %s with dtype=%s>' \
+            % (m, n, self.__class__.__name__, str(self.dtype))
+
 
 def _get_dtype(operators, dtypes=[]):
     for obj in operators:
@@ -1066,16 +1091,17 @@ def _get_dtype(operators, dtypes=[]):
             dtypes.append(obj.dtype)
     return numpy.find_common_type(dtypes, [])
 
+
 class _SumLinearOperator(LinearOperator):
     def __init__(self, A, B):
         if not isinstance(A, LinearOperator) or \
                 not isinstance(B, LinearOperator):
             raise ValueError('both operands have to be a LinearOperator')
-        if A.shape!=B.shape:
+        if A.shape != B.shape:
             raise ValueError('shape mismatch')
         self.args = (A, B)
-        super(_SumLinearOperator, self).__init__(A.shape, _get_dtype([A,B]),
-                self._dot, self._dot_adj)
+        super(_SumLinearOperator, self).__init__(A.shape, _get_dtype([A, B]),
+                                                 self._dot, self._dot_adj)
 
     def _dot(self, X):
         return self.args[0].dot(X) + self.args[1].dot(X)
@@ -1083,16 +1109,18 @@ class _SumLinearOperator(LinearOperator):
     def _dot_adj(self, X):
         return self.args[0].dot_adj(X) + self.args[1].dot_adj(X)
 
+
 class _ProductLinearOperator(LinearOperator):
     def __init__(self, A, B):
         if not isinstance(A, LinearOperator) or \
                 not isinstance(B, LinearOperator):
             raise ValueError('both operands have to be a LinearOperator')
-        if A.shape[1]!=B.shape[0]:
+        if A.shape[1] != B.shape[0]:
             raise ValueError('shape mismatch')
-        self.args = (A,B)
-        super(_ProductLinearOperator, self).__init__((A.shape[0],B.shape[1]),
-                _get_dtype([A,B]), self._dot, self._dot_adj)
+        self.args = (A, B)
+        super(_ProductLinearOperator, self).__init__((A.shape[0], B.shape[1]),
+                                                     _get_dtype([A, B]),
+                                                     self._dot, self._dot_adj)
 
     def _dot(self, X):
         return self.args[0].dot(self.args[1].dot(X))
@@ -1100,15 +1128,16 @@ class _ProductLinearOperator(LinearOperator):
     def _dot_adj(self, X):
         return self.args[1].dot_adj(self.args[0].dot_adj(X))
 
+
 class _ScaledLinearOperator(LinearOperator):
     def __init__(self, A, alpha):
         if not isinstance(A, LinearOperator):
             raise ValueError('LinearOperator expected as A')
         if not numpy.isscalar(alpha):
             raise ValueError('scalar expected as alpha')
-        self.args = (A,alpha)
-        super(_ScaledLinearOperator, self).__init__(A.shape,
-                _get_dtype([A], [type(alpha)]), self._dot, self._dot_adj)
+        self.args = (A, alpha)
+        super(_ScaledLinearOperator, self).__init__(
+            A.shape, _get_dtype([A], [type(alpha)]), self._dot, self._dot_adj)
 
     def _dot(self, X):
         return self.args[1] * self.args[0].dot(X)
@@ -1116,17 +1145,18 @@ class _ScaledLinearOperator(LinearOperator):
     def _dot_adj(self, X):
         return numpy.conj(self.args[1]) * self.args[0].dot_adj(X)
 
+
 class _PowerLinearOperator(LinearOperator):
     def __init__(self, A, p):
         if not isinstance(A, LinearOperator):
             raise ValueError('LinearOperator expected as A')
-        if A.shape[0]!=A.shape[1]:
+        if A.shape[0] != A.shape[1]:
             raise ValueError('square LinearOperator expected as A')
         if not isintlike(p):
             raise ValueError('integer expected as p')
-        self.args = (A,p)
+        self.args = (A, p)
         super(_PowerLinearOperator, self).__init__(A.shape, A.dtype,
-                self._dot, self._dot_adj)
+                                                   self._dot, self._dot_adj)
 
     def _power(self, fun, X):
         res = X.copy()
@@ -1140,19 +1170,21 @@ class _PowerLinearOperator(LinearOperator):
     def _dot_adj(self, X):
         return self._power(self.args[0]._dot_adj, X)
 
+
 class _AdjointLinearOperator(LinearOperator):
     def __init__(self, A):
         if not isinstance(A, LinearOperator):
             raise ValueError('LinearOperator expected as A')
         self.args = (A,)
         m, n = A.shape
-        super(_AdjointLinearOperator, self).__init__((n,m), A.dtype,
-                A._dot_adj, A._dot)
+        super(_AdjointLinearOperator, self).__init__((n, m), A.dtype,
+                                                     A._dot_adj, A._dot)
+
 
 class IdentityLinearOperator(LinearOperator):
     def __init__(self, shape):
         super(IdentityLinearOperator, self).__init__(shape, numpy.dtype(None),
-                self._dot, self._dot_adj)
+                                                     self._dot, self._dot_adj)
 
     def _dot(self, X):
         return X
@@ -1160,10 +1192,11 @@ class IdentityLinearOperator(LinearOperator):
     def _dot_adj(self, X):
         return X
 
+
 class MatrixLinearOperator(LinearOperator):
     def __init__(self, A):
         super(MatrixLinearOperator, self).__init__(A.shape, A.dtype,
-                self._dot, self._dot_adj)
+                                                   self._dot, self._dot_adj)
         self._A = A
         self._A_adj = None
 
