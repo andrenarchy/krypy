@@ -3,7 +3,8 @@ import numpy
 import itertools
 from scipy.sparse import csr_matrix
 import scipy.linalg
-from numpy.testing import assert_almost_equal, assert_array_almost_equal
+from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
+        assert_array_equal
 
 def get_matrix_spd():
     a = numpy.array(range(1,11))
@@ -471,6 +472,7 @@ def test_Interval():
     assert(ints.min() == -10)
     assert(ints.max_abs() == 10)
     assert(ints.contains(0) is True)
+    assert_array_equal(ints.get_endpoints(), [-10, 2, 5])
 
 
 if __name__ == '__main__':

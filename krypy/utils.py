@@ -1305,6 +1305,16 @@ class Intervals(object):
                 return True
         return False
 
+    def get_endpoints(self):
+        endpoints = []
+        for interval in self.intervals:
+            if interval.left == interval.right:
+                endpoints += [interval.left]
+            else:
+                endpoints += [interval.left, interval.right]
+        endpoints.sort()
+        return endpoints
+
     def __len__(self):
         return len(self.intervals)
 
