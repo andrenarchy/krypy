@@ -1415,12 +1415,61 @@ class BoundCG(object):
 
     def get_step(self, tol):
         '''Return step at which bound falls below tolerance.'''
-        return int(numpy.ceil(numpy.log(tol/2)/numpy.log(self.base)))
+        return int(numpy.ceil(numpy.log(tol/2.)/numpy.log(self.base)))
 
 
-#class BoundMinres(object):
-#    def __init__(self, evals):
+class BoundMinres(object):
+    def __new__(cls, evals):
+        '''Use BoundCG if all eigenvalues are non-negative.'''
+        pos = False
+        if isinstance(evals, Intervals):
+            if evals.min() > 0:
+                pos = True
+        elif (numpy.array(evals) > -1e-15).all():
+            pos = True
+        if pos:
+            return BoundCG(evals)
+        return super(BoundMinres, cls).__new__(cls, evals)
 
+    def __init__(self, evals):
+        '''Initialize with array/list of eigenvalues or Intervals object.'''
+        if isinstance(evals, Intervals):
+            if evals.contains(0):
+                raise AssumptionError(
+                    'zero eigenvalues not allowed with intervals')
+            evals = [val for val in [evals.min(), evals.max_neg(),
+                                     evals.min_pos(), evals.max()]
+                     if val is not None]
+
+        # all evals real?
+        if not numpy.isreal(evals).all():
+            raise AssumptionError('non-real eigenvalues not allowed')
+
+        # sort
+        evals = numpy.sort(numpy.array(evals, dtype=numpy.float))
+
+        # normalize and categorize evals
+        evals /= numpy.max(numpy.abs(evals))
+        negative = evals < -1e-15
+        positive = evals > 1e-15
+
+        lambda_1 = numpy.min(evals[negative])
+        lambda_s = numpy.max(evals[negative])
+        lambda_t = numpy.min(evals[positive])
+        lambda_N = numpy.max(evals[positive])
+
+        a = numpy.sqrt(numpy.abs(lambda_1*lambda_N))
+        b = numpy.sqrt(numpy.abs(lambda_s*lambda_t))
+
+        self.base = (a-b) / (a+b)
+
+    def eval_step(self, step):
+        '''Evaluate bound for given step.'''
+        return 2 * self.base**numpy.floor(step/2.)
+
+    def get_step(self, tol):
+        '''Return step at which bound falls below tolerance. '''
+        return int(2 * numpy.ceil(numpy.log(tol/2.)/numpy.log(self.base)))
 
 
 def bound_cg(evals, steps=None):
