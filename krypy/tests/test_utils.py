@@ -152,7 +152,8 @@ def run_projection(X, Y, B, iterations):
     assert(numpy.linalg.norm(P.operator_complement()*z - P.apply_complement(z))
            == 0)
     # check that the matrix representation is correct
-    assert(numpy.linalg.norm(P.matrix() - P.apply(I), 2) <= 1e-14)
+    assert_almost_equal(numpy.linalg.norm(P.matrix() - P.apply(I), 2),
+                        0, 14)
 
 def test_qr():
     Xs = [ numpy.eye(10,5), scipy.linalg.hilbert(10)[:,:5] ]
