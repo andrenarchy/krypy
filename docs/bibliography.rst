@@ -17,5 +17,8 @@ Bibliography
     Perturbed Coefficient Matrices, with Application to Approximate Deflation
     Preconditioning. SIAM J. Matrix Anal. Appl., 34 (2013), pp. 1066-1088.
 
+.. [Ste11] G. W. Stewart. On the numerical analysis of oblique projectors.
+    SIAM J. Matrix Anal. Appl., 32 (2011), pp. 309-348.
+
 .. [Str92] Z. Strakoš. On the real convergence rate of the conjugate gradient
     method. Linear Algebra Appl., 153/156 (1991), pp. 535--549.

@@ -109,44 +109,50 @@ def run_givens(x):
     # check that y[0] == 0
     assert( numpy.linalg.norm(y[1],2) <= 1e-14*numpy.linalg.norm(x,2) )
 
+
 def test_projection():
-    Xs = [ numpy.eye(10,1), numpy.eye(10,5), numpy.eye(10) ]
-    B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = get_inner_products()
-    for (X, inner_product) in itertools.product(Xs, inner_products):
-        Ys = [ None, X, X + numpy.ones((10,X.shape[1])) ]
+    Xs = [numpy.eye(10, 1), numpy.eye(10, 5), numpy.eye(10)]
+    Bs = [None, numpy.eye(10), numpy.diag(numpy.linspace(1, 5, 10))]
+    its = [1, 2]
+    for (X, B, iterations) in itertools.product(Xs, Bs, its):
+        Ys = [None, X, X + numpy.ones((10, X.shape[1]))]
         for Y in Ys:
-            ipYXs = [None]
-            ipYXs.append( inner_product(X if Y is None else Y, X) )
-            for ipYX in ipYXs:
-                ipYXinvs = ['explicit', 'ondemand' ]
-                if ipYX is not None:
-                    ipYXinvs.append( numpy.linalg.inv(ipYX) )
-                for ipYXinv in ipYXinvs:
-                    yield run_projection, X, Y, inner_product, ipYX, ipYXinv
+            yield run_projection, X, Y, B, iterations
 
-def run_projection(X, Y, inner_product, ipYX, ipYXinv):
-    P = krypy.utils.Projection(X, Y, inner_product, ipYX, ipYXinv)
 
-    (N,k) = X.shape
+def run_projection(X, Y, B, iterations):
+    P = krypy.utils.Projection(X, Y, B=B, iterations=iterations)
+
+    (N, k) = X.shape
     I = numpy.eye(N)
-    z = numpy.ones((10,1))
-    z/= numpy.linalg.norm(z,2)
+    z = numpy.ones((10, 1))
+    z /= numpy.linalg.norm(z, 2)
+    if B is None:
+        inner_product = lambda x, y: x.T.conj().dot(y)
+    else:
+        inner_product = lambda x, y: x.T.conj().dot(B.dot(y))
 
     # check that it's a projection, i.e. P^2=P
-    assert( numpy.linalg.norm( P.apply(I - P.apply(I) ), 2) <= 1e-14)
+    assert_almost_equal(
+        numpy.linalg.norm(P.apply(I - P.apply(I)), 2), 0, 14)
     # check that the range is X, i.e. the kernel of I-P is X
-    assert( numpy.linalg.norm(X - P.apply(X),2) <= 1e-14)
+    assert_almost_equal(numpy.linalg.norm(X - P.apply(X), 2), 0, 14)
     # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal to Y
-    assert( numpy.linalg.norm( inner_product( X if Y is None else Y, I - P.apply(I) ), 2) <= 5e-14)
+    assert_almost_equal(
+        numpy.linalg.norm(inner_product(X if Y is None else Y,
+                          I - P.apply(I)), 2),
+        0, 13)
     # check that the complementary projection is correct
-    assert( numpy.linalg.norm( I-P.apply(I) -P.apply_complement(I), 2) <= 1e-14 )
+    assert_almost_equal(
+        numpy.linalg.norm(I-P.apply(I) - P.apply_complement(I), 2),
+        0, 14)
     # check that operator()*z executes apply(z)
-    assert( numpy.linalg.norm( P.operator()*z - P.apply(z)) == 0 )
+    assert(numpy.linalg.norm(P.operator()*z - P.apply(z)) == 0)
     # check that operator_complement()*z executes apply_complement(z)
-    assert( numpy.linalg.norm( P.operator_complement()*z - P.apply_complement(z)) == 0 )
+    assert(numpy.linalg.norm(P.operator_complement()*z - P.apply_complement(z))
+           == 0)
     # check that the matrix representation is correct
-    assert( numpy.linalg.norm( P.matrix() - P.apply(I), 2) <= 1e-14 )
+    assert(numpy.linalg.norm(P.matrix() - P.apply(I), 2) <= 1e-14)
 
 def test_qr():
     Xs = [ numpy.eye(10,5), scipy.linalg.hilbert(10)[:,:5] ]

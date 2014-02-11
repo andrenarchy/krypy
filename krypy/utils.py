@@ -292,9 +292,9 @@ class Givens:
 class Projection:
     def __init__(self, X,
                  Y=None,
-                 inner_product=ip_euclid,
-                 ipYX=None,
-                 ipYXinv='explicit'):
+                 B=None,
+                 iterations=2
+                 ):
         """Generic projection.
 
         This class can represent any projection (orthogonal and oblique)
@@ -312,24 +312,28 @@ class Projection:
         :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp}`.
         The requirement
         :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N`
-        is equivalent to ``inner_product(X,Y)`` being nonsingular.
+        is equivalent to ``\\langle X,Y\\rangle`` being nonsingular.
 
         :param X: array with ``shape==(N,k)`` and
             :math:`\\operatorname{rank}(X)=k`.
         :param Y: (optional) ``None`` or array with ``shape==(N,k)`` and
             :math:`\\operatorname{rank}(X)=k`. If Y is ``None`` then Y is
             set to X which means that the resulting projection is orthogonal.
-        :param inner_product: (optional) the inner product to use, default is
-            :py:meth:`ip_euclid`.
-        :param ipYX: (optional) ``None`` or array with precomputed
-            ``inner_product(Y,X)`` (``shape==(k,k)``).
-        :param ipYXinv: (optional) may be one of
+        :param B: (optional) ``None`` (default) or positive definite
+            ``LinearOperator`` that defines the inner product by
+            :math:`\\langle x,y\\rangle_B=\\langle x,By\\rangle`.
+        :param iterations: (optional) number of applications of the projection.
+            It was suggested in [Ste11]_ to use 2 iterations (default) in order
+            to achieve high accuracy ("twice is enough" as in the orthogonal
+            case).
 
-            * ``'explicit'``: the inverse of ``ipYX`` is explicitly computed.
-            * ``'ondemand'``: ``numpy.linalg.solve()`` is called for each
-                application of the projection.
-            * array with precomputed inverse of ``ipYX``.
+        This projection class makes use of the round-off error analysis of
+        oblique projections in the work of Stewart [Ste11]_ and implements the
+        algorithms that are considered as the most stable ones.
         """
+        if iterations < 1:
+            raise ValueError('iterations < 1 not allowed')
+        self.iterations = iterations
         Y = X if Y is None else Y   # default: orthogonal projection
 
         if len(X.shape) != 2:
@@ -338,40 +342,33 @@ class Projection:
             raise ValueError('X and Y have different shapes')
 
         (N, k) = X.shape
-        self.inner_product = inner_product
         # special case of orthogonal projection in Euclidean inner product
         # (the case of non-Euclidean inner products is handled in the general
         # case below)
-        if Y is X and inner_product == ip_euclid:
-            X = scipy.linalg.orth(X)
-            Y = X
-            ipYX = None
-            ipYXinv = None
+        if Y is X and B is None:
+            self.U = scipy.linalg.orth(X)
+            self.V = self.U
+            self.Q = None
+            self.R = None
         # general case
         else:
-            ipYX = inner_product(Y, X) if ipYX is None else ipYX
-            if ipYX.shape != (k, k):
-                raise ValueError('ipYX does not have shape==(k,k)')
+            self.U = scipy.linalg.orth(X)
+            if B is not None:
+                B = get_linearoperator((N, N), B)
+                Y = B*Y
+            self.V = scipy.linalg.orth(Y)
+            M = numpy.dot(self.V.T.conj(), self.U)
+            self.Q, self.R = scipy.linalg.qr(M)
 
-            if ipYXinv == 'explicit':
-                ipYXinv = numpy.linalg.inv(ipYX)
-            elif ipYXinv == 'ondemand':
-                pass
-            elif type(ipYXinv) == numpy.ndarray:
-                if ipYXinv.shape != (k, k):
-                    raise ValueError('ipYXinv does not have shape==(k,k)')
-            else:
-                raise ValueError('unknown value for ipYXinv: {0}'
-                                 .format(ipYXinv))
+    def _apply(self, a):
+        '''Single application of the projection.'''
+        c = self.V.T.conj().dot(a)
+        if self.Q is not None:
+            c = self.Q.T.conj().dot(c)
+            c = scipy.linalg.solve_triangular(self.R, c)
+        return numpy.dot(self.U, c)
 
-        # save computed quantities in object
-        self.X = X
-        self.Y = Y
-        self.inner_product = inner_product
-        self.ipYX = ipYX
-        self.ipYXinv = ipYXinv
-
-    def apply(self, z):
+    def apply(self, a):
         """Apply the projection to an array.
 
         The computation is carried out without explicitly forming the
@@ -383,16 +380,14 @@ class Projection:
         :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
             X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
         """
+        x = self._apply(a)
+        for i in range(self.iterations-1):
+            z = a - x
+            w = self._apply(z)
+            x = x + w
+        return x
 
-        z = self.inner_product(self.Y, z)
-        if self.ipYXinv is not None:
-            if type(self.ipYXinv) == numpy.ndarray:
-                z = numpy.dot(self.ipYXinv, z)
-            else:  # ondemand
-                z = numpy.linalg.solve(self.ipYX, z)
-        return numpy.dot(self.X, z)
-
-    def apply_complement(self, z):
+    def apply_complement(self, a):
         """Apply the complementary projection to an array.
 
         :param z: array with ``shape==(N,m)``.
@@ -400,11 +395,17 @@ class Projection:
         :return: :math:`P_{\\mathcal{Y}^\\perp,\\mathcal{X}}z =
             z - P_{\\mathcal{X},\\mathcal{Y}^\\perp} z`.
         """
-        return z - self.apply(z)
+        x = self._apply(a)
+        z = a - x
+        for i in range(self.iterations-1):
+            w = self._apply(z)
+            x = x + w
+            z = z - w
+        return z
 
     def _get_operator(self, fun):
-        N = self.X.shape[0]
-        t = numpy.find_common_type([self.X.dtype, self.Y.dtype], [])
+        N = self.U.shape[0]
+        t = numpy.find_common_type([self.U.dtype, self.V.dtype], [])
         return LinearOperator((N, N), t, fun)
 
     def operator(self):
@@ -431,7 +432,7 @@ class Projection:
         should not be used in production codes for high dimensions since
         the resulting matrix is dense.
         """
-        return self.apply(numpy.eye(self.X.shape[0]))
+        return self.apply(numpy.eye(self.U.shape[0]))
 
 
 def qr(X, inner_product=ip_euclid, reorthos=1):
