@@ -172,7 +172,7 @@ def cg(A, b,
         alpha = rho_old / inner_product(p, Ap)
         if abs(alpha.imag) > 1e-12:
             warnings.warn('Iter %d: abs(alpha.imag) = %g > 1e-12.'
-                          + 'Is your matrix Hermitian?'
+                          'Is your matrix Hermitian?'
                           % (k+1, abs(alpha.imag)))
         alpha = alpha.real
         yk += alpha * p
@@ -207,13 +207,13 @@ def cg(A, b,
                 # Was this the last iteration?
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence!'
-                                  + 'expl. res = %e >= tol =%e in last iter.'
-                                  + '(upd. res = %e)'
+                                  'expl. res = %e >= tol =%e in last iter.'
+                                  '(upd. res = %e)'
                                   % (k+1, relresvec[-1], tol, norm_r_upd))
                 else:
                     warnings.warn(('Iter %d: Updated residual is below'
-                                   + 'tolerance, explicit residual is NOT!\n'
-                                   + '(resEx=%g > tol=%g >= resup=%g)\n')
+                                   'tolerance, explicit residual is NOT!\n'
+                                   '(resEx=%g > tol=%g >= resup=%g)\n')
                                   % (k+1, relresvec[-1], tol, norm_r_upd))
 
         k += 1
@@ -431,7 +431,7 @@ def minres(A, b,
         td = inner_product(V[:, [1]], z)[0, 0]
         if abs(td.imag) > 1.0e-12:
             warnings.warn('Iter %d: abs(td.imag) = %g > 1e-12.'
-                          + 'Is your matrix Hermitian?'
+                          'Is your matrix Hermitian?'
                           % (k+1, abs(td.imag)))
         td = td.real
         z = z - td * P[:, [1]]
@@ -449,9 +449,9 @@ def minres(A, b,
                     if abs(ip) > 1.0e-9:
                         warnings.warn(
                             'Iter %d: abs(ip) = %g > 1.0e-9:'
-                            + 'The Krylov basis has become linearly '
-                            + 'dependent. Maxiter (%d) too large and '
-                            + 'tolerance too severe (%g)? dim = %d.'
+                            'The Krylov basis has become linearly '
+                            'dependent. Maxiter (%d) too large and '
+                            'tolerance too severe (%g)? dim = %d.'
                             % (k+1, abs(ip), maxiter, tol, len(x0)))
                     z -= ip * Pfull[:, [i]]
 
@@ -526,13 +526,13 @@ def minres(A, b,
                 if k+1 == maxiter:
                     warnings.warn(
                         'Iter %d: No convergence! expl. res = %e >= tol =%e '
-                        + 'in last iter. (upd. res = %e)'
+                        'in last iter. (upd. res = %e)'
                         % (k+1, relresvec[-1], tol, norm_r_upd))
                 else:
                     warnings.warn(
-                        ('Info (iter %d): Updated residual is below '
-                         + 'tolerance, explicit residual is NOT! '
-                         + '(resEx=%g > tol=%g >= resup=%g)')
+                        'Info (iter %d): Updated residual is below '
+                        'tolerance, explicit residual is NOT! '
+                        '(resEx=%g > tol=%g >= resup=%g)'
                         % (k+1, relresvec[-1], tol, norm_r_upd))
 
         # limit relative residual to machine precision (an exact 0 is rare but
@@ -875,18 +875,18 @@ def _gmres(A, b,
                 if k+1 == maxiter:
                     if conv_warning:
                         warnings.warn(
-                            ('Iter %d: No convergence! expl. res = %e >= tol '
-                             + '=%e in last it. (upd. res = %e)')
+                            'Iter %d: No convergence! expl. res = %e >= tol '
+                            '=%e in last it. (upd. res = %e)'
                             % (k+1, relresvec[-1], tol, norm_ur))
                 else:
                     if conv_warning:
                         warnings.warn(
-                            ('Iter %d: Expl. res = %e >= tol = %e > upd. res '
-                             + '= %e.') % (k+1, relresvec[-1], tol, norm_ur))
+                            'Iter %d: Expl. res = %e >= tol = %e > upd. res '
+                            '= %e.' % (k+1, relresvec[-1], tol, norm_ur))
 
         if norm_Mz < 1e-14 and relresvec[-1] > tol:
-            warnings.warn(('subdiagonal element is (close to) zero (%e) '
-                           + '=> breakdown in iteration %d') % (norm_Mz, k))
+            warnings.warn('subdiagonal element is (close to) zero (%e) '
+                          '=> breakdown in iteration %d' % (norm_Mz, k))
         if M is not None:
             P[:, [k+1]] = z / norm_Mz
         V[:, [k+1]] = Mz / norm_Mz
