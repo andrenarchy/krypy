@@ -906,3 +906,14 @@ def _gmres(A, b,
         if M is not None:
             ret['P'] = P[:, :k+1]
     return ret
+
+
+def get_gmres_operations(nsteps):
+    '''Returns the number of operations needed for nsteps of GMRES'''
+    return {'A': 1 + nsteps,
+            'M': 2 + nsteps,
+            'Ml': 2 + nsteps,
+            'Mr': 1 + nsteps,
+            'ip': 2 + nsteps + nsteps*(nsteps+1)/2,
+            'axpy': 4 + 2*nsteps + nsteps*(nsteps+1)/2
+            }
