@@ -444,6 +444,8 @@ def test_Interval():
     J = Interval(1, 2)
     K = Interval(-10, 1.5)
     L = Interval(5)
+    M = Interval(-100, -50)
+    N = Interval(50, 100)
 
     assert((I & J) is None)
     assert((I | J) is None)
@@ -452,17 +454,17 @@ def test_Interval():
     assert((J | K).left == -10)
     assert((J | K).right == 2)
 
-    ints = Intervals([I, I])
+    ints = Intervals([I, M])
     assert(ints.max() == -1)
-    assert(ints.min() == -2)
+    assert(ints.min() == -100)
     assert(ints.max_neg() == -1)
     assert(ints.min_pos() is None)
 
-    ints = Intervals([I, J])
-    assert(ints.max() == 2)
+    ints = Intervals([I, J, M, N])
+    assert(ints.max() == 100)
     assert(ints.min_pos() == 1)
     assert(ints.max_neg() == -1)
-    assert(ints.min() == -2)
+    assert(ints.min() == -100)
     assert(ints.contains(0) is False)
 
     ints = Intervals([I, J, K, L])

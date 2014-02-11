@@ -1327,12 +1327,12 @@ class Intervals(object):
     def min(self):
         if self.__len__() == 0:
             return ValueError('empty set has no minimum.')
-        return numpy.min(map(lambda i: i.left, self.intervals))
+        return numpy.min(list(map(lambda i: i.left, self.intervals)))
 
     def max(self):
         if self.__len__() == 0:
             return ValueError('empty set has no maximum.')
-        return numpy.max(map(lambda i: i.right, self.intervals))
+        return numpy.max(list(map(lambda i: i.right, self.intervals)))
 
     def min_pos(self):
         '''Returns minimal positive value or None.'''
@@ -1344,7 +1344,7 @@ class Intervals(object):
                     if interval.left > 0]
         if len(positive) == 0:
             return None
-        return numpy.min(map(lambda i: i.left, positive))
+        return numpy.min(list(map(lambda i: i.left, positive)))
 
     def max_neg(self):
         '''Returns maximum negative value or None.'''
@@ -1356,7 +1356,7 @@ class Intervals(object):
                     if interval.right < 0]
         if len(negative) == 0:
             return None
-        return numpy.min(map(lambda i: i.right, negative))
+        return numpy.max(list(map(lambda i: i.right, negative)))
 
     def min_abs(self):
         '''Returns minimum absolute value.'''
