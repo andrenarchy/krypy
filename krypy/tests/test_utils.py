@@ -4,68 +4,79 @@ import itertools
 from scipy.sparse import csr_matrix
 import scipy.linalg
 from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
-        assert_array_equal
+    assert_array_equal
+
 
 def get_matrix_spd():
-    a = numpy.array(range(1,11))
+    a = numpy.array(range(1, 11))
     a[-1] = 1.e2
     return numpy.diag(a)
 
+
 def get_matrix_hpd():
-    a = numpy.array(range(1,11), dtype=numpy.complex)
+    a = numpy.array(range(1, 11), dtype=numpy.complex)
     a[0] = 1.01e2
     a[-1] = 1.e2
     A = numpy.diag(a)
-    A[-1,0] = 100.j
-    A[0,-1] = -100.j
+    A[-1, 0] = 100.j
+    A[0, -1] = -100.j
     return A
 
+
 def get_matrix_symm_indef():
-    a = numpy.array(range(1,11))
+    a = numpy.array(range(1, 11))
     a[-1] = -1.e2
     return numpy.diag(a)
 
+
 def get_matrix_herm_indef():
-    a = numpy.array(range(1,11), dtype=numpy.complex)
+    a = numpy.array(range(1, 11), dtype=numpy.complex)
     a[-1] = -1.e2
     A = numpy.diag(a)
-    A[-1,0] = 100.j
-    A[0,-1] = -100.j
+    A[-1, 0] = 100.j
+    A[0, -1] = -100.j
     return A
+
 
 def get_matrix_nonsymm():
-    a = numpy.array(range(1,11), dtype=numpy.float)
+    a = numpy.array(range(1, 11), dtype=numpy.float)
     a[-1] = -1e2
     A = numpy.diag(a)
-    A[0,-1] = 1e2
+    A[0, -1] = 1e2
     return A
+
 
 def get_matrix_comp_nonsymm():
-    a = numpy.array(range(1,11), dtype=numpy.complex)
+    a = numpy.array(range(1, 11), dtype=numpy.complex)
     a[-1] = -1e2
     A = numpy.diag(a)
-    A[0,-1] = 1.e2j
+    A[0, -1] = 1.e2j
     return A
 
-def get_inner_products():
-    B = numpy.diag(numpy.linspace(1,5,10))
-    return [
-            krypy.utils.ip_euclid, 
-            lambda x,y: numpy.dot(x.T.conj(), numpy.dot(B, y))
+
+def get_ip_Bs():
+    B = numpy.diag(numpy.linspace(1, 5, 10))
+    return [None,
+            krypy.utils.ip_euclid,
+            lambda x, y: numpy.dot(x.T.conj(), numpy.dot(B, y))
             ]
 
+
 def get_operators(A):
-    return [ A, krypy.utils.MatrixLinearOperator(A), csr_matrix(A)]
+    return [A, krypy.utils.MatrixLinearOperator(A), csr_matrix(A)]
+
 
 def get_vecs(v):
-    return [ v, numpy.reshape(v, (v.shape[0],)) ]
+    return [v, numpy.reshape(v, (v.shape[0],))]
+
 
 def test_house():
     factors = [0., 1., 1.j, 1.+1.j, 1e8, 1e-8]
-    for (a, b, len) in itertools.product(factors, factors, [10,1]):
-        x = numpy.ones((len,1), dtype=numpy.array([a]).dtype) * b
+    for (a, b, len) in itertools.product(factors, factors, [10, 1]):
+        x = numpy.ones((len, 1), dtype=numpy.array([a]).dtype) * b
         x[0] = a
         yield run_house, x
+
 
 def run_house(x):
     H = krypy.utils.House(x)
@@ -75,27 +86,30 @@ def run_house(x):
     # check that H.matrix() equals to H.apply(I)
     HI = H.apply(I)
     Hm = H.matrix()
-    assert( numpy.linalg.norm( HI - Hm, 2) <= 1e-14 )
+    assert(numpy.linalg.norm(HI - Hm, 2) <= 1e-14)
 
     # check that H.matrix() is Hermitian
-    assert( numpy.linalg.norm( Hm - Hm.T.conj(), 2) <= 1e-14 )
+    assert(numpy.linalg.norm(Hm - Hm.T.conj(), 2) <= 1e-14)
     # check that H.matrix() is unitary/involutory
-    assert( numpy.linalg.norm( I - numpy.dot(Hm.T.conj(),Hm),2) <= 1e-14 )
+    assert(numpy.linalg.norm(I - numpy.dot(Hm.T.conj(), Hm), 2) <= 1e-14)
     # check that absolute value of y[0] equals norm(x)
-    assert( numpy.abs( numpy.linalg.norm(x,2) - numpy.abs(y[0])) <= 1e-14*numpy.linalg.norm(x,2) )
+    assert(numpy.abs(numpy.linalg.norm(x, 2) - numpy.abs(y[0]))
+           <= 1e-14*numpy.linalg.norm(x, 2))
     # check that abs(alpha)=1
-    assert( numpy.abs( 1 - numpy.abs( H.alpha ) ) <= 1e-14 )
+    assert(numpy.abs(1 - numpy.abs(H.alpha)) <= 1e-14)
     # check that y[0] = alpha*norm(x)
-    assert( numpy.abs( y[0] - H.alpha*H.xnorm ) <= 1e-14*numpy.linalg.norm(x,2) )
-    if y.shape[0]>1:
+    assert(numpy.abs(y[0] - H.alpha*H.xnorm) <= 1e-14*numpy.linalg.norm(x, 2))
+    if y.shape[0] > 1:
         # check that all elements of r except the first are zero
-        assert( numpy.linalg.norm(y[1:],2) <= 1e-14*numpy.linalg.norm(x,2) )
+        assert(numpy.linalg.norm(y[1:], 2) <= 1e-14*numpy.linalg.norm(x, 2))
+
 
 def test_givens():
     factors = [0., 1., 1.j, 1.+1.j, 1e8, 1e-8]
     for (a, b) in itertools.product(factors, factors):
-        x = numpy.array([[a],[b]])
+        x = numpy.array([[a], [b]])
         yield run_givens, x
+
 
 def run_givens(x):
     G = krypy.utils.Givens(x)
@@ -103,11 +117,12 @@ def run_givens(x):
 
     I = numpy.eye(2)
     # check that G.G is unitary
-    assert( numpy.linalg.norm( I - numpy.dot(G.G.T.conj(), G.G), 2) <= 1e-14 )
+    assert(numpy.linalg.norm(I - numpy.dot(G.G.T.conj(), G.G), 2) <= 1e-14)
     # check that absolute value of y[0] equals norm(x)
-    assert( numpy.abs( numpy.linalg.norm(x,2) - numpy.abs(y[0])) <= 1e-14*numpy.linalg.norm(x,2) )
+    assert(numpy.abs(numpy.linalg.norm(x, 2) - numpy.abs(y[0]))
+           <= 1e-14*numpy.linalg.norm(x, 2))
     # check that y[0] == 0
-    assert( numpy.linalg.norm(y[1],2) <= 1e-14*numpy.linalg.norm(x,2) )
+    assert(numpy.linalg.norm(y[1], 2) <= 1e-14*numpy.linalg.norm(x, 2))
 
 
 def test_projection():
@@ -155,118 +170,127 @@ def run_projection(X, Y, B, iterations):
     assert_almost_equal(numpy.linalg.norm(P.matrix() - P.apply(I), 2),
                         0, 14)
 
-def test_qr():
-    Xs = [ numpy.eye(10,5), scipy.linalg.hilbert(10)[:,:5] ]
-    B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = get_inner_products()
-    reorthos = [0, 1, 2]
-    for X, inner_product, reortho in itertools.product(Xs, inner_products, reorthos):
-        yield run_qr, X, inner_product, reortho
 
-def run_qr(X, inner_product, reorthos):
-    (N,k) = X.shape
+def test_qr():
+    Xs = [numpy.eye(10, 5), scipy.linalg.hilbert(10)[:, :5]]
+    ip_Bs = get_ip_Bs()
+    reorthos = [0, 1, 2]
+    for X, ip_B, reortho in itertools.product(Xs, ip_Bs, reorthos):
+        yield run_qr, X, ip_B, reortho
+
+
+def run_qr(X, ip_B, reorthos):
+    (N, k) = X.shape
     s = scipy.linalg.svd(X, compute_uv=False)
-    Q, R = krypy.utils.qr(X, inner_product=inner_product, reorthos=reorthos)
+    Q, R = krypy.utils.qr(X, ip_B=ip_B, reorthos=reorthos)
 
     # check shapes
-    assert( Q.shape==(N,k) )
-    assert( R.shape==(k,k) )
+    assert(Q.shape == (N, k))
+    assert(R.shape == (k, k))
     # check residual
-    assert( numpy.linalg.norm( numpy.dot(Q,R) - X, 2) <= 1e-14*max(s) )
+    assert(numpy.linalg.norm(numpy.dot(Q, R) - X, 2) <= 1e-14*max(s))
     # check orthogonality
-    orthotol = 1e-8 if reorthos<1 else 1e-14
-    assert( numpy.linalg.norm( inner_product(Q,Q) - numpy.eye(k), 2) <= orthotol )
+    orthotol = 1e-8 if reorthos < 1 else 1e-14
+    assert(numpy.linalg.norm(krypy.utils.inner(Q, Q, ip_B=ip_B)
+                             - numpy.eye(k), 2)
+           <= orthotol)
     # check if R is upper triangular
-    assert( numpy.linalg.norm( numpy.tril(R, -1) ) == 0 )
+    assert(numpy.linalg.norm(numpy.tril(R, -1)) == 0)
+
 
 def test_angles():
-    FGs = [
-            numpy.eye(10,1),
-            1j*numpy.eye(10,1),
-            numpy.eye(10,4),
-            numpy.eye(10)[:,-4:],
-            numpy.dot(numpy.eye(10,4), numpy.diag([1,1e1,1e2,1e3])),
-            numpy.eye(10,4)
-            ]
-    inner_products = get_inner_products()
-    for F, G, inner_product, compute_vectors in itertools.product(FGs, FGs, inner_products, [False, True]):
-        yield run_angles, F, G, inner_product, compute_vectors
+    FGs = [numpy.eye(10, 1),
+           1j*numpy.eye(10, 1),
+           numpy.eye(10, 4),
+           numpy.eye(10)[:, -4:],
+           numpy.dot(numpy.eye(10, 4), numpy.diag([1, 1e1, 1e2, 1e3])),
+           numpy.eye(10, 4)
+           ]
+    ip_Bs = get_ip_Bs()
+    for F, G, ip_B, compute_vectors in itertools.product(FGs, FGs, ip_Bs,
+                                                         [False, True]):
+        yield run_angles, F, G, ip_B, compute_vectors
 
-def run_angles(F, G, inner_product, compute_vectors):
+
+def run_angles(F, G, ip_B, compute_vectors):
     if compute_vectors:
-        theta, U, V = krypy.utils.angles(F, G, inner_product=inner_product, compute_vectors=compute_vectors)
+        theta, U, V = krypy.utils.angles(F, G, ip_B=ip_B,
+                                         compute_vectors=compute_vectors)
     else:
-        theta = krypy.utils.angles(F, G, inner_product=inner_product, compute_vectors=compute_vectors)
+        theta = krypy.utils.angles(F, G, ip_B=ip_B,
+                                   compute_vectors=compute_vectors)
 
     # check shape of theta
-    assert(theta.shape == (max(F.shape[1],G.shape[1]),))
+    assert(theta.shape == (max(F.shape[1], G.shape[1]),))
     # check if theta is sorted
-    assert( ( (theta - numpy.sort(theta))==0).all() )
+    assert(((theta - numpy.sort(theta)) == 0).all())
     # check that 0 <= theta <= pi/2
-    assert( (theta >= 0).all() )
-    assert( (theta <= numpy.pi/2).all() )
+    assert((theta >= 0).all())
+    assert((theta <= numpy.pi/2).all())
     # check pi/2 angles if dimensions differ
     n = abs(F.shape[1] - G.shape[1])
-    if n>0:
-        assert( (numpy.abs( theta[-n:] - numpy.pi/2 ) == 0).all() ) # == 0 is safe here
+    if n > 0:
+        # == 0 is safe here
+        assert((numpy.abs(theta[-n:] - numpy.pi/2) == 0).all())
     # check 0 angles if F==G
     if F is G:
-        assert( numpy.linalg.norm(theta) <= 1e-15 )
+        assert(numpy.linalg.norm(theta) <= 1e-15)
 
     if compute_vectors:
         # check shapes of U and V
-        assert( U.shape==F.shape )
-        assert( V.shape==G.shape )
+        assert(U.shape == F.shape)
+        assert(V.shape == G.shape)
         # check that inner_product(U,V) = diag(cos(theta))
-        m = min(F.shape[1], G.shape[1])
-        UV = inner_product(U,V)
-        assert( numpy.linalg.norm( UV - numpy.diag(numpy.cos(theta))[:F.shape[1],:G.shape[1]] ) <= 1e-14 )
+        UV = krypy.utils.inner(U, V, ip_B=ip_B)
+        assert(numpy.linalg.norm(UV
+               - numpy.diag(numpy.cos(theta))[:F.shape[1], :G.shape[1]])
+               <= 1e-14)
+
 
 def test_hegedus():
-    matrices = [
-            get_matrix_spd(),
-            get_matrix_hpd(),
-            get_matrix_symm_indef(),
-            get_matrix_herm_indef(),
-            get_matrix_nonsymm(),
-            get_matrix_comp_nonsymm()
-            ]
-    xs = [
-            numpy.ones((10,1)),
-            (1.j+1)*numpy.ones((10,1))
-            ]
-    x0s = [
-            numpy.zeros((10,1)),
-            numpy.linspace(1,5,10).reshape((10,1)),
-            ] + xs
-    m = numpy.array(range(1,11))
+    matrices = [get_matrix_spd(),
+                get_matrix_hpd(),
+                get_matrix_symm_indef(),
+                get_matrix_herm_indef(),
+                get_matrix_nonsymm(),
+                get_matrix_comp_nonsymm()
+                ]
+    xs = [numpy.ones((10, 1)),
+          (1.j+1)*numpy.ones((10, 1))
+          ]
+    x0s = [numpy.zeros((10, 1)),
+           numpy.linspace(1, 5, 10).reshape((10, 1)),
+           ] + xs
+    m = numpy.array(range(1, 11))
     m[-1] = 1.
     Ms = [None, numpy.diag(m)]
     Mls = [None, numpy.diag(m)]
-    inner_products = get_inner_products()
+    ip_Bs = get_ip_Bs()
 
-    for matrix, x, x0, M, Ml, inner_product in itertools.product(matrices,
-            xs, x0s, Ms, Mls, inner_products):
+    for matrix, x, x0, M, Ml, ip_B in itertools.product(matrices, xs, x0s, Ms,
+                                                        Mls, ip_Bs):
         b = numpy.dot(matrix, x)
         for A in get_operators(matrix):
-            yield run_hegedus, A, b, x0, M, Ml, inner_product
+            yield run_hegedus, A, b, x0, M, Ml, ip_B
 
-def run_hegedus(A, b, x0, M, Ml, inner_product):
-    x0new = krypy.utils.hegedus(A, b, x0, M, Ml, inner_product)
+
+def run_hegedus(A, b, x0, M, Ml, ip_B):
+    x0new = krypy.utils.hegedus(A, b, x0, M, Ml, ip_B)
 
     N = len(b)
-    shape = (N,N)
+    shape = (N, N)
     A = krypy.utils.get_linearoperator(shape, A)
     M = krypy.utils.get_linearoperator(shape, M)
     Ml = krypy.utils.get_linearoperator(shape, Ml)
 
     Mlr0 = Ml*(b - A*x0)
-    MMlr0_norm = krypy.utils.norm( Mlr0, M*Mlr0, inner_product=inner_product)
+    MMlr0_norm = krypy.utils.norm(Mlr0, M*Mlr0, ip_B=ip_B)
 
     Mlr0new = Ml*(b - A*x0new)
-    MMlr0new_norm = krypy.utils.norm( Mlr0new, M*Mlr0new, inner_product=inner_product)
+    MMlr0new_norm = krypy.utils.norm(Mlr0new, M*Mlr0new,
+                                     ip_B=ip_B)
 
-    assert(  MMlr0new_norm <= MMlr0_norm  + 1e-13 )
+    assert(MMlr0new_norm <= MMlr0_norm + 1e-13)
 
 
 def test_arnoldi():
@@ -418,74 +442,78 @@ def assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B,
 
 def test_ritz():
     # Hermitian matrices
-    matrices_herm = [
-            get_matrix_spd(),
-            #get_matrix_hpd(),
-            #get_matrix_symm_indef(),
-            #get_matrix_herm_indef(),
-            ]
-    matrices_nonherm = [
-            get_matrix_nonsymm(),
-            get_matrix_comp_nonsymm()
-            ]
-    vs = [numpy.ones((10,1)), numpy.eye(10,1)]
+    matrices_herm = [get_matrix_spd(),
+                     #get_matrix_hpd(),
+                     #get_matrix_symm_indef(),
+                     #get_matrix_herm_indef(),
+                     ]
+    matrices_nonherm = [get_matrix_nonsymm(),
+                        get_matrix_comp_nonsymm()
+                        ]
+    vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
     maxiters = [1, 5, 9, 10]
-    B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = get_inner_products()
+    ip_Bs = get_ip_Bs()
     types = ['ritz', 'harmonic', 'harmonic_improved']
-    for (matrix, v, maxiter, inner_product, with_V, type) in itertools.product(matrices_herm+matrices_nonherm, vs, maxiters, inner_products, [True, False], types):
+    for (matrix, v, maxiter, ip_B, with_V, type) in \
+            itertools.product(matrices_herm+matrices_nonherm, vs, maxiters,
+                              ip_Bs, [True, False], types):
         hermitian = any(matrix is x for x in matrices_herm)
         eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
         Aevals, _ = eig(matrix)
         An = numpy.linalg.norm(matrix, 2)
         for A in get_operators(matrix):
-            yield run_ritz, A, v, maxiter, inner_product, Aevals, An, with_V, hermitian, type
+            yield run_ritz, A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type
 
-def run_ritz(A, v, maxiter, inner_product, Aevals, An, with_V, hermitian, type):
-    ortho = 'house' if inner_product==krypy.utils.ip_euclid else 'dmgs'
-    V, H = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, inner_product=inner_product)
+
+def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
+    ortho = 'house' if ip_B is None else 'dmgs'
+    V, H = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, ip_B=ip_B)
     N = v.shape[0]
     n = H.shape[1]
-    A = krypy.utils.get_linearoperator((N,N), A)
+    A = krypy.utils.get_linearoperator((N, N), A)
 
     Z = None
     if with_V:
-        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=hermitian, type=type)
+        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=hermitian,
+                                                type=type)
     else:
         theta, U, resnorm = krypy.utils.ritz(H, hermitian=hermitian, type=type)
     # check Z
     if Z is not None:
-        assert( numpy.linalg.norm( numpy.dot(V[:,:n], U) - Z, 2) <= 1e-14 )
+        assert(numpy.linalg.norm(numpy.dot(V[:, :n], U) - Z, 2) <= 1e-14)
     else:
-        Z = numpy.dot(V[:,:n], U)
+        Z = numpy.dot(V[:, :n], U)
 
     # check shapes
-    assert( theta.shape==(n,) )
-    assert( U.shape==(n,n) )
-    assert( resnorm.shape==(n,) )
-    assert( Z.shape==(N,n) )
+    assert(theta.shape == (n,))
+    assert(U.shape == (n, n))
+    assert(resnorm.shape == (n,))
+    assert(Z.shape == (N, n))
     # check norm of Ritz vectors
     for i in range(n):
-        assert( numpy.abs( numpy.linalg.norm(U[:,i],2) - 1) <= 1e-14 )
+        assert(numpy.abs(numpy.linalg.norm(U[:, i], 2) - 1) <= 1e-14)
     # check residuals
     R = A*Z - numpy.dot(Z, numpy.diag(theta))
     for i in range(n):
-        rnorm = krypy.utils.norm(R[:,[i]], inner_product=inner_product)
-        assert( numpy.abs(rnorm - resnorm[i]) <= 1e-14*An )
+        rnorm = krypy.utils.norm(R[:, [i]], ip_B=ip_B)
+        assert(numpy.abs(rnorm - resnorm[i]) <= 1e-14*An)
     # check Ritz projection property
-    if type=='ritz':
-        assert( numpy.linalg.norm( inner_product(V[:,:n], R), 2) <= 1e-14*An )
-    elif type=='harmonic':
-        AVortho = scipy.linalg.orth( A*V[:,:n] )
-        assert( numpy.linalg.norm( inner_product(AVortho, R), 2) <= 5e-14*An )
+    if type == 'ritz':
+        assert(numpy.linalg.norm(krypy.utils.inner(V[:, :n], R, ip_B=ip_B), 2)
+               <= 1e-14*An)
+    elif type == 'harmonic':
+        AVortho = scipy.linalg.orth(A*V[:, :n])
+        assert(numpy.linalg.norm(krypy.utils.inner(AVortho, R, ip_B=ip_B), 2)
+               <= 5e-14*An)
     else:
         pass
 
     # compare Ritz values with eigenvalues if n==N
-    if n==N:
+    if n == N:
         Aevals_sort = numpy.argsort(numpy.abs(Aevals))
         theta_sort = numpy.argsort(numpy.abs(theta))
-        assert( (numpy.abs( Aevals[Aevals_sort] - theta[theta_sort] ) <= 5e-14*An).all() )
+        assert((numpy.abs(Aevals[Aevals_sort] - theta[theta_sort])
+                <= 5e-14*An).all())
 
 
 def test_gap():

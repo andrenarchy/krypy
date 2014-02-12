@@ -200,18 +200,18 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product=ip_euclid):
     return xk, Mlr, MMlr, norm_MMlr
 
 
-def orthonormality(V, inner_product=ip_euclid):
+def orthonormality(V, ip_B=None):
     """Measure orthonormality of given basis.
 
     :param V: a matrix :math:`V=[v_1,\ldots,v_n]` with ``shape==(N,n)``.
-    :param inner_product: (optional) the inner product to use, default is
-      :py:meth:`ip_euclid`.
+    :param ip_B: (optional) the inner product to use, see :py:meth:`inner`.
+
     :return: :math:`\\| I_n - \\langle V,V \\rangle \\|_2`.
     """
-    return norm(numpy.eye(V.shape[1]) - inner_product(V, V))
+    return norm(numpy.eye(V.shape[1]) - inner(V, V, ip_B=ip_B))
 
 
-def arnoldi_res(A, V, H, inner_product=ip_euclid):
+def arnoldi_res(A, V, H, ip_B=None):
     """Measure Arnoldi residual.
 
     :param A: a linear operator that can be used with scipy's aslinearoperator
@@ -220,8 +220,7 @@ def arnoldi_res(A, V, H, inner_product=ip_euclid):
     :param H: Hessenberg matrix: either :math:`\\underline{H}_{n-1}` with
       ``shape==(n,n-1)`` or :math:`H_n` with ``shape==(n,n)`` (if the Arnoldi
       basis spans an A-invariant subspace).
-    :param inner_product: (optional) the inner product to use, default is
-      :py:meth:`ip_euclid`.
+    :param ip_B: (optional) the inner product to use, see :py:meth:`inner`.
 
     :returns: either :math:`\\|AV_{n-1} - V_n \\underline{H}_{n-1}\\|` or
       :math:`\\|A V_n - V_n H_n\\|` (in the invariant case).
@@ -233,7 +232,7 @@ def arnoldi_res(A, V, H, inner_product=ip_euclid):
         res = A*V - numpy.dot(V, H)
     else:
         res = A*V[:, :-1] - numpy.dot(V, H)
-    return norm(res, inner_product=inner_product)
+    return norm(res, ip_B=ip_B)
 
 
 class House:
@@ -485,12 +484,11 @@ class Projection:
         return self.apply(numpy.eye(self.U.shape[0]))
 
 
-def qr(X, inner_product=ip_euclid, reorthos=1):
+def qr(X, ip_B=None, reorthos=1):
     """QR factorization with customizable inner product.
 
     :param X: array with ``shape==(N,k)``
-    :param inner_product: (optional) inner product in which the resulting Q
-      matrix should be orthogonal in. Defaults to :py:meth:`ip_euclid`.
+    :param ip_B: (optional) inner product, see :py:meth:`inner`.
     :param reorthos: (optional) numer of reorthogonalizations. Defaults to
       1 (i.e. 2 runs of modified Gram-Schmidt) which should be enough in most
       cases (TODO: add reference).
@@ -498,7 +496,7 @@ def qr(X, inner_product=ip_euclid, reorthos=1):
     :return: Q, R where :math:`X=QR` with :math:`\\langle Q,Q \\rangle=I_k` and
       R upper triangular.
     """
-    if inner_product == ip_euclid and X.shape[1] > 0:
+    if ip_B is None and X.shape[1] > 0:
         return scipy.linalg.qr(X, mode='economic')
     else:
         (N, k) = X.shape
@@ -507,16 +505,16 @@ def qr(X, inner_product=ip_euclid, reorthos=1):
         for i in range(k):
             for reortho in range(reorthos+1):
                 for j in range(i):
-                    alpha = inner_product(Q[:, [j]], Q[:, [i]])[0, 0]
+                    alpha = inner(Q[:, [j]], Q[:, [i]], ip_B=ip_B)[0, 0]
                     R[j, i] += alpha
                     Q[:, [i]] -= alpha * Q[:, [j]]
-            R[i, i] = norm(Q[:, [i]], inner_product=inner_product)
+            R[i, i] = norm(Q[:, [i]], ip_B=ip_B)
             if R[i, i] >= 1e-15:
                 Q[:, [i]] /= R[i, i]
         return Q, R
 
 
-def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
+def angles(F, G, ip_B=None, compute_vectors=False):
     """Principal angles between two subspaces.
 
     This algorithm is based on algorithm 6.2 in `Knyazev, Argentati. Principal
@@ -526,8 +524,8 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
 
     :param F: array with ``shape==(N,k)``.
     :param G: array with ``shape==(N,l)``.
-    :param inner_product: (optional) angles are computed with respect to this
-      inner product. Defaults to :py:meth:`ip_euclid`.
+    :param ip_B: (optional) angles are computed with respect to this
+      inner product. See :py:meth:`inner`.
     :param compute_vectors: (optional) if set to ``False`` then only the angles
       are returned (default). If set to ``True`` then also the principal
       vectors are returned.
@@ -565,8 +563,8 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
         reverse = True
         F, G = G, F
 
-    QF, _ = qr(F, inner_product=inner_product)
-    QG, _ = qr(G, inner_product=inner_product)
+    QF, _ = qr(F, ip_B=ip_B)
+    QG, _ = qr(G, ip_B=ip_B)
 
     # one or both matrices empty? (enough to check G here)
     if G.shape[1] == 0:
@@ -574,7 +572,7 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
         U = QF
         V = QG
     else:
-        Y, s, Z = scipy.linalg.svd(inner_product(QF, QG))
+        Y, s, Z = scipy.linalg.svd(inner(QF, QG, ip_B=ip_B))
         Vcos = numpy.dot(QG, Z.T.conj())
         n_large = numpy.flatnonzero((s**2) < 0.5).shape[0]
         n_small = s.shape[0] - n_large
@@ -588,8 +586,8 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
 
         if n_small > 0:
             RG = Vcos[:, :n_small]
-            S = RG - numpy.dot(QF, inner_product(QF, RG))
-            _, R = qr(S, inner_product=inner_product)
+            S = RG - numpy.dot(QF, inner(QF, RG, ip_B=ip_B))
+            _, R = qr(S, ip_B=ip_B)
             Y, u, Z = scipy.linalg.svd(R)
             theta = numpy.r_[
                 numpy.arcsin(u[::-1][:n_small]),
@@ -613,7 +611,7 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
         return theta
 
 
-def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
+def hegedus(A, b, x0, M=None, Ml=None, ip_B=None):
     """Rescale initial guess appropriately (Hegedüs trick).
 
     The Hegedüs trick rescales the initial guess to :math:`\\gamma_{\\min} x_0`
@@ -648,10 +646,10 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
 
     MlAx0 = Ml*(A*x0)
     z = M*MlAx0
-    znorm2 = inner_product(z, MlAx0)
+    znorm2 = inner(z, MlAx0, ip_B=ip_B)
     if znorm2 <= 1e-15:
         return numpy.zeros((N, 1))
-    gamma = inner_product(z, Ml*b) / znorm2
+    gamma = inner(z, Ml*b, ip_B=ip_B) / znorm2
     return gamma*x0
 
 
