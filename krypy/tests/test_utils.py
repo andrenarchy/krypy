@@ -63,7 +63,7 @@ def get_ip_Bs():
 
 
 def get_operators(A):
-    return [A, krypy.utils.MatrixLinearOperator(A), csr_matrix(A)]
+    return [A, krypy.utils.MatrixLinearOperator(A)]
 
 
 def get_vecs(v):
