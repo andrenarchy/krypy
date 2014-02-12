@@ -108,7 +108,6 @@ def norm(x, Mx=None, inner_product=ip_euclid):
     else:
         return numpy.sqrt(norm_squared(x, Mx=Mx, inner_product=inner_product))
 
-
 def get_linearoperator(shape, A):
     """Enhances aslinearoperator if A is None."""
     ret = None
@@ -1041,7 +1040,9 @@ class LinearOperator(object):
 
     def __mul__(self, X):
         try:
-            if isinstance(X, LinearOperator):
+            if isinstance(X, IdentityLinearOperator):
+                return self
+            elif isinstance(X, LinearOperator):
                 return _ProductLinearOperator(self, X)
             elif numpy.isscalar(X):
                 return _ScaledLinearOperator(self, X)
