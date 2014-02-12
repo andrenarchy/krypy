@@ -84,6 +84,42 @@ def ip_euclid(X, Y):
     return numpy.dot(X.T.conj(), Y)
 
 
+def inner(X, Y, ip_B=None):
+    '''Euclidean and non-Euclidean inner product.
+
+    numpy.vdot only works for vectors and numpy.dot does not use the conjugate
+    transpose.
+
+    :param X: numpy array with ``shape==(N,m)``
+    :param Y: numpy array with ``shape==(N,n)``
+    :param ip_B: (optional) May be one of the following
+
+        * ``None``: Euclidean inner product.
+        * a self-adjoint and positive definite operator :math:`B` (as
+          ``numpy.array`` or ``LinearOperator``). Then :math:`X^*B Y` is
+          returned.
+        * a callable which takes 2 arguments X and Y and returns
+          :math:`\\langle X,Y\\rangle`.
+
+    **Caution:** a callable should only be used if necessary. The choice
+    potentially has an impact on the round-off behavior, e.g. of projections.
+
+    :return: numpy array :math:`\\langle X,Y\\rangle` with ``shape==(m,n)``.
+    '''
+    if ip_B is None or isinstance(ip_B, IdentityLinearOperator):
+        return numpy.dot(X.T.conj(), Y)
+    (N, m) = X.shape
+    (_, n) = Y.shape
+    try:
+        B = get_linearoperator((N, N), ip_B)
+        if m > n:
+            return numpy.dot((B*X).T.conj(), Y)
+        else:
+            return numpy.dot(X.T.conj(), B*Y)
+    except TypeError:
+        return ip_B(X, Y)
+
+
 def norm_squared(x, Mx=None, inner_product=ip_euclid):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     assert(len(x.shape) == 2)
@@ -101,12 +137,42 @@ def norm_squared(x, Mx=None, inner_product=ip_euclid):
     return numpy.linalg.norm(rho, 2)
 
 
-def norm(x, Mx=None, inner_product=ip_euclid):
-    '''Compute the norm w.r.t. to a given scalar product.'''
-    if Mx is None and inner_product == ip_euclid:
-        return numpy.linalg.norm(x, 2)
-    else:
-        return numpy.sqrt(norm_squared(x, Mx=Mx, inner_product=inner_product))
+def norm(x, ip_B=None, return_Bx=False):
+    '''Compute norm (Euclidean and non-Euclidean).
+
+    :param x: a 2-dimensional ``numpy.array``.
+    :param y: a 2-dimensional ``numpy.array``.
+    :param ip_B: see :py:meth:`inner`.
+
+    Compute :math:`\\sqrt{\langle x,y\rangle}` where the inner product is
+    defined via ``ip_B``.
+    '''
+    # Euclidean inner product?
+    if ip_B is None or isinstance(ip_B, IdentityLinearOperator):
+        nrm = numpy.linalg.norm(x, 2)
+        if return_Bx:
+            return nrm, x.copy()
+        else:
+            return nrm
+    try:
+        N = x.shape[0]
+        B = get_linearoperator((N, N), ip_B)
+        Bx = B*x
+        nrm = numpy.sqrt(numpy.linalg.norm(inner(x, Bx), 2))
+        if return_Bx:
+            return nrm, Bx
+        else:
+            return nrm
+    except TypeError:
+        if return_Bx:
+            raise ValueError('return_Bx not allowed with a callable ip_B.')
+        ip = ip_B(x, x)
+        nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
+        if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
+            raise ValueError('inner product defined by ip_B not positive '
+                             'definite?')
+        return nrm
+
 
 def get_linearoperator(shape, A):
     """Enhances aslinearoperator if A is None."""
@@ -606,7 +672,8 @@ class Arnoldi:
     def __init__(self, A, v,
                  maxiter=None,
                  ortho='mgs',
-                 inner_product=ip_euclid
+                 M=None,
+                 B=None
                  ):
         """Arnoldi algorithm.
 
@@ -622,27 +689,35 @@ class Arnoldi:
 
             * ``'mgs'``: modified Gram-Schmidt (default).
             * ``'dmgs'``: double Modified Gram-Schmidt.
+            * ``'lanczos'``: Lanczos short recurrence.
             * ``'house'``: Householder.
-        :param inner_product: (optional) the inner product to use (has to be
-            the Euclidean inner product if ``ortho=='house'``). It's unclear to
-            me (andrenarchy), how a variant of the Householder QR algorithm can
-            be used with a non-Euclidean inner product. Compare
+        :param M: (optional) a self-adjoint and positive definite
+          preconditioner. If ``M`` is provided, then also a second basis
+          :math:`P_n` is constructed such that :math:`V_n=MP_n`. This is of
+          importance in preconditioned methods. ``M`` has to be ``None`` if
+          ``ortho=='house'`` (see ``B``).
+        :param B: (optional) defines the inner product to use. ``B`` has to be
+            ``None`` if ``ortho=='house'``. It's unclear to me (andrenarchy),
+            how a variant of the Householder QR algorithm can be used with a
+            non-Euclidean inner product. Compare
             http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
         """
         N = v.shape[0]
 
         # save parameters
         self.A = get_linearoperator((N, N), A)
-        self.v = v
         self.maxiter = N if maxiter is None else maxiter
         self.ortho = ortho
-        self.inner_product = inner_product
+        self.M = None if M is None else get_linearoperator((N, N), M)
+        self.B = get_linearoperator((N, N), B)
 
-        self.dtype = find_common_dtype(A, v)
+        self.dtype = find_common_dtype(A, v, M, B)
         # number of iterations
         self.iter = 0
         # Arnoldi basis
         self.V = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
+        if self.M is not None:
+            self.P = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
         # Hessenberg matrix
         self.H = numpy.zeros((self.maxiter+1, self.maxiter),
                              dtype=self.dtype)
@@ -650,19 +725,27 @@ class Arnoldi:
         self.invariant = False
 
         if ortho == 'house':
-            if inner_product != ip_euclid:
+            if not isinstance(self.M, IdentityLinearOperator) or \
+                    not isinstance(self.B, IdentityLinearOperator):
                 raise ValueError('Only euclidean inner product allowed with '
                                  'Householder orthogonalization')
             self.houses = [House(v)]
-            self.vnorm = numpy.linalg.norm(v, 2)
-        elif ortho in ['mgs', 'dmgs']:
+            vnorm = numpy.linalg.norm(v, 2)
+        elif ortho in ['mgs', 'dmgs', 'lanczos']:
             self.reorthos = 0
             if ortho == 'dmgs':
                 self.reorthos = 1
-            self.vnorm = norm(v, inner_product=inner_product)
+            if self.M is not None:
+                p = v
+                v = self.M*p
+                vnorm = norm(p, y=v, B=B)
+            else:
+                vnorm = norm(p, B=B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        self.V[:, [0]] = v / self.vnorm
+        self.V[:, [0]] = v / vnorm
+        if self.M is not None:
+            self.P[:, [0]] = p / vnorm
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""
@@ -703,7 +786,12 @@ class Arnoldi:
         else:
             # (double) modified Gram-Schmidt
             for reortho in range(self.reorthos+1):
-                for j in range(k+1):
+                # determine vectors for orthogonalization
+                start = 0
+                if self.ortho == 'lanczos':
+                    start = max(k-1, 0)
+                # orthogonalize
+                for j in range(start, k+1):
                     alpha = self.inner_product(self.V[:, [j]], Av)[0, 0]
                     self.H[j, k] += alpha
                     Av -= alpha * self.V[:, [j]]
