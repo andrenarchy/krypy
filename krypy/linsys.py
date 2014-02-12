@@ -296,6 +296,32 @@ class _Solver(object):
         if exact_solution is not None:
             self.errnorms = []
 
+    def _prepare(self, norm_MMlr0):
+        '''Prepare after Arnoldi/Lanczos was initialized.
+
+        :param norm_MMlr0: norm of the initial residual (as computed by
+          Arnoldi/Lanczos in the initialization).
+        '''
+        self.norm_MMlr0 = norm_MMlr0
+
+        # Compute M^{-1}-norm of M*Ml*b.
+        Mlb = self.Ml*self.b
+        MMlb = self.M*Mlb
+        self.norm_MMlb = utils.norm(Mlb, MMlb, ip_B=self.ip_B)
+
+        # if rhs is exactly(!) zero, return zero solution.
+        if self.norm_MMlb == 0:
+            self.x0 = numpy.zeros((N, 1))
+            self.resnorms.append(0.)
+        else:
+            # initial relative residual norm
+            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
+
+        # compute error?
+        if self.exact_solution is not None:
+            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
+                                            ip_B=self.ip_B))
+
     def _compute_xk(self, yk):
         return self.x0 + self.Mr * yk
 
@@ -452,11 +478,6 @@ class Minres(_Solver):
     def _solve(self, ortho):
         N = self.b.shape[0]
 
-        # Compute M^{-1}-norm of M*Ml*b.
-        Mlb = self.Ml*self.b
-        MMlb = self.M*Mlb
-        self.norm_MMlb = utils.norm(Mlb, MMlb, ip_B=self.ip_B)
-
         # initialize Lanczos
         self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
                                      self.Ml*(self.b - self.A*self.x0),
@@ -465,28 +486,16 @@ class Minres(_Solver):
                                      M=self.M,
                                      ip_B=self.ip_B
                                      )
-        # residual norm
-        norm_MMlr0 = self.lanczos.vnorm
 
-        # if rhs is exactly(!) zero, return zero solution.
-        if self.norm_MMlb == 0:
-            self.x0 = numpy.zeros((N, 1))
-            self.resnorms.append(0.)
-        else:
-            # initial relative residual norm
-            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
-
-        # compute error?
-        if self.exact_solution is not None:
-            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
-                                            ip_B=self.ip_B))
+        # prepare
+        self._prepare(self.lanczos.vnorm)
 
         # Necessary for efficient update of yk:
         W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
         # some small helpers
-        y = [norm_MMlr0, 0]     # first entry is (updated) residual
-        G2 = None               # old givens rotation
-        G1 = None               # even older givens rotation ;)
+        y = [self.norm_MMlr0, 0]  # first entry is (updated) residual
+        G2 = None                 # old givens rotation
+        G1 = None                 # even older givens rotation ;)
 
         # resulting approximation is xk = x0 + Mr*yk
         yk = numpy.zeros((N, 1), dtype=self.cdtype)
@@ -693,6 +702,17 @@ def gmres(A, b,
             if M is not None:
                 ret['P'] = sol['P']
     return ret
+
+
+class Gmres(_Solver):
+    def __init__(A, b, ortho, *args, **kwargs):
+        super(Minres, self).__init__(A, b, **kwargs)
+        self._solve(ortho=ortho)
+
+    def _solve(self, ortho):
+        pass
+
+
 
 
 def _gmres(A, b,
