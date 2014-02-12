@@ -2,6 +2,7 @@
 import numpy
 import warnings
 from . import utils
+import scipy.linalg
 
 __all__ = ['cg', 'minres', 'gmres']
 
@@ -537,6 +538,7 @@ class Minres(_Solver):
         if self.xk is None:
             self.xk = self._compute_xk(yk)
 
+    @staticmethod
     def operations(nsteps):
         '''Returns the number of operations needed for nsteps of MINRES'''
         return {'A': 1 + nsteps,
@@ -705,14 +707,74 @@ def gmres(A, b,
 
 
 class Gmres(_Solver):
-    def __init__(A, b, ortho, *args, **kwargs):
-        super(Minres, self).__init__(A, b, **kwargs)
+    def __init__(self, A, b, ortho='mgs', *args, **kwargs):
+        super(Gmres, self).__init__(A, b, **kwargs)
         self._solve(ortho=ortho)
 
+    def _compute_xk(self, y):
+        k = self.arnoldi.iter
+        if k > 0:
+            yy = scipy.linalg.solve_triangular(self.R[:k, :k], y)
+            return self.x0 + self.Mr * self.V[:, :k].dot(yy)
+        return self.x0
+
     def _solve(self, ortho):
-        pass
+        # initialize Arnoldi
+        self.arnoldi = utils.Arnoldi(self.Ml*self.A*self.Mr,
+                                     self.Ml*(self.b - self.A*self.x0),
+                                     maxiter=self.maxiter,
+                                     ortho=ortho,
+                                     M=self.M,
+                                     ip_B=self.ip_B
+                                     )
 
+        # prepare
+        self._prepare(self.arnoldi.vnorm)
 
+        # Givens rotations:
+        G = []
+        # QR decomposition of Hessenberg matrix via Givens and R
+        self.R = numpy.zeros([self.maxiter+1, self.maxiter], dtype=self.cdtype)
+        y = numpy.zeros((self.maxiter+1, 1), dtype=self.cdtype)
+        # Right hand side of projected system:
+        y[0] = self.norm_MMlr0
+
+        # iterate Arnoldi
+        while self.resnorms[-1] > self.tol \
+                and self.arnoldi.iter < self.arnoldi.maxiter \
+                and not self.arnoldi.invariant:
+            k = self.iter = self.arnoldi.iter
+            self.arnoldi.advance()
+
+            # Copy new column from Arnoldi
+            self.V = self.arnoldi.V
+            self.R[:k+2, k] = self.arnoldi.H[:k+2, k]
+
+            # Apply previous Givens rotations.
+            for i in range(k):
+                self.R[i:i+2, k] = G[i].apply(self.R[i:i+2, k])
+
+            # Compute and apply new Givens rotation.
+            G.append(utils.Givens(self.R[k:k+2, [k]]))
+            self.R[k:k+2, k] = G[k].apply(self.R[k:k+2, k])
+            y[k:k+2] = G[k].apply(y[k:k+2])
+
+            self._compute_norms(y[:k+1], abs(y[k+1, 0]))
+
+        # compute solution if not yet done
+        if self.xk is None:
+            self.xk = self._compute_xk(y[:self.arnoldi.iter])
+
+    @staticmethod
+    def operations(nsteps):
+        '''Returns the number of operations needed for nsteps of GMRES'''
+        return {'A': 1 + nsteps,
+                'M': 2 + nsteps,
+                'Ml': 2 + nsteps,
+                'Mr': 1 + nsteps,
+                'ip': 2 + nsteps + nsteps*(nsteps+1)/2,
+                'axpy': 4 + 2*nsteps + nsteps*(nsteps+1)/2
+                }
 
 
 def _gmres(A, b,
@@ -900,14 +962,3 @@ def _gmres(A, b,
         if M is not None:
             ret['P'] = P[:, :k+1]
     return ret
-
-
-def get_gmres_operations(nsteps):
-    '''Returns the number of operations needed for nsteps of GMRES'''
-    return {'A': 1 + nsteps,
-            'M': 2 + nsteps,
-            'Ml': 2 + nsteps,
-            'Mr': 1 + nsteps,
-            'ip': 2 + nsteps + nsteps*(nsteps+1)/2,
-            'axpy': 4 + 2*nsteps + nsteps*(nsteps+1)/2
-            }
