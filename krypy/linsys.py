@@ -304,6 +304,7 @@ class _Solver(object):
           Arnoldi/Lanczos in the initialization).
         '''
         self.norm_MMlr0 = norm_MMlr0
+        N = self.b.shape[0]
 
         # Compute M^{-1}-norm of M*Ml*b.
         Mlb = self.Ml*self.b
@@ -706,6 +707,11 @@ def gmres(A, b,
     return ret
 
 
+class RestartedGmres(object):
+    pass
+    # TODO!
+
+
 class Gmres(_Solver):
     def __init__(self, A, b, ortho='mgs', *args, **kwargs):
         super(Gmres, self).__init__(A, b, **kwargs)
@@ -775,190 +781,3 @@ class Gmres(_Solver):
                 'ip': 2 + nsteps + nsteps*(nsteps+1)/2,
                 'axpy': 4 + 2*nsteps + nsteps*(nsteps+1)/2
                 }
-
-
-def _gmres(A, b,
-           x0,
-           tol,
-           maxiter,
-           M,
-           Ml,
-           Mr,
-           inner_product,
-           explicit_residual,
-           return_basis,
-           full_reortho,
-           exact_solution,
-           conv_warning
-           ):
-    if not full_reortho:
-        raise RuntimeError('full_reortho=False not allowed in GMRES')
-
-    N = len(b)
-    shape = (N, N)
-    A = utils.get_linearoperator(shape, A)
-    if not maxiter:
-        maxiter = N
-    flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0,
-                                                          exact_solution)
-    if x0 is None:
-        x0 = numpy.zeros((N, 1))
-    M = utils.get_linearoperator(shape, M)
-    Ml = utils.get_linearoperator(shape, Ml)
-    Mr = utils.get_linearoperator(shape, Mr)
-    cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
-
-    def _compute_explicit_xk(H, V, y):
-        '''Compute approximation xk to the solution.'''
-        if (H.shape[0] > 0):
-            yy = numpy.linalg.solve(H, y)
-            u = Mr * numpy.dot(V, yy)
-            return x0+u
-        return x0
-
-    def _compute_explicit_residual(xk):
-        '''Compute residual explicitly.'''
-        rk = b - A * xk
-        rk = Ml * rk
-        Mrk = M * rk
-        norm_Mrk = utils.norm(rk, Mrk, inner_product=inner_product)
-        return Mrk, norm_Mrk
-
-    # get memory for working variables
-    V = numpy.zeros([N, maxiter+1], dtype=cdtype)        # Arnoldi basis
-    H = numpy.zeros([maxiter+1, maxiter], dtype=cdtype)  # Hessenberg matrix
-    y = numpy.zeros((maxiter+1, 1), dtype=cdtype)
-
-    if M is not None:
-        P = numpy.zeros([N, maxiter+1], dtype=cdtype)  # V=M*P
-
-    if return_basis:
-        Horig = numpy.zeros([maxiter+1, maxiter], dtype=cdtype)
-
-    # initialize working variables
-    Mlb = Ml * b
-    MMlb = M * Mlb
-    norm_MMlb = utils.norm(Mlb, MMlb, inner_product=inner_product)
-    # This may only save us the application of Ml to the same vector again if
-    # x0 is the zero vector.
-    norm_x0 = utils.norm(x0, inner_product=inner_product)
-    if norm_x0 > numpy.finfo(float).eps:
-        r0 = b - A * x0
-        Mlr0 = Ml * r0
-        MMlr0 = M * Mlr0
-        norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product=inner_product)
-    else:
-        x0 = numpy.zeros((N, 1))
-        Mlr0 = Mlb.copy()
-        MMlr0 = MMlb.copy()
-        norm_MMlr0 = norm_MMlb
-
-    # if rhs is exactly(!) zero, return zero solution.
-    if norm_MMlb == 0:
-        x0 = numpy.zeros((N, 1))
-        relresvec = [0.0]
-    else:
-        # initial relative residual norm
-        relresvec = [norm_MMlr0 / norm_MMlb]
-
-    # compute error?
-    if exact_solution is not None:
-        errvec = [utils.norm(exact_solution - x0, inner_product=inner_product)]
-
-    # initialize only if needed
-    if relresvec[-1] > tol:
-        V[:, [0]] = MMlr0 / norm_MMlr0
-        if M is not None:
-            P[:, [0]] = Mlr0 / norm_MMlr0
-        # Right hand side of projected system:
-        y[0] = norm_MMlr0
-        # Givens rotations:
-        G = []
-
-    k = 0
-    while relresvec[-1] > tol and k < maxiter:
-        # Apply operator Ml*A*Mr
-        z = Ml * (A * (Mr * V[:, [k]]))
-
-        # orthogonalize (MGS)
-        for i in range(k+1):
-            if M is not None:
-                H[i, k] += inner_product(V[:, [i]], z)[0, 0]
-                z -= H[i, k] * P[:, [i]]
-            else:
-                H[i, k] += inner_product(V[:, [i]], z)[0, 0]
-                z -= H[i, k] * V[:, [i]]
-        Mz = M * z
-        norm_Mz = utils.norm(z, Mz, inner_product=inner_product)
-        H[k+1, k] = norm_Mz
-        if return_basis:
-            Horig[0:k+2, [k]] = H[0:k+2, [k]]
-
-        # Apply previous Givens rotations.
-        for i in range(k):
-            H[i:i+2, k] = G[i].apply(H[i:i+2, k])
-
-        # Compute and apply new Givens rotation.
-        G.append(utils.Givens(H[k:k+2, [k]]))
-        H[k:k+2, k] = G[k].apply(H[k:k+2, k])
-        y[k:k+2] = G[k].apply(y[k:k+2])
-
-        if exact_solution is not None:
-            xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
-            errvec.append(utils.norm(exact_solution - xk,
-                                     inner_product=inner_product))
-
-        # Update residual norm.
-        if explicit_residual:
-            xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
-            Mrk, norm_Mrk = _compute_explicit_residual(xk)
-            relresvec.append(norm_Mrk / norm_MMlb)
-        else:
-            relresvec.append(abs(y[k+1, 0]) / norm_MMlb)
-
-        # convergence of updated residual or maxiter reached?
-        if relresvec[-1] < tol or k+1 == maxiter:
-            norm_ur = relresvec[-1]
-
-            if not explicit_residual:
-                xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
-                Mrk, norm_Mrk = _compute_explicit_residual(xk)
-                relresvec[-1] = norm_Mrk / norm_MMlb
-
-            # No convergence of expl. residual?
-            if relresvec[-1] >= tol:
-                # Was this the last iteration?
-                if k+1 == maxiter:
-                    if conv_warning:
-                        warnings.warn(
-                            'Iter %d: No convergence! expl. res = %e >= tol '
-                            '=%e in last it. (upd. res = %e)'
-                            % (k+1, relresvec[-1], tol, norm_ur))
-                else:
-                    if conv_warning:
-                        warnings.warn(
-                            'Iter %d: Expl. res = %e >= tol = %e > upd. res '
-                            '= %e.' % (k+1, relresvec[-1], tol, norm_ur))
-
-        if norm_Mz < 1e-14 and relresvec[-1] > tol:
-            warnings.warn('subdiagonal element is (close to) zero (%e) '
-                          '=> breakdown in iteration %d' % (norm_Mz, k))
-        if M is not None:
-            P[:, [k+1]] = z / norm_Mz
-        V[:, [k+1]] = Mz / norm_Mz
-
-        k += 1
-
-    xk = _compute_explicit_xk(H[:k, :k], V[:, :k], y[:k])
-    ret = {'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-           'info': relresvec[-1] <= tol,
-           'relresvec': relresvec
-           }
-    if exact_solution is not None:
-        ret['errvec'] = errvec
-    if return_basis:
-        ret['V'] = V[:, :k+1]
-        ret['H'] = Horig[:k+1, :k]
-        if M is not None:
-            ret['P'] = P[:, :k+1]
-    return ret

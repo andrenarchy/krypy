@@ -30,7 +30,10 @@ def test_linsys__spd_zero():
             { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
             { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
-    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+    solvers = [#krypy.linsys.cg,
+               krypy.linsys.Minres,
+               krypy.linsys.Gmres
+               ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
@@ -52,7 +55,7 @@ def test_linsys_spd():
             ]
     solvers = [#krypy.linsys.cg,
                krypy.linsys.Minres,
-               #krypy.linsys.gmres
+               krypy.linsys.Gmres
                ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
@@ -73,7 +76,10 @@ def test_linsys_hpd():
             { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
             { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
-    solvers = [ krypy.linsys.cg, krypy.linsys.minres, krypy.linsys.gmres ]
+    solvers = [#krypy.linsys.cg,
+               krypy.linsys.Minres,
+               krypy.linsys.Gmres
+               ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
@@ -93,7 +99,9 @@ def test_linsys_symm_indef():
             { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
             { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
-    solvers = [ krypy.linsys.minres, krypy.linsys.gmres ]
+    solvers = [krypy.linsys.Minres,
+               krypy.linsys.Gmres
+               ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
@@ -113,7 +121,9 @@ def test_linsys_herm_indef():
             { 'Ml': [ None, Ainv ] + test_utils.get_operators(Minv) },
             { 'Mr': [ None, Ainv ] + test_utils.get_operators(Minv) }
             ]
-    solvers = [ krypy.linsys.minres, krypy.linsys.gmres ]
+    solvers = [krypy.linsys.Minres,
+               krypy.linsys.Gmres
+               ]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
