@@ -447,7 +447,7 @@ class Minres(_Solver):
     '''
     def __init__(self, A, b, ortho='lanczos', **kwargs):
         super(Minres, self).__init__(A, b, **kwargs)
-        self.__solve__(ortho=ortho)
+        self._solve(ortho=ortho)
 
     def _solve(self, ortho):
         N = self.b.shape[0]
