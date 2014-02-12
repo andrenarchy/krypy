@@ -785,7 +785,8 @@ class Arnoldi:
                 start = k
                 if k > 0:
                     self.H[k-1, k] = self.H[k, k-1]
-                    if self.M is not None:
+                    if self.M is not None \
+                            and not isinstance(self.M, IdentityLinearOperator):
                         Av -= self.H[k, k-1] * self.P[:, [k-1]]
                     else:
                         Av -= self.H[k, k-1] * self.V[:, [k-1]]
@@ -795,6 +796,14 @@ class Arnoldi:
                 # orthogonalize
                 for j in range(start, k+1):
                     alpha = inner(self.V[:, [j]], Av, ip_B=self.ip_B)[0, 0]
+                    if self.ortho == 'lanczos':
+                        # check if alpha is real
+                        if abs(alpha.imag) > 1e-12:
+                            warnings.warn(
+                                'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
+                                'Is your operator self-adjoint?'
+                                .format(self.iter, abs(alpha.imag)))
+                        alpha = alpha.real
                     self.H[j, k] += alpha
                     if self.M is not None:
                         Av -= alpha * self.P[:, [j]]
