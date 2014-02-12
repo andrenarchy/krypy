@@ -239,6 +239,189 @@ def get_cg_operations(nsteps):
             }
 
 
+class ConvergenceError(RuntimeError):
+    def __init__(self, msg, solver):
+        super(ConvergenceError, self).__init__(msg)
+        self.solver = solver
+
+
+class _Solver(object):
+    def __init__(self, A, b,
+                 x0=None,
+                 tol=1e-5,
+                 maxiter=None,
+                 M=None,
+                 Ml=None,
+                 Mr=None,
+                 ip_B=None,
+                 explicit_residual=False,
+                 store_basis=False,
+                 reortho='None',
+                 exact_solution=None
+                 ):
+        '''Init standard attributes and perform checks.'''
+        N = len(b)
+        shape = (N, N)
+
+        # init operators
+        self.A = utils.get_linearoperator(shape, A)
+        self.M = utils.get_linearoperator(shape, M)
+        self.Ml = utils.get_linearoperator(shape, Ml)
+        self.Mr = utils.get_linearoperator(shape, Mr)
+        self.ip_B = utils.get_linearoperator(shape, ip_B)
+        self.ip_BM = self.ip_B*self.M
+
+        # sanitize right hand side, initial guess, exact_solution
+        self.maxiter = N if maxiter is None else maxiter
+        self.flat_vecs, (self.b, self.x0, self.exact_solution) = \
+            utils.shape_vecs(b, x0, exact_solution)
+        if self.x0 is None:
+            self.x0 = numpy.zeros((N, 1))
+        self.tol = tol
+        self.xk = None
+        self.cdtype = utils.find_common_dtype(self.A, self.b, self.x0, self.M,
+                                              self.Ml, self.Mr, self.ip_B)
+
+        self.explicit_residual = explicit_residual
+        self.store_basis = False
+        # TODO: reortho
+
+        # init vectors for convergence measurement
+        self.resnorms = []
+        if exact_solution is not None:
+            self.exact_solution = exact_solution
+            self.errnorms = []
+
+    def _compute_xk(self, yk):
+        return self.x0 + self.Mr * yk
+
+    def _compute_rkn(self, xk):
+        rk = self.b - self.A*xk
+        Mlrk = self.Ml*rk
+        MMlrk = self.M*Mlrk
+        return numpy.sqrt(utils.inner(Mlrk, MMlrk, ip_B=self.ip_B))
+
+    def _compute_norms(self, yk, resnorm):
+        self.xk = None
+        # compute error norm if asked for
+        if self.exact_solution is not None:
+            self.xk = self._compute_xk(yk)
+            self.errnorms.append(utils.norm(self.exact_solution - self.xk,
+                                            ip_B=self.ip_B))
+
+        # compute explicit residual if asked for or if the updated residual
+        # is below the tolerance or if this is the last iteration
+        if self.explicit_residual or resnorm/self.norm_MMlb <= self.tol \
+                or self.iter+1 == self.maxiter:
+            # compute xk if not yet done
+            if self.xk is None:
+                self.xk = self._compute_xk(yk)
+
+            # compute residual norm
+            self.resnorms.append(self._compute_rkn(self.xk)/self.norm_MMlb)
+
+            # no convergence?
+            if self.resnorms[-1] > self.tol:
+                # no convergence in last iteration -> raise exception
+                # (approximate solution can be obtained from exception)
+                if self.iter+1 == self.maxiter:
+                    raise ConvergenceError(
+                        'No convergence in last iteration.', self)
+                # updated residual was below but explicit is not: warn
+                elif not self.explicit_residual \
+                        and resnorm/self.norm_MMlb <= self.tol:
+                    warnings.warn(
+                        'updated residual is below tolerance, explicit '
+                        'residual is NOT! (upd={0} <= tol={1} < exp={2})'
+                        .format(resnorm, self.tol, self.resnorms[-1]))
+        else:
+            # only store updated residual
+            self.resnorms.append(resnorm/self.norm_MMlb)
+
+
+class Minres(_Solver, utils.Arnoldi):
+    def __init__(self, A, b, **kwargs):
+        '''Preconditioned MINRES method.'''
+        super(Minres, self).__init__(A, b, **kwargs)
+
+        N = b.shape[0]
+
+        # Compute M^{-1}-norm of M*Ml*b.
+        self.norm_MMlb = utils.norm(self.Ml*b, ip_B=self.ip_BM)
+
+        # initialize Lanczos
+        self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
+                                     self.Ml*(self.b - self.A*self.x0),
+                                     maxiter=self.maxiter,
+                                     ortho='lanczos',
+                                     M=self.M,
+                                     ip_B=self.ip_B
+                                     )
+        # residual norm
+        norm_MMlr0 = self.lanczos.vnorm
+
+        # if rhs is exactly(!) zero, return zero solution.
+        if self.norm_MMlb == 0:
+            self.x0 = numpy.zeros((N, 1))
+            self.resnorms.append(0.)
+        else:
+            # initial relative residual norm
+            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
+
+        # compute error?
+        if self.exact_solution is not None:
+            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
+                                            ip_B=self.ip_B))
+
+        # initialize only if needed
+        if self.resnorms[-1] > self.tol:
+            # Necessary for efficient update of yk:
+            W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
+            # some small helpers
+            y = [norm_MMlr0, 0]     # first entry is (updated) residual
+            G2 = None               # old givens rotation
+            G1 = None               # even older givens rotation ;)
+
+            # resulting approximation is xk = x0 + Mr*yk
+            yk = numpy.zeros((N, 1), dtype=self.cdtype)
+
+        # iterate Lanczos
+        while self.resnorms[-1] > self.tol \
+                and self.lanczos.iter < self.lanczos.maxiter \
+                and not self.lanczos.invariant:
+            k = self.iter = self.lanczos.iter
+            self.lanczos.advance()
+            V, H = self.lanczos.V, self.lanczos.H
+
+            # needed for QR-update:
+            R = numpy.zeros((4, 1))
+            R[1] = H[k-1, k]
+            if G1 is not None:
+                R[:2] = G1.apply(R[:2])
+
+            # (implicit) update of QR-factorization of Lanczos matrix
+            R[2:4, 0] = [H[k, k], H[k+1, k]]
+            if G2 is not None:
+                R[1:3] = G2.apply(R[1:3])
+            G1 = G2
+            # compute new givens rotation.
+            G2 = utils.Givens(R[2:4])
+            R[2] = G2.r
+            R[3] = 0.0
+            y = G2.apply(y)
+
+            # update solution
+            z = (V[:, [k]] - R[0, 0]*W[:, [0]] - R[1, 0]*W[:, [1]]) / R[2, 0]
+            W = numpy.c_[W[:, [1]], z]
+            yk = yk + y[0] * z
+            y = [y[1], 0]
+
+            self._compute_norms(yk, numpy.abs(y[0]))
+        # compute solution if not yet done
+        if self.xk is None:
+            self.xk = self._compute_xk(yk)
+
+
 def minres(A, b,
            x0=None,
            tol=1e-5,
