@@ -511,7 +511,7 @@ class Minres(_Solver):
             V, H = self.lanczos.V, self.lanczos.H
 
             # needed for QR-update:
-            R = numpy.zeros((4, 1))
+            R = numpy.zeros((4, 1))  # real because Lanczos matrix is real
             R[1] = H[k-1, k]
             if G1 is not None:
                 R[:2] = G1.apply(R[:2])
