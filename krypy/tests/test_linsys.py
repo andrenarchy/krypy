@@ -27,10 +27,12 @@ def test_linsys_spd_zero():
     m = numpy.array(range(1, 11))
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
+    B = test_utils.get_matrix_spd()
     params_adds = [
         {'M': [None, Ainv] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
         ]
     solvers = [#krypy.linsys.cg,
                krypy.linsys.Minres,
@@ -51,10 +53,12 @@ def test_linsys_spd():
     m = numpy.array(range(1, 11))
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
+    B = test_utils.get_matrix_spd()
     params_adds = [
         {'M': [None, Ainv] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
         ]
     solvers = [#krypy.linsys.cg,
                krypy.linsys.Minres,
@@ -78,7 +82,7 @@ def test_linsys_hpd():
     params_adds = [
         {'M': [None, Ainv] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
         ]
     solvers = [#krypy.linsys.cg,
                krypy.linsys.Minres,
@@ -99,10 +103,12 @@ def test_linsys_symm_indef():
     m = numpy.array(range(1, 11))
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
+    B = test_utils.get_matrix_spd()
     params_adds = [
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
         ]
     solvers = [krypy.linsys.Minres,
                krypy.linsys.Gmres
@@ -119,7 +125,7 @@ def test_linsys_herm_indef():
     x = (1.+1.j)*numpy.ones((10, 1))
 
     # preconditioner
-    m = numpy.array(range(1,11))
+    m = numpy.array(range(1, 11))
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     params_adds = [
@@ -145,11 +151,13 @@ def test_linsys_nonsymm():
     m = numpy.array(range(1, 11))
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
+    B = test_utils.get_matrix_spd()
     params_adds = [
-        {'maxiter': [5], 'max_restarts': [20] },
+        {'maxiter': [5], 'max_restarts': [20]},
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
         ]
     solvers = [krypy.linsys.gmres]
     for case in produce_cases(A, x, params_adds, solvers):
@@ -167,11 +175,13 @@ def test_linsys_comp_nonsymm():
     m = numpy.array(range(1, 11))
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
+    B = test_utils.get_matrix_spd()
     params_adds = [
         {'maxiter': [5], 'max_restarts': [20]},
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
         ]
     solvers = [krypy.linsys.gmres]
     for case in produce_cases(A, x, params_adds, solvers):
@@ -180,22 +190,17 @@ def test_linsys_comp_nonsymm():
 
 def produce_cases(A, x, params_adds, solvers):
     b = numpy.dot(A, x)
-    B = test_utils.get_matrix_spd()
     params_base = {
         'A': test_utils.get_operators(A),
         'b': test_utils.get_vecs(b),
         'x0': [None, numpy.zeros(b.shape), x]
               + test_utils.get_vecs(numpy.ones(b.shape)),
-        'tol': [1e-13, 1e-5, 1e-2],
+        'tol': [1e-13, 1e-2],
         'maxiter': [15],
         'M': [None],
         'Ml': [None],
         'Mr': [None],
-        'ip_B': [None,
-                 B,
-                 krypy.utils.MatrixLinearOperator(B),
-                 lambda x, y: x.T.conj().dot(B.dot(y))
-                 ],
+        'ip_B': [None],
         'exact_solution': [None] + test_utils.get_vecs(x)
         }
 
