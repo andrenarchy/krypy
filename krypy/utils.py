@@ -733,13 +733,12 @@ class Arnoldi:
                 p = v
                 v = self.M*p
                 self.vnorm = numpy.sqrt(inner(p, v, ip_B=ip_B))
+                self.P[:, [0]] = p / self.vnorm
             else:
                 self.vnorm = norm(v, ip_B=ip_B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
         self.V[:, [0]] = v / self.vnorm
-        if self.M is not None:
-            self.P[:, [0]] = p / self.vnorm
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""

@@ -339,8 +339,8 @@ class _Solver(object):
             self.resnorms.append(resnorm/self.norm_MMlb)
 
 
-class Minres(_Solver, utils.Arnoldi):
-    def __init__(self, A, b, **kwargs):
+class Minres(_Solver):
+    def __init__(self, A, b, ortho='lanczos', **kwargs):
         '''Preconditioned MINRES method.'''
         super(Minres, self).__init__(A, b, **kwargs)
 
@@ -353,7 +353,7 @@ class Minres(_Solver, utils.Arnoldi):
         self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
                                      self.Ml*(self.b - self.A*self.x0),
                                      maxiter=self.maxiter,
-                                     ortho='lanczos',
+                                     ortho=ortho,
                                      M=self.M,
                                      ip_B=self.ip_B
                                      )
@@ -417,9 +417,20 @@ class Minres(_Solver, utils.Arnoldi):
             y = [y[1], 0]
 
             self._compute_norms(yk, numpy.abs(y[0]))
+
         # compute solution if not yet done
         if self.xk is None:
             self.xk = self._compute_xk(yk)
+
+    def operations(nsteps):
+        '''Returns the number of operations needed for nsteps of MINRES'''
+        return {'A': 1 + nsteps,
+                'M': 2 + nsteps,
+                'Ml': 2 + nsteps,
+                'Mr': 1 + nsteps,
+                'ip': 2 + 2*nsteps,
+                'axpy': 4 + 8*nsteps
+                }
 
 
 def minres(A, b,
@@ -737,15 +748,6 @@ def minres(A, b,
     return ret
 
 
-def get_minres_operations(nsteps):
-    '''Returns the number of operations needed for nsteps of MINRES'''
-    return {'A': 1 + nsteps,
-            'M': 2 + nsteps,
-            'Ml': 2 + nsteps,
-            'Mr': 1 + nsteps,
-            'ip': 2 + 2*nsteps,
-            'axpy': 4 + 8*nsteps
-            }
 
 
 def gmres(A, b,
