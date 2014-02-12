@@ -137,7 +137,7 @@ def norm_squared(x, Mx=None, inner_product=ip_euclid):
     return numpy.linalg.norm(rho, 2)
 
 
-def norm(x, ip_B=None):
+def norm(x, y=None, ip_B=None):
     '''Compute norm (Euclidean and non-Euclidean).
 
     :param x: a 2-dimensional ``numpy.array``.
@@ -147,21 +147,18 @@ def norm(x, ip_B=None):
     Compute :math:`\\sqrt{\langle x,y\rangle}` where the inner product is
     defined via ``ip_B``.
     '''
+    if y is None:
+        y = x
     # Euclidean inner product?
-    if ip_B is None or isinstance(ip_B, IdentityLinearOperator):
+    if y is None and (ip_B is None
+                      or isinstance(ip_B, IdentityLinearOperator)):
         return numpy.linalg.norm(x, 2)
-    try:
-        N = x.shape[0]
-        B = get_linearoperator((N, N), ip_B)
-        Bx = B*x
-        return numpy.sqrt(numpy.linalg.norm(inner(x, Bx), 2))
-    except TypeError:
-        ip = ip_B(x, x)
-        nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
-        if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
-            raise ValueError('inner product defined by ip_B not positive '
-                             'definite?')
-        return nrm
+    ip = inner(x, y, ip_B=ip_B)
+    nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
+    if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
+        raise ValueError('inner product defined by ip_B not positive '
+                         'definite?')
+    return nrm
 
 
 def get_linearoperator(shape, A):
@@ -732,13 +729,17 @@ class Arnoldi:
             if self.M is not None:
                 p = v
                 v = self.M*p
-                self.vnorm = numpy.sqrt(inner(p, v, ip_B=ip_B))
-                self.P[:, [0]] = p / self.vnorm
+                self.vnorm = norm(p, v, ip_B=ip_B)
+                if self.vnorm > 1e-15:
+                    self.P[:, [0]] = p / self.vnorm
             else:
                 self.vnorm = norm(v, ip_B=ip_B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        self.V[:, [0]] = v / self.vnorm
+        if self.vnorm > 1e-15:
+            self.V[:, [0]] = v / self.vnorm
+        else:
+            self.invariant = True
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""
@@ -768,7 +769,8 @@ class Arnoldi:
                 self.H[:k+1, [k]] = Av[:k+1]
             # next line is safe due to the multiplications with alpha
             self.H[k+1, k] = numpy.abs(self.H[k+1, k])
-            if self.H[k+1, k] <= 1e-15:
+            if self.H[k+1, k] / numpy.linalg.norm(self.H[:k+2, :k+1], 2)\
+                    <= 1e-14:
                 self.invariant = True
             else:
                 vnew = numpy.zeros((N, 1), dtype=self.dtype)
@@ -784,7 +786,7 @@ class Arnoldi:
             if self.ortho == 'lanczos':
                 start = k
                 if k > 0:
-                    self.H[k-1,k] = self.H[k, k-1]
+                    self.H[k-1, k] = self.H[k, k-1]
                     if self.M is not None:
                         Av -= self.H[k, k-1] * self.P[:, [k-1]]
                     else:
@@ -802,11 +804,11 @@ class Arnoldi:
                         Av -= alpha * self.V[:, [j]]
             if self.M is not None:
                 MAv = self.M * Av
-                self.H[k+1, k] = numpy.sqrt(inner(Av, MAv, ip_B=self.ip_B))
+                self.H[k+1, k] = norm(Av, MAv, ip_B=self.ip_B)
             else:
                 self.H[k+1, k] = norm(Av, ip_B=self.ip_B)
             if self.H[k+1, k] / numpy.linalg.norm(self.H[:k+2, :k+1], 2)\
-                    <= 5e-14:
+                    <= 1e-14:
                 self.invariant = True
             else:
                 if self.M is not None:

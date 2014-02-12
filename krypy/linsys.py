@@ -240,6 +240,12 @@ def get_cg_operations(nsteps):
 
 
 class ConvergenceError(RuntimeError):
+    '''Convergence error.
+
+    The ``ConvergenceError`` holds a message describing the error and
+    the attribute ``solver`` through which the last approximation and other
+    relevant information can be retrieved.
+    '''
     def __init__(self, msg, solver):
         super(ConvergenceError, self).__init__(msg)
         self.solver = solver
@@ -268,8 +274,7 @@ class _Solver(object):
         self.M = utils.get_linearoperator(shape, M)
         self.Ml = utils.get_linearoperator(shape, Ml)
         self.Mr = utils.get_linearoperator(shape, Mr)
-        self.ip_B = utils.get_linearoperator(shape, ip_B)
-        self.ip_BM = self.ip_B*self.M
+        self.ip_B = ip_B
 
         # sanitize right hand side, initial guess, exact_solution
         self.maxiter = N if maxiter is None else maxiter
@@ -289,7 +294,6 @@ class _Solver(object):
         # init vectors for convergence measurement
         self.resnorms = []
         if exact_solution is not None:
-            self.exact_solution = exact_solution
             self.errnorms = []
 
     def _compute_xk(self, yk):
@@ -299,7 +303,7 @@ class _Solver(object):
         rk = self.b - self.A*xk
         Mlrk = self.Ml*rk
         MMlrk = self.M*Mlrk
-        return numpy.sqrt(utils.inner(Mlrk, MMlrk, ip_B=self.ip_B))
+        return utils.norm(Mlrk, MMlrk, ip_B=self.ip_B)
 
     def _compute_norms(self, yk, resnorm):
         self.xk = None
@@ -340,112 +344,6 @@ class _Solver(object):
 
 
 class Minres(_Solver):
-    def __init__(self, A, b, ortho='lanczos', **kwargs):
-        '''Preconditioned MINRES method.'''
-        super(Minres, self).__init__(A, b, **kwargs)
-
-        N = b.shape[0]
-
-        # Compute M^{-1}-norm of M*Ml*b.
-        self.norm_MMlb = utils.norm(self.Ml*b, ip_B=self.ip_BM)
-
-        # initialize Lanczos
-        self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
-                                     self.Ml*(self.b - self.A*self.x0),
-                                     maxiter=self.maxiter,
-                                     ortho=ortho,
-                                     M=self.M,
-                                     ip_B=self.ip_B
-                                     )
-        # residual norm
-        norm_MMlr0 = self.lanczos.vnorm
-
-        # if rhs is exactly(!) zero, return zero solution.
-        if self.norm_MMlb == 0:
-            self.x0 = numpy.zeros((N, 1))
-            self.resnorms.append(0.)
-        else:
-            # initial relative residual norm
-            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
-
-        # compute error?
-        if self.exact_solution is not None:
-            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
-                                            ip_B=self.ip_B))
-
-        # initialize only if needed
-        if self.resnorms[-1] > self.tol:
-            # Necessary for efficient update of yk:
-            W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
-            # some small helpers
-            y = [norm_MMlr0, 0]     # first entry is (updated) residual
-            G2 = None               # old givens rotation
-            G1 = None               # even older givens rotation ;)
-
-            # resulting approximation is xk = x0 + Mr*yk
-            yk = numpy.zeros((N, 1), dtype=self.cdtype)
-
-        # iterate Lanczos
-        while self.resnorms[-1] > self.tol \
-                and self.lanczos.iter < self.lanczos.maxiter \
-                and not self.lanczos.invariant:
-            k = self.iter = self.lanczos.iter
-            self.lanczos.advance()
-            V, H = self.lanczos.V, self.lanczos.H
-
-            # needed for QR-update:
-            R = numpy.zeros((4, 1))
-            R[1] = H[k-1, k]
-            if G1 is not None:
-                R[:2] = G1.apply(R[:2])
-
-            # (implicit) update of QR-factorization of Lanczos matrix
-            R[2:4, 0] = [H[k, k], H[k+1, k]]
-            if G2 is not None:
-                R[1:3] = G2.apply(R[1:3])
-            G1 = G2
-            # compute new givens rotation.
-            G2 = utils.Givens(R[2:4])
-            R[2] = G2.r
-            R[3] = 0.0
-            y = G2.apply(y)
-
-            # update solution
-            z = (V[:, [k]] - R[0, 0]*W[:, [0]] - R[1, 0]*W[:, [1]]) / R[2, 0]
-            W = numpy.c_[W[:, [1]], z]
-            yk = yk + y[0] * z
-            y = [y[1], 0]
-
-            self._compute_norms(yk, numpy.abs(y[0]))
-
-        # compute solution if not yet done
-        if self.xk is None:
-            self.xk = self._compute_xk(yk)
-
-    def operations(nsteps):
-        '''Returns the number of operations needed for nsteps of MINRES'''
-        return {'A': 1 + nsteps,
-                'M': 2 + nsteps,
-                'Ml': 2 + nsteps,
-                'Mr': 1 + nsteps,
-                'ip': 2 + 2*nsteps,
-                'axpy': 4 + 8*nsteps
-                }
-
-
-def minres(A, b,
-           x0=None,
-           tol=1e-5,
-           maxiter=None,
-           M=None,
-           Ml=None,
-           Mr=None,
-           inner_product=utils.ip_euclid,
-           explicit_residual=False,
-           return_basis=False,
-           full_reortho=False,
-           exact_solution=None
-           ):
     '''Preconditioned MINRES method.
 
     The *preconditioned minimal residual method* can be used to solve a
@@ -535,219 +433,110 @@ def minres(A, b,
       the key ``errvec``. Defaults to ``None``, which means that no errors are
       computed.
 
-    :return:
-      a dictionary with the following keys:
+    Upon convergence, the ``Minres`` instance contains the following
+    attributes:
 
       * ``xk``: the approximate solution :math:`x_k`.
-      * ``info``: convergence flag (0 if converged, 1 otherwise).
-      * ``relresvec``: relative residual norms of all iterations, see
+      * ``resnorms``: relative residual norms of all iterations, see
         parameter ``tol``.
-      * ``V``: present if ``return_basis=True``. The Arnoldi basis
-        vectors.
-      * ``H``: present if ``return_basis=True``. The Hessenberg matrix.
-      * ``P``: present if ``return_basis=True`` and ``M`` is provided.
-        The matrix :math:`P` fulfills :math:`V=MP`.
+      * ``errnorms``: the error norms of all iterations if ``exact_solution``
+        was provided.
+      * ``lanczos``: the Arnoldi instance.
+
+    If MINRES does not converge, a :py:class:`ConvergenceError` is thrown.
     '''
-    N = len(b)
-    shape = (N, N)
-    A = utils.get_linearoperator(shape, A)
-    if maxiter is None:
-        maxiter = N
-    flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0,
-                                                          exact_solution)
-    if x0 is None:
-        x0 = numpy.zeros((N, 1))
-    M = utils.get_linearoperator(shape, M)
-    Ml = utils.get_linearoperator(shape, Ml)
-    Mr = utils.get_linearoperator(shape, Mr)
-    cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
+    def __init__(self, A, b, ortho='lanczos', **kwargs):
+        super(Minres, self).__init__(A, b, **kwargs)
+        self.__solve__(ortho=ortho)
 
-    # Compute M-norm of M*Ml*b.
-    Mlb = Ml * b
-    MMlb = M * Mlb
-    norm_MMlb = utils.norm(Mlb, MMlb, inner_product=inner_product)
+    def _solve(self, ortho):
+        N = self.b.shape[0]
 
-    # Init Lanczos and MINRES
-    r0 = b - A * x0
-    Mlr0 = Ml * r0
-    MMlr0 = M * Mlr0
-    norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product=inner_product)
+        # Compute M^{-1}-norm of M*Ml*b.
+        Mlb = self.Ml*self.b
+        MMlb = self.M*Mlb
+        self.norm_MMlb = utils.norm(Mlb, MMlb, ip_B=self.ip_B)
 
-    # if rhs is exactly(!) zero, return zero solution.
-    if norm_MMlb == 0:
-        x0 = numpy.zeros((N, 1))
-        relresvec = [0.0]
-    else:
-        # initial relative residual norm
-        relresvec = [norm_MMlr0 / norm_MMlb]
-    xk = x0.copy()
+        # initialize Lanczos
+        self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
+                                     self.Ml*(self.b - self.A*self.x0),
+                                     maxiter=self.maxiter,
+                                     ortho=ortho,
+                                     M=self.M,
+                                     ip_B=self.ip_B
+                                     )
+        # residual norm
+        norm_MMlr0 = self.lanczos.vnorm
 
-    # compute error?
-    if exact_solution is not None:
-        errvec = [utils.norm(exact_solution - x0, inner_product=inner_product)]
+        # if rhs is exactly(!) zero, return zero solution.
+        if self.norm_MMlb == 0:
+            self.x0 = numpy.zeros((N, 1))
+            self.resnorms.append(0.)
+        else:
+            # initial relative residual norm
+            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
 
-    # initialize only if needed
-    if relresvec[-1] > tol:
-        # Allocate and initialize the 'large' memory blocks.
-        if return_basis or full_reortho:
-            Vfull = numpy.c_[MMlr0 / norm_MMlr0, numpy.zeros((N, maxiter),
-                                                             dtype=cdtype)]
-            Pfull = numpy.c_[Mlr0 / norm_MMlr0, numpy.zeros((N, maxiter),
-                                                            dtype=cdtype)]
-            Hfull = numpy.zeros((maxiter+1, maxiter), dtype=numpy.float)
-        # Last and current Lanczos vector:
-        V = numpy.c_[numpy.zeros(N, dtype=cdtype), MMlr0 / norm_MMlr0]
-        # M*v[i] = P[1], M*v[i-1] = P[0]
-        P = numpy.c_[numpy.zeros(N, dtype=cdtype), Mlr0 / norm_MMlr0]
+        # compute error?
+        if self.exact_solution is not None:
+            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
+                                            ip_B=self.ip_B))
+
         # Necessary for efficient update of yk:
-        W = numpy.c_[numpy.zeros(N, dtype=cdtype), numpy.zeros(N)]
+        W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
         # some small helpers
-        ts = 0.0             # (non-existing) first off-diagonal entry
-                             # (corresponds to pi1)
-        y = [norm_MMlr0, 0]  # first entry is (updated) residual
-        G2 = None            # old givens rotation
-        G1 = None            # even older givens rotation ;)
-        k = 0
+        y = [norm_MMlr0, 0]     # first entry is (updated) residual
+        G2 = None               # old givens rotation
+        G1 = None               # even older givens rotation ;)
 
         # resulting approximation is xk = x0 + Mr*yk
-        yk = numpy.zeros((N, 1), dtype=cdtype)
+        yk = numpy.zeros((N, 1), dtype=self.cdtype)
 
-    # Lanczos + MINRES iteration
-    while relresvec[-1] > tol and k < maxiter:
-        # Lanczos
-        tsold = ts
-        z = Mr * V[:, [1]]
-        z = A * z
-        z = Ml * z
-        z = z - tsold * P[:, [0]]
+        # iterate Lanczos
+        while self.resnorms[-1] > self.tol \
+                and self.lanczos.iter < self.lanczos.maxiter \
+                and not self.lanczos.invariant:
+            k = self.iter = self.lanczos.iter
+            self.lanczos.advance()
+            V, H = self.lanczos.V, self.lanczos.H
 
-        # Should be real! (diagonal element):
-        td = inner_product(V[:, [1]], z)[0, 0]
-        if abs(td.imag) > 1.0e-12:
-            warnings.warn('Iter %d: abs(td.imag) = %g > 1e-12.'
-                          'Is your matrix Hermitian?'
-                          % (k+1, abs(td.imag)))
-        td = td.real
-        z = z - td * P[:, [1]]
+            # needed for QR-update:
+            R = numpy.zeros((4, 1))
+            R[1] = H[k-1, k]
+            if G1 is not None:
+                R[:2] = G1.apply(R[:2])
 
-        # double reortho
-        for l in range(0, 2):
-            # full reortho?
-            # cost: (k+1)*(IP + AXPY)
-            if full_reortho:
-                # here we can (and should) orthogonalize against ALL THE
-                # vectors (thus k+1).
-                # http://memegenerator.net/instance/13779948
-                for i in range(0, k+1):
-                    ip = inner_product(Vfull[:, [i]], z)[0, 0]
-                    if abs(ip) > 1.0e-9:
-                        warnings.warn(
-                            'Iter %d: abs(ip) = %g > 1.0e-9:'
-                            'The Krylov basis has become linearly '
-                            'dependent. Maxiter (%d) too large and '
-                            'tolerance too severe (%g)? dim = %d.'
-                            % (k+1, abs(ip), maxiter, tol, len(x0)))
-                    z -= ip * Pfull[:, [i]]
+            # (implicit) update of QR-factorization of Lanczos matrix
+            R[2:4, 0] = [H[k, k], H[k+1, k]]
+            if G2 is not None:
+                R[1:3] = G2.apply(R[1:3])
+            G1 = G2
+            # compute new givens rotation.
+            G2 = utils.Givens(R[2:4])
+            R[2] = G2.r
+            R[3] = 0.0
+            y = G2.apply(y)
 
-        # needed for QR-update:
-        R = numpy.zeros((4, 1))
-        R[1] = tsold
-        if G1 is not None:
-            R[:2] = G1.apply(R[:2])
+            # update solution
+            z = (V[:, [k]] - R[0, 0]*W[:, [0]] - R[1, 0]*W[:, [1]]) / R[2, 0]
+            W = numpy.c_[W[:, [1]], z]
+            yk = yk + y[0] * z
+            y = [y[1], 0]
 
-        # Apply the preconditioner.
-        v = M * z
-        ts = utils.norm(z, Mx=v, inner_product=inner_product)
+            self._compute_norms(yk, numpy.abs(y[0]))
 
-        if ts > 0.0:
-            P = numpy.c_[P[:, [1]], z / ts]
-            V = numpy.c_[V[:, [1]], v / ts]
-        else:
-            P = numpy.c_[P[:, [1]], numpy.zeros(N)]
-            V = numpy.c_[V[:, [1]], numpy.zeros(N)]
+        # compute solution if not yet done
+        if self.xk is None:
+            self.xk = self._compute_xk(yk)
 
-        # store new vectors in full basis
-        if return_basis or full_reortho:
-            if ts > 0.0:
-                Vfull[:, [k+1]] = v / ts
-                Pfull[:, [k+1]] = z / ts
-            Hfull[k, k] = td        # diagonal
-            Hfull[k+1, k] = ts      # subdiagonal
-            if k+1 < maxiter:
-                Hfull[k, k+1] = ts  # superdiagonal
-
-        # (implicit) update of QR-factorization of Lanczos matrix
-        R[2:4, 0] = [td, ts]
-        if G2 is not None:
-            R[1:3] = G2.apply(R[1:3])
-        G1 = G2
-        # compute new givens rotation.
-        G2 = utils.Givens(R[2:4])
-        R[2] = G2.r
-        R[3] = 0.0
-        y = G2.apply(y)
-
-        # update solution
-        z = (V[:, 0:1] - R[0, 0]*W[:, 0:1] - R[1, 0]*W[:, 1:2]) / R[2, 0]
-        W = numpy.c_[W[:, 1:2], z]
-        yk = yk + y[0] * z
-        y = [y[1], 0]
-
-        # update residual
-        if exact_solution is not None:
-            xk = x0 + Mr * yk
-            errvec.append(utils.norm(exact_solution - xk,
-                                     inner_product=inner_product))
-
-        if explicit_residual:
-            xk, _, _, norm_MMlr = utils.norm_MMlr(M, Ml, A, Mr, b, x0, yk,
-                                                  inner_product=inner_product)
-            relresvec.append(norm_MMlr / norm_MMlb)
-        else:
-            relresvec.append(abs(y[0]) / norm_MMlb)
-
-        # Compute residual explicitly if updated residual is below tolerance.
-        if relresvec[-1] <= tol or k+1 == maxiter:
-            norm_r_upd = relresvec[-1]
-            # Compute the exact residual norm (if not yet done above)
-            if not explicit_residual:
-                xk, _, _, norm_MMlr = utils.norm_MMlr(
-                    M, Ml, A, Mr, b, x0, yk, inner_product=inner_product)
-                relresvec[-1] = norm_MMlr / norm_MMlb
-            # No convergence of explicit residual?
-            if relresvec[-1] > tol:
-                # Was this the last iteration?
-                if k+1 == maxiter:
-                    warnings.warn(
-                        'Iter %d: No convergence! expl. res = %e >= tol =%e '
-                        'in last iter. (upd. res = %e)'
-                        % (k+1, relresvec[-1], tol, norm_r_upd))
-                else:
-                    warnings.warn(
-                        'Info (iter %d): Updated residual is below '
-                        'tolerance, explicit residual is NOT! '
-                        '(resEx=%g > tol=%g >= resup=%g)'
-                        % (k+1, relresvec[-1], tol, norm_r_upd))
-
-        # limit relative residual to machine precision (an exact 0 is rare but
-        # seems to occur with pyamg...).
-        # relresvec[-1] = max(numpy.finfo(float).eps, relresvec[-1])
-        k += 1
-    # end MINRES iteration
-
-    ret = {'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-           'info': relresvec[-1] <= tol,
-           'relresvec': relresvec
-           }
-    if exact_solution is not None:
-        ret['errvec'] = errvec
-    if return_basis:
-        ret['V'] = Vfull[:, 0:k+1]
-        ret['P'] = Pfull[:, 0:k+1]
-        ret['H'] = Hfull[0:k+1, 0:k]
-    return ret
-
-
+    def operations(nsteps):
+        '''Returns the number of operations needed for nsteps of MINRES'''
+        return {'A': 1 + nsteps,
+                'M': 2 + nsteps,
+                'Ml': 2 + nsteps,
+                'Mr': 1 + nsteps,
+                'ip': 2 + 2*nsteps,
+                'axpy': 4 + 8*nsteps
+                }
 
 
 def gmres(A, b,
