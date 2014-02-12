@@ -268,98 +268,153 @@ def run_hegedus(A, b, x0, M, Ml, inner_product):
 
     assert(  MMlr0new_norm <= MMlr0_norm  + 1e-13 )
 
+
 def test_arnoldi():
     #TODO: reactivate the complex tests once travis-ci uses newer
     #      numpy/scipy versions.
-    matrices = [
-            get_matrix_spd(),
-            #get_matrix_hpd(),
-            get_matrix_symm_indef(),
-            #get_matrix_herm_indef(),
-            get_matrix_nonsymm(),
-            #get_matrix_comp_nonsymm()
-            ]
-    vs = [numpy.ones((10,1)), numpy.eye(10,1)]
+    matrices = [get_matrix_spd(),
+                #get_matrix_hpd(),
+                get_matrix_symm_indef(),
+                #get_matrix_herm_indef(),
+                get_matrix_nonsymm(),
+                #get_matrix_comp_nonsymm()
+                ]
+    vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
     maxiters = [1, 5, 9, 10]
     orthos = ['mgs', 'dmgs', 'house']
-    B = numpy.diag(numpy.linspace(1,5,10))
-    inner_products = get_inner_products()
+    B = numpy.diag(numpy.linspace(1, 5, 10))
+    Ms = [None, B]
+    ip_Bs = [None,
+             B,
+             krypy.utils.MatrixLinearOperator(B),
+             lambda x, y: x.T.conj().dot(B.dot(y))
+             ]
 
-    for (matrix, v, maxiter, ortho, inner_product) in itertools.product(matrices, vs, maxiters, orthos, inner_products):
+    for (matrix, v, maxiter, ortho, M, ip_B) in \
+            itertools.product(matrices, vs, maxiters, orthos, Ms, ip_Bs):
         An = numpy.linalg.norm(matrix, 2)
         for A in get_operators(matrix):
-            if ortho=='house' and inner_product!=krypy.utils.ip_euclid:
+            if ortho == 'house' and (ip_B is not None or M is not None):
                 continue
-            yield run_arnoldi, A, v, maxiter, ortho, inner_product, An
+            yield run_arnoldi, A, v, maxiter, ortho, M, ip_B, An
 
-def run_arnoldi(A, v, maxiter, ortho, inner_product, An):
-    V, H = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, inner_product=inner_product)
-    assert_arnoldi(A, v, V, H, maxiter, ortho, inner_product, An=An)
+    #TODO: reactivate the complex tests once travis-ci uses newer
+    #      numpy/scipy versions.
+    matrices = [get_matrix_spd(),
+                #get_matrix_hpd(),
+                get_matrix_symm_indef(),
+                #get_matrix_herm_indef()
+                ]
+    for (matrix, v, maxiter, M, ip_B) in \
+            itertools.product(matrices, vs, maxiters, Ms, ip_Bs):
+        An = numpy.linalg.norm(matrix, 2)
+        for A in get_operators(matrix):
+            yield run_arnoldi, A, v, maxiter, 'lanczos', M, ip_B, An
 
 
-def assert_arnoldi(A, v, V, H, maxiter, ortho, inner_product=krypy.utils.ip_euclid, lanczos=False, arnoldi_const=1, ortho_const=1, proj_const=2, An=None):
+def run_arnoldi(A, v, maxiter, ortho, M, ip_B, An):
+    res = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, M=M,
+                              ip_B=ip_B)
+    if M is not None:
+        V, H, P = res
+    else:
+        V, H = res
+        P = None
+    assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B, An=An)
+
+
+def assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B,
+                   lanczos=False,
+                   arnoldi_const=1,
+                   ortho_const=1,
+                   proj_const=10,
+                   An=None
+                   ):
     # the checks in this function are based on the following literature:
-    # [1] Drkosova, Greenbaum, Rozloznik and Strakos. Numerical Stability of GMRES. 1995. BIT.
+    # [1] Drkosova, Greenbaum, Rozloznik and Strakos. Numerical Stability of
+    #     GMRES. 1995. BIT.
     N = v.shape[0]
     if An is None:
         An = numpy.linalg.norm(A, 2)
-    A = krypy.utils.get_linearoperator((N,N), A)
+    A = krypy.utils.get_linearoperator((N, N), A)
     eps = numpy.finfo(numpy.double).eps
 
     k = H.shape[1]
 
     #maxiter respected?
-    assert( k <= maxiter )
+    assert(k <= maxiter)
 
-    invariant = H.shape[0]==k
+    invariant = H.shape[0] == k
     # check shapes of V and H
-    assert(V.shape[1]==H.shape[0])
+    assert(V.shape[1] == H.shape[0])
 
     # check that the initial vector is correct
-    v1 = v / krypy.utils.norm(v, inner_product=inner_product)
-    assert( numpy.linalg.norm(V[:,[0]] - v1, 2) <= 1e-14 )
+    M = krypy.utils.get_linearoperator((N, N), M)
+    v1n = numpy.sqrt(krypy.utils.inner(v, M*v, ip_B=ip_B))
+    if P is not None:
+        assert(numpy.linalg.norm(P[:, [0]] - v/v1n) <= 1e-14)
+    else:
+        assert(numpy.linalg.norm(V[:, [0]] - v/v1n) <= 1e-14)
 
     # check if H is Hessenberg
-    assert( numpy.linalg.norm( numpy.tril(H, -2) ) == 0 )
+    assert(numpy.linalg.norm(numpy.tril(H, -2)) == 0)
     if lanczos:
         # check if H is Hermitian
-        assert( numpy.linalg.norm( H - H.T.conj() ) == 0 )
+        assert(numpy.linalg.norm(H - H.T.conj()) == 0)
         # check if H is real
-        assert( numpy.isreal(H).all() )
+        assert(numpy.isreal(H).all())
 
     # check if subdiagonal-elements are real and non-negative
-    d = numpy.diag(H[1:,:])
-    assert( numpy.isreal(d).all() )
-    assert( (d>=0).all() )
+    d = numpy.diag(H[1:, :])
+    assert(numpy.isreal(d).all())
+    assert((d >= 0).all())
 
     # check Arnoldi residual \| A*V_k - V_{k+1} H \|
     if invariant:
         AV = A * V
     else:
-        AV = A * V[:,:-1]
-    arnoldi_res = AV - numpy.dot(V, H)
-    arnoldi_resn = krypy.utils.norm( arnoldi_res, inner_product=inner_product )
-    arnoldi_tol = arnoldi_const * k * (N**1.5) * eps * An  # inequality (2.3) in [1]
-    assert( arnoldi_resn <= arnoldi_tol )
+        AV = A * V[:, :-1]
+    if M is not None:
+        MAV = M*AV
+    else:
+        MAV = AV
+    arnoldi_res = MAV - numpy.dot(V, H)
+    arnoldi_resn = krypy.utils.norm(arnoldi_res, ip_B=ip_B)
+    # inequality (2.3) in [1]
+    arnoldi_tol = arnoldi_const * k * (N**1.5) * eps * An
+    assert(arnoldi_resn <= arnoldi_tol)
 
     # check orthogonality by measuring \| I - <V,V> \|_2
-    ortho_res = numpy.eye(V.shape[1]) - inner_product(V, V)
-    ortho_resn = numpy.linalg.norm( ortho_res, 2)
-    if ortho=='house':
+    if P is not None:
+        ortho_res = numpy.eye(V.shape[1]) - krypy.utils.inner(V, P, ip_B=ip_B)
+    else:
+        ortho_res = numpy.eye(V.shape[1]) - krypy.utils.inner(V, V, ip_B=ip_B)
+    ortho_resn = numpy.linalg.norm(ortho_res, 2)
+    if ortho == 'house':
         ortho_tol = ortho_const * (k**1.5) * N * eps  # inequality (2.4) in [1]
     else:
-        vAV_singvals = scipy.linalg.svd( numpy.c_[ V[:,[0]], (AV[:,:-1] if invariant else AV) ], compute_uv=False )
-        if vAV_singvals[-1]==0:
+        vAV_singvals = scipy.linalg.svd(numpy.c_[V[:, [0]], (MAV[:, :-1]
+                                        if invariant else MAV)],
+                                        compute_uv=False)
+        if vAV_singvals[-1] == 0:
             ortho_tol = numpy.inf
         else:
-            ortho_tol = ortho_const * (k**2) * N * eps * vAV_singvals[0]/vAV_singvals[-1]  # inequality (2.5) in [1]
-    if ortho!='mgs' or N!=k: # mgs is not able to detect an invariant subspace reliably
-        assert( ortho_resn <= ortho_tol )
+            # inequality (2.5) in [1]
+            ortho_tol = ortho_const * (k**2) * N * eps \
+                * vAV_singvals[0]/vAV_singvals[-1]
+    # mgs or lanczos is not able to detect an invariant subspace reliably
+    if (ortho != 'mgs' or N != k) and ortho != 'lanczos':
+        assert(ortho_resn <= ortho_tol)
 
     # check projection residual \| <V_k, A*V_k> - H_k \|
-    proj_res = inner_product(V, AV) - H
-    proj_tol = proj_const*(ortho_resn * An + arnoldi_resn * krypy.utils.norm(V, inner_product=inner_product))
-    assert( numpy.linalg.norm( proj_res, 2) <= proj_tol )
+    if P is not None:
+        proj_res = krypy.utils.inner(P, MAV, ip_B=ip_B) - H
+    else:
+        proj_res = krypy.utils.inner(V, MAV, ip_B=ip_B) - H
+    proj_tol = proj_const*(ortho_resn * An + arnoldi_resn
+                           * krypy.utils.norm(V, ip_B=ip_B))
+    assert(numpy.linalg.norm(proj_res, 2) <= proj_tol)
+
 
 def test_ritz():
     # Hermitian matrices

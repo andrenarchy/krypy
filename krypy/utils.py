@@ -137,7 +137,7 @@ def norm_squared(x, Mx=None, inner_product=ip_euclid):
     return numpy.linalg.norm(rho, 2)
 
 
-def norm(x, ip_B=None, return_Bx=False):
+def norm(x, ip_B=None):
     '''Compute norm (Euclidean and non-Euclidean).
 
     :param x: a 2-dimensional ``numpy.array``.
@@ -149,23 +149,13 @@ def norm(x, ip_B=None, return_Bx=False):
     '''
     # Euclidean inner product?
     if ip_B is None or isinstance(ip_B, IdentityLinearOperator):
-        nrm = numpy.linalg.norm(x, 2)
-        if return_Bx:
-            return nrm, x.copy()
-        else:
-            return nrm
+        return numpy.linalg.norm(x, 2)
     try:
         N = x.shape[0]
         B = get_linearoperator((N, N), ip_B)
         Bx = B*x
-        nrm = numpy.sqrt(numpy.linalg.norm(inner(x, Bx), 2))
-        if return_Bx:
-            return nrm, Bx
-        else:
-            return nrm
+        return numpy.sqrt(numpy.linalg.norm(inner(x, Bx), 2))
     except TypeError:
-        if return_Bx:
-            raise ValueError('return_Bx not allowed with a callable ip_B.')
         ip = ip_B(x, x)
         nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
         if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
@@ -673,7 +663,7 @@ class Arnoldi:
                  maxiter=None,
                  ortho='mgs',
                  M=None,
-                 B=None
+                 ip_B=None
                  ):
         """Arnoldi algorithm.
 
@@ -696,10 +686,12 @@ class Arnoldi:
           :math:`P_n` is constructed such that :math:`V_n=MP_n`. This is of
           importance in preconditioned methods. ``M`` has to be ``None`` if
           ``ortho=='house'`` (see ``B``).
-        :param B: (optional) defines the inner product to use. ``B`` has to be
-            ``None`` if ``ortho=='house'``. It's unclear to me (andrenarchy),
-            how a variant of the Householder QR algorithm can be used with a
-            non-Euclidean inner product. Compare
+        :param ip_B: (optional) defines the inner product to use. See
+          :py:meth:`inner`.
+
+          ``ip_B`` has to be ``None`` if ``ortho=='house'``. It's unclear to me
+          (andrenarchy), how a variant of the Householder QR algorithm can be
+          used with a non-Euclidean inner product. Compare
             http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
         """
         N = v.shape[0]
@@ -709,9 +701,9 @@ class Arnoldi:
         self.maxiter = N if maxiter is None else maxiter
         self.ortho = ortho
         self.M = None if M is None else get_linearoperator((N, N), M)
-        self.B = get_linearoperator((N, N), B)
+        self.ip_B = ip_B
 
-        self.dtype = find_common_dtype(A, v, M, B)
+        self.dtype = find_common_dtype(A, v, M)
         # number of iterations
         self.iter = 0
         # Arnoldi basis
@@ -725,8 +717,10 @@ class Arnoldi:
         self.invariant = False
 
         if ortho == 'house':
-            if not isinstance(self.M, IdentityLinearOperator) or \
-                    not isinstance(self.B, IdentityLinearOperator):
+            if (M is not None
+                    and not isinstance(self.M, IdentityLinearOperator)) or \
+                    (not isinstance(self.ip_B, IdentityLinearOperator) and
+                     self.ip_B is not None):
                 raise ValueError('Only euclidean inner product allowed with '
                                  'Householder orthogonalization')
             self.houses = [House(v)]
@@ -738,9 +732,9 @@ class Arnoldi:
             if self.M is not None:
                 p = v
                 v = self.M*p
-                vnorm = norm(p, y=v, B=B)
+                vnorm = numpy.sqrt(inner(p, v, ip_B=ip_B))
             else:
-                vnorm = norm(p, B=B)
+                vnorm = norm(v, ip_B=ip_B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
         self.V[:, [0]] = v / vnorm
@@ -792,14 +786,26 @@ class Arnoldi:
                     start = max(k-1, 0)
                 # orthogonalize
                 for j in range(start, k+1):
-                    alpha = self.inner_product(self.V[:, [j]], Av)[0, 0]
+                    alpha = inner(self.V[:, [j]], Av, ip_B=self.ip_B)[0, 0]
                     self.H[j, k] += alpha
-                    Av -= alpha * self.V[:, [j]]
-            self.H[k+1, k] = norm(Av, inner_product=self.inner_product)
-            if self.H[k+1, k] <= 5e-14:
+                    if self.M is not None:
+                        Av -= alpha * self.P[:, [j]]
+                    else:
+                        Av -= alpha * self.V[:, [j]]
+            if self.M is not None:
+                MAv = self.M * Av
+                self.H[k+1, k] = numpy.sqrt(inner(Av, MAv, ip_B=self.ip_B))
+            else:
+                self.H[k+1, k] = norm(Av, ip_B=self.ip_B)
+            if self.H[k+1, k] / numpy.linalg.norm(self.H[:k+2, :k+1], 2)\
+                    <= 5e-14:
                 self.invariant = True
             else:
-                self.V[:, [k+1]] = Av / self.H[k+1, k]
+                if self.M is not None:
+                    self.P[:, [k+1]] = Av / self.H[k+1, k]
+                    self.V[:, [k+1]] = MAv / self.H[k+1, k]
+                else:
+                    self.V[:, [k+1]] = Av / self.H[k+1, k]
 
         # increase iteration counter
         self.iter += 1
@@ -807,16 +813,28 @@ class Arnoldi:
     def get(self):
         k = self.iter
         if self.invariant:
-            return self.V[:, :k], self.H[:k, :k]
+            V, H = self.V[:, :k], self.H[:k, :k]
+            if self.M:
+                return V, H, self.P[:, :k]
+            return V, H
         else:
-            return self.V[:, :k+1], self.H[:k+1, :k]
+            V, H = self.V[:, :k+1], self.H[:k+1, :k]
+            if self.M:
+                return V, H, self.P[:, :k+1]
+            return V, H
 
     def get_last(self):
         k = self.iter
         if self.invariant:
-            return None, self.H[:k, [k-1]]
+            V, H = None, self.H[:k, [k-1]]
+            if self.M:
+                return V, H, None
+            return V, H
         else:
-            return self.V[:, [k]], self.H[:k+1, [k-1]]
+            V, H = self.V[:, [k]], self.H[:k+1, [k-1]]
+            if self.M:
+                return V, H, self.P[:, [k]]
+            return V, H
 
 
 def arnoldi(*args, **kwargs):
