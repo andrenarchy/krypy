@@ -462,7 +462,8 @@ def test_ritz():
         Aevals, _ = eig(matrix)
         An = numpy.linalg.norm(matrix, 2)
         for A in get_operators(matrix):
-            yield run_ritz, A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type
+            yield run_ritz, A, v, maxiter, ip_B, Aevals, An, with_V, \
+                hermitian, type
 
 
 def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
