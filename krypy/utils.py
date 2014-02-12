@@ -724,7 +724,7 @@ class Arnoldi:
                 raise ValueError('Only euclidean inner product allowed with '
                                  'Householder orthogonalization')
             self.houses = [House(v)]
-            vnorm = numpy.linalg.norm(v, 2)
+            self.vnorm = numpy.linalg.norm(v, 2)
         elif ortho in ['mgs', 'dmgs', 'lanczos']:
             self.reorthos = 0
             if ortho == 'dmgs':
@@ -732,14 +732,14 @@ class Arnoldi:
             if self.M is not None:
                 p = v
                 v = self.M*p
-                vnorm = numpy.sqrt(inner(p, v, ip_B=ip_B))
+                self.vnorm = numpy.sqrt(inner(p, v, ip_B=ip_B))
             else:
-                vnorm = norm(v, ip_B=ip_B)
+                self.vnorm = norm(v, ip_B=ip_B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        self.V[:, [0]] = v / vnorm
+        self.V[:, [0]] = v / self.vnorm
         if self.M is not None:
-            self.P[:, [0]] = p / vnorm
+            self.P[:, [0]] = p / self.vnorm
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""
@@ -778,12 +778,21 @@ class Arnoldi:
                     vnew[j:] = self.houses[j].apply(vnew[j:])
                 self.V[:, [k+1]] = vnew * self.houses[-1].alpha
         else:
+            # determine vectors for orthogonalization
+            start = 0
+
+            # Lanczos?
+            if self.ortho == 'lanczos':
+                start = k
+                if k > 0:
+                    self.H[k-1,k] = self.H[k, k-1]
+                    if self.M is not None:
+                        Av -= self.H[k, k-1] * self.P[:, [k-1]]
+                    else:
+                        Av -= self.H[k, k-1] * self.V[:, [k-1]]
+
             # (double) modified Gram-Schmidt
             for reortho in range(self.reorthos+1):
-                # determine vectors for orthogonalization
-                start = 0
-                if self.ortho == 'lanczos':
-                    start = max(k-1, 0)
                 # orthogonalize
                 for j in range(start, k+1):
                     alpha = inner(self.V[:, [j]], Av, ip_B=self.ip_B)[0, 0]
