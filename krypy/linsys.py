@@ -512,12 +512,12 @@ class Minres(_Solver):
 
             # needed for QR-update:
             R = numpy.zeros((4, 1))  # real because Lanczos matrix is real
-            R[1] = H[k-1, k]
+            R[1] = H[k-1, k].real
             if G1 is not None:
                 R[:2] = G1.apply(R[:2])
 
             # (implicit) update of QR-factorization of Lanczos matrix
-            R[2:4, 0] = [H[k, k], H[k+1, k]]
+            R[2:4, 0] = [H[k, k].real, H[k+1, k].real]
             if G2 is not None:
                 R[1:3] = G2.apply(R[1:3])
             G1 = G2
@@ -740,8 +740,9 @@ class Gmres(_Solver):
         # Givens rotations:
         G = []
         # QR decomposition of Hessenberg matrix via Givens and R
-        self.R = numpy.zeros([self.maxiter+1, self.maxiter], dtype=self.cdtype)
-        y = numpy.zeros((self.maxiter+1, 1), dtype=self.cdtype)
+        self.R = numpy.zeros([self.maxiter+1, self.maxiter],
+                             dtype=numpy.complex)
+        y = numpy.zeros((self.maxiter+1, 1), dtype=numpy.complex)
         # Right hand side of projected system:
         y[0] = self.norm_MMlr0
 
