@@ -4,20 +4,152 @@ import warnings
 from . import utils
 import scipy.linalg
 
-__all__ = ['cg', 'minres', 'gmres']
+__all__ = ['Cg', 'Minres', 'Gmres']
 
 
-def cg(A, b,
-       x0=None,
-       tol=1.0e-5,
-       maxiter=None,
-       M=None,
-       Ml=None,
-       Mr=None,
-       inner_product=utils.ip_euclid,
-       explicit_residual=False,
-       exact_solution=None
-       ):
+class ConvergenceError(RuntimeError):
+    '''Convergence error.
+
+    The ``ConvergenceError`` holds a message describing the error and
+    the attribute ``solver`` through which the last approximation and other
+    relevant information can be retrieved.
+    '''
+    def __init__(self, msg, solver):
+        super(ConvergenceError, self).__init__(msg)
+        self.solver = solver
+
+
+class _Solver(object):
+    def __init__(self, A, b,
+                 x0=None,
+                 tol=1e-5,
+                 maxiter=None,
+                 M=None,
+                 Ml=None,
+                 Mr=None,
+                 ip_B=None,
+                 explicit_residual=False,
+                 store_basis=False,
+                 reortho='None',
+                 exact_solution=None
+                 ):
+        '''Init standard attributes and perform checks.'''
+        N = len(b)
+        shape = (N, N)
+
+        # init operators
+        self.A = utils.get_linearoperator(shape, A)
+        self.M = utils.get_linearoperator(shape, M)
+        self.Ml = utils.get_linearoperator(shape, Ml)
+        self.Mr = utils.get_linearoperator(shape, Mr)
+        self.ip_B = ip_B
+
+        # sanitize right hand side, initial guess, exact_solution
+        self.maxiter = N if maxiter is None else maxiter
+        self.flat_vecs, (self.b, self.x0, self.exact_solution) = \
+            utils.shape_vecs(b, x0, exact_solution)
+        if self.x0 is None:
+            self.x0 = numpy.zeros((N, 1))
+        self.tol = tol
+        self.xk = None
+        self.cdtype = utils.find_common_dtype(self.A, self.b, self.x0, self.M,
+                                              self.Ml, self.Mr, self.ip_B)
+
+        self.explicit_residual = explicit_residual
+        self.store_basis = False
+        # TODO: reortho
+
+        # init vectors for convergence measurement
+        self.resnorms = []
+        if exact_solution is not None:
+            self.errnorms = []
+
+    def _prepare(self, norm_MMlr0):
+        '''Prepare after Arnoldi/Lanczos was initialized.
+
+        :param norm_MMlr0: norm of the initial residual (as computed by
+          Arnoldi/Lanczos in the initialization).
+        '''
+        self.norm_MMlr0 = norm_MMlr0
+        N = self.b.shape[0]
+
+        # Compute M^{-1}-norm of M*Ml*b.
+        Mlb = self.Ml*self.b
+        MMlb = self.M*Mlb
+        self.norm_MMlb = utils.norm(Mlb, MMlb, ip_B=self.ip_B)
+
+        # if rhs is exactly(!) zero, return zero solution.
+        if self.norm_MMlb == 0:
+            self.x0 = numpy.zeros((N, 1))
+            self.resnorms.append(0.)
+        else:
+            # initial relative residual norm
+            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
+
+        # compute error?
+        if self.exact_solution is not None:
+            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
+                                            ip_B=self.ip_B))
+
+    def _compute_xk(self, yk):
+        return self.x0 + self.Mr * yk
+
+    def _compute_rkn(self, xk):
+        rk = self.b - self.A*xk
+        self.Mlrk = self.Ml*rk
+        self.MMlrk = self.M*self.Mlrk
+        return utils.norm(self.Mlrk, self.MMlrk, ip_B=self.ip_B)
+
+    def _compute_norms(self, yk, resnorm):
+        '''Compute solution, error norm and residual norm if required.
+
+        :return: the residual norm or ``None``.
+        '''
+        self.xk = None
+        # compute error norm if asked for
+        if self.exact_solution is not None:
+            self.xk = self._compute_xk(yk)
+            self.errnorms.append(utils.norm(self.exact_solution - self.xk,
+                                            ip_B=self.ip_B))
+
+        rkn = None
+
+        # compute explicit residual if asked for or if the updated residual
+        # is below the tolerance or if this is the last iteration
+        if self.explicit_residual or resnorm/self.norm_MMlb <= self.tol \
+                or self.iter+1 == self.maxiter:
+            # compute xk if not yet done
+            if self.xk is None:
+                self.xk = self._compute_xk(yk)
+
+            # compute residual norm
+            rkn = self._compute_rkn(self.xk)
+
+            # store relative residual norm
+            self.resnorms.append(rkn/self.norm_MMlb)
+
+            # no convergence?
+            if self.resnorms[-1] > self.tol:
+                # no convergence in last iteration -> raise exception
+                # (approximate solution can be obtained from exception)
+                if self.iter+1 == self.maxiter:
+                    raise ConvergenceError(
+                        'No convergence in last iteration.', self)
+                # updated residual was below but explicit is not: warn
+                elif not self.explicit_residual \
+                        and resnorm/self.norm_MMlb <= self.tol:
+                    warnings.warn(
+                        'updated residual is below tolerance, explicit '
+                        'residual is NOT! (upd={0} <= tol={1} < exp={2})'
+                        .format(resnorm, self.tol, self.resnorms[-1]))
+        else:
+            # only store updated residual
+            self.resnorms.append(resnorm/self.norm_MMlb)
+
+        return rkn
+
+
+class Cg(_Solver):
     '''Preconditioned CG method.
 
     The *preconditioned conjugate gradient method* can be used to solve a
@@ -111,264 +243,97 @@ def cg(A, b,
       * ``relresvec``: relative residual norms of all iterations, see
         parameter ``tol``.
     '''
+    def __init__(self, A, b, ortho='lanczos', **kwargs):
+        super(Cg, self).__init__(A, b, **kwargs)
+        self._solve(ortho=ortho)
 
-    N = len(b)
-    shape = (N, N)
-    A = utils.get_linearoperator(shape, A)
-    if maxiter is None:
-        maxiter = N
-    flat_vecs, (b, x0, exact_solution) = utils.shape_vecs(b, x0,
-                                                          exact_solution)
-    if x0 is None:
-        x0 = numpy.zeros((N, 1))
-    M = utils.get_linearoperator(shape, M)
-    Ml = utils.get_linearoperator(shape, Ml)
-    Mr = utils.get_linearoperator(shape, Mr)
-    cdtype = utils.find_common_dtype(A, b, x0, M, Ml, Mr)
-
-    # Compute M-norm of M*Ml*b.
-    Mlb = Ml * b
-    MMlb = M * Mlb
-    norm_MMlb = utils.norm(Mlb, MMlb, inner_product=inner_product)
-
-    # Init Lanczos and CG
-    r0 = b - A * x0
-    Mlr0 = Ml * r0
-    MMlr0 = M * Mlr0
-    norm_MMlr0 = utils.norm(Mlr0, MMlr0, inner_product=inner_product)
-
-    # if rhs is exactly(!) zero, return zero solution.
-    if norm_MMlb == 0:
-        x0 = numpy.zeros((N, 1))
-        relresvec = [0.0]
-    else:
-        # initial relative residual norm
-        relresvec = [norm_MMlr0 / norm_MMlb]
-
-    # compute error?
-    if exact_solution is not None:
-        errvec = [utils.norm(exact_solution - x0, inner_product=inner_product)]
-
-    # resulting approximation is xk = x0 + Mr*yk
-    yk = numpy.zeros((N, 1), dtype=cdtype)
-    xk = x0.copy()
-
-    rho_old = norm_MMlr0**2
-
-    Mlr = Mlr0.copy()
-    MMlr = MMlr0.copy()
-    p = MMlr.copy()
-
-    k = 0
-    while relresvec[k] > tol and k < maxiter:
-        if k > 0:
-            # update the search direction
-            p = MMlr + rho_new/rho_old * p
-            rho_old = rho_new
-        Ap = Mr * p
-        Ap = A * Ap
-        Ap = Ml * Ap
-
-        # update current guess and residual
-        alpha = rho_old / inner_product(p, Ap)
-        if abs(alpha.imag) > 1e-12:
-            warnings.warn('Iter %d: abs(alpha.imag) = %g > 1e-12.'
-                          'Is your matrix Hermitian?'
-                          % (k+1, abs(alpha.imag)))
-        alpha = alpha.real
-        yk += alpha * p
-
-        if exact_solution is not None:
-            xk = x0 + Mr * yk
-            errvec.append(utils.norm(exact_solution - xk,
-                                     inner_product=inner_product))
-
-        if explicit_residual:
-            xk, Mlr, MMlr, norm_MMlr = utils.norm_MMlr(
-                M, Ml, A, Mr, b, x0, yk, inner_product=inner_product)
-            relresvec.append(norm_MMlr / norm_MMlb)
-            rho_new = norm_MMlr**2
-        else:
-            Mlr -= alpha * Ap
-            MMlr = M * Mlr
-            rho_new = utils.norm_squared(Mlr, MMlr,
-                                         inner_product=inner_product)
-            relresvec.append(numpy.sqrt(rho_new) / norm_MMlb)
-
-        # Compute residual explicitly if updated residual is below tolerance.
-        if relresvec[-1] <= tol or k+1 == maxiter:
-            norm_r_upd = relresvec[-1]
-            # Compute the exact residual norm (if not yet done above)
-            if not explicit_residual:
-                xk, Mlr, MMlr, norm_MMlr = utils.norm_MMlr(
-                    M, Ml, A, Mr, b, x0, yk, inner_product=inner_product)
-                relresvec[-1] = norm_MMlr / norm_MMlb
-            # No convergence of explicit residual?
-            if relresvec[-1] > tol:
-                # Was this the last iteration?
-                if k+1 == maxiter:
-                    warnings.warn('Iter %d: No convergence!'
-                                  'expl. res = %e >= tol =%e in last iter.'
-                                  '(upd. res = %e)'
-                                  % (k+1, relresvec[-1], tol, norm_r_upd))
-                else:
-                    warnings.warn(('Iter %d: Updated residual is below'
-                                   'tolerance, explicit residual is NOT!\n'
-                                   '(resEx=%g > tol=%g >= resup=%g)\n')
-                                  % (k+1, relresvec[-1], tol, norm_r_upd))
-
-        k += 1
-
-    ret = {'xk': xk if not flat_vecs else numpy.ndarray.flatten(xk),
-           'info': relresvec[-1] <= tol,
-           'relresvec': relresvec
-           }
-    if exact_solution is not None:
-        ret['errvec'] = errvec
-
-    return ret
-
-
-def get_cg_operations(nsteps):
-    '''Returns the number of operations needed for nsteps of CG'''
-    return {'A': 1 + nsteps,
-            'M': 2 + nsteps,
-            'Ml': 2 + nsteps,
-            'Mr': 1 + nsteps,
-            'ip': 2 + 2*nsteps,
-            'axpy': 2 + 2*nsteps
-            }
-
-
-class ConvergenceError(RuntimeError):
-    '''Convergence error.
-
-    The ``ConvergenceError`` holds a message describing the error and
-    the attribute ``solver`` through which the last approximation and other
-    relevant information can be retrieved.
-    '''
-    def __init__(self, msg, solver):
-        super(ConvergenceError, self).__init__(msg)
-        self.solver = solver
-
-
-class _Solver(object):
-    def __init__(self, A, b,
-                 x0=None,
-                 tol=1e-5,
-                 maxiter=None,
-                 M=None,
-                 Ml=None,
-                 Mr=None,
-                 ip_B=None,
-                 explicit_residual=False,
-                 store_basis=False,
-                 reortho='None',
-                 exact_solution=None
-                 ):
-        '''Init standard attributes and perform checks.'''
-        N = len(b)
-        shape = (N, N)
-
-        # init operators
-        self.A = utils.get_linearoperator(shape, A)
-        self.M = utils.get_linearoperator(shape, M)
-        self.Ml = utils.get_linearoperator(shape, Ml)
-        self.Mr = utils.get_linearoperator(shape, Mr)
-        self.ip_B = ip_B
-
-        # sanitize right hand side, initial guess, exact_solution
-        self.maxiter = N if maxiter is None else maxiter
-        self.flat_vecs, (self.b, self.x0, self.exact_solution) = \
-            utils.shape_vecs(b, x0, exact_solution)
-        if self.x0 is None:
-            self.x0 = numpy.zeros((N, 1))
-        self.tol = tol
-        self.xk = None
-        self.cdtype = utils.find_common_dtype(self.A, self.b, self.x0, self.M,
-                                              self.Ml, self.Mr, self.ip_B)
-
-        self.explicit_residual = explicit_residual
-        self.store_basis = False
-        # TODO: reortho
-
-        # init vectors for convergence measurement
-        self.resnorms = []
-        if exact_solution is not None:
-            self.errnorms = []
-
-    def _prepare(self, norm_MMlr0):
-        '''Prepare after Arnoldi/Lanczos was initialized.
-
-        :param norm_MMlr0: norm of the initial residual (as computed by
-          Arnoldi/Lanczos in the initialization).
-        '''
-        self.norm_MMlr0 = norm_MMlr0
+    def _solve(self, ortho):
         N = self.b.shape[0]
 
-        # Compute M^{-1}-norm of M*Ml*b.
-        Mlb = self.Ml*self.b
-        MMlb = self.M*Mlb
-        self.norm_MMlb = utils.norm(Mlb, MMlb, ip_B=self.ip_B)
+        # compute norm of r0
+        r0 = self.b - self.A * self.x0
+        Mlr0 = self.Ml * r0
+        MMlr0 = self.M * Mlr0
+        norm_MMlr0 = utils.norm(Mlr0, MMlr0, ip_B=self.ip_B)
 
-        # if rhs is exactly(!) zero, return zero solution.
-        if self.norm_MMlb == 0:
-            self.x0 = numpy.zeros((N, 1))
-            self.resnorms.append(0.)
-        else:
-            # initial relative residual norm
-            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
+        # prepare
+        self._prepare(norm_MMlr0)
 
-        # compute error?
-        if self.exact_solution is not None:
-            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
-                                            ip_B=self.ip_B))
+        # resulting approximation is xk = x0 + Mr*yk
+        yk = numpy.zeros((N, 1), dtype=self.cdtype)
 
-    def _compute_xk(self, yk):
-        return self.x0 + self.Mr * yk
+        # square of the old residual norm
+        rho_old = norm_MMlr0**2
 
-    def _compute_rkn(self, xk):
-        rk = self.b - self.A*xk
-        Mlrk = self.Ml*rk
-        MMlrk = self.M*Mlrk
-        return utils.norm(Mlrk, MMlrk, ip_B=self.ip_B)
+        # will be updated by _compute_rkn if explicit_residual is True
+        self.Mlrk = Mlr0.copy()
+        self.MMlrk = MMlr0.copy()
 
-    def _compute_norms(self, yk, resnorm):
-        self.xk = None
-        # compute error norm if asked for
-        if self.exact_solution is not None:
+        # search direction
+        p = self.MMlrk.copy()
+        self.iter = 0
+        rho_new = 0  # will be set at end of iteration
+
+        # iterate
+        while self.resnorms[-1] > self.tol and self.iter < self.maxiter:
+            if self.iter > 0:
+                # update the search direction
+                p = self.MMlrk + rho_new/rho_old * p
+                rho_old = rho_new
+            # apply operators
+            Ap = (self.Ml * (self.A * (self.Mr * p)))
+
+            # compute inner product
+            alpha = rho_old / utils.inner(p, Ap, ip_B=self.ip_B)
+
+            # check if alpha is real
+            if abs(alpha.imag) > 1e-12:
+                warnings.warn(
+                    'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
+                    'Is your operator self-adjoint in the provided inner '
+                    'product?'
+                    .format(self.iter, abs(alpha.imag)))
+            alpha = alpha.real
+
+            # update solution
+            yk += alpha * p
+
+            # update residual
+            self.Mlrk -= alpha * Ap
+
+            # apply preconditioner
+            self.MMlrk = self.M * self.Mlrk
+
+            # compute norm and rho_new
+            norm_MMlrk = utils.norm(self.Mlrk, self.MMlrk, ip_B=self.ip_B)
+            rho_new = norm_MMlrk**2
+
+            # compute norms
+            # if explicit_residual: compute Mlrk and MMlrk here
+            # (with preconditioner application)
+            rkn = self._compute_norms(yk, norm_MMlrk)
+
+            # update rho_new if it was updated in _compute_norms
+            if rkn is not None:
+                # new rho
+                rho_new = rkn**2
+
+            self.iter += 1
+
+        # compute solution if not yet done
+        if self.xk is None:
             self.xk = self._compute_xk(yk)
-            self.errnorms.append(utils.norm(self.exact_solution - self.xk,
-                                            ip_B=self.ip_B))
 
-        # compute explicit residual if asked for or if the updated residual
-        # is below the tolerance or if this is the last iteration
-        if self.explicit_residual or resnorm/self.norm_MMlb <= self.tol \
-                or self.iter+1 == self.maxiter:
-            # compute xk if not yet done
-            if self.xk is None:
-                self.xk = self._compute_xk(yk)
-
-            # compute residual norm
-            self.resnorms.append(self._compute_rkn(self.xk)/self.norm_MMlb)
-
-            # no convergence?
-            if self.resnorms[-1] > self.tol:
-                # no convergence in last iteration -> raise exception
-                # (approximate solution can be obtained from exception)
-                if self.iter+1 == self.maxiter:
-                    raise ConvergenceError(
-                        'No convergence in last iteration.', self)
-                # updated residual was below but explicit is not: warn
-                elif not self.explicit_residual \
-                        and resnorm/self.norm_MMlb <= self.tol:
-                    warnings.warn(
-                        'updated residual is below tolerance, explicit '
-                        'residual is NOT! (upd={0} <= tol={1} < exp={2})'
-                        .format(resnorm, self.tol, self.resnorms[-1]))
-        else:
-            # only store updated residual
-            self.resnorms.append(resnorm/self.norm_MMlb)
+    @staticmethod
+    def operations(nsteps):
+        '''Returns the number of operations needed for nsteps of CG'''
+        return {'A': 1 + nsteps,
+                'M': 2 + nsteps,
+                'Ml': 2 + nsteps,
+                'Mr': 1 + nsteps,
+                'ip': 2 + 2*nsteps,
+                'axpy': 2 + 2*nsteps
+                }
 
 
 class Minres(_Solver):

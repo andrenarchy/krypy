@@ -801,7 +801,8 @@ class Arnoldi:
                         if abs(alpha.imag) > 1e-12:
                             warnings.warn(
                                 'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
-                                'Is your operator self-adjoint?'
+                                'Is your operator self-adjoint in the '
+                                'provided inner product?'
                                 .format(self.iter, abs(alpha.imag)))
                         alpha = alpha.real
                     self.H[j, k] += alpha

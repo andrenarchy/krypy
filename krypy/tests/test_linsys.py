@@ -34,7 +34,7 @@ def test_linsys_spd_zero():
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
         {'ip_B': [None, B]}
         ]
-    solvers = [#krypy.linsys.cg,
+    solvers = [krypy.linsys.Cg,
                krypy.linsys.Minres,
                krypy.linsys.Gmres
                ]
@@ -60,7 +60,7 @@ def test_linsys_spd():
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
         {'ip_B': [None, B]}
         ]
-    solvers = [#krypy.linsys.cg,
+    solvers = [krypy.linsys.Cg,
                krypy.linsys.Minres,
                krypy.linsys.Gmres
                ]
@@ -84,7 +84,7 @@ def test_linsys_hpd():
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
         ]
-    solvers = [#krypy.linsys.cg,
+    solvers = [krypy.linsys.Cg,
                krypy.linsys.Minres,
                krypy.linsys.Gmres
                ]
