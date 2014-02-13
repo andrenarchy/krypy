@@ -152,8 +152,9 @@ def test_linsys_nonsymm():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     B = test_utils.get_matrix_spd()
+
+    # regular
     params_adds = [
-        #{'maxiter': [5], 'max_restarts': [20]},
         {'maxiter': [10]},
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
@@ -161,6 +162,18 @@ def test_linsys_nonsymm():
         {'ip_B': [None, B]}
         ]
     solvers = [krypy.linsys.Gmres]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+    # restarted
+    params_adds = [
+        {'maxiter': [5], 'max_restarts': [20]},
+        {'M': [None] + test_utils.get_operators(Minv)},
+        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
+        ]
+    solvers = [krypy.linsys.RestartedGmres]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
@@ -177,8 +190,9 @@ def test_linsys_comp_nonsymm():
     m[-1] = 1.
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     B = test_utils.get_matrix_spd()
+
+    # regular
     params_adds = [
-        #{'maxiter': [5], 'max_restarts': [20]},
         {'maxiter': [10]},
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
@@ -186,6 +200,18 @@ def test_linsys_comp_nonsymm():
         {'ip_B': [None, B]}
         ]
     solvers = [krypy.linsys.Gmres]
+    for case in produce_cases(A, x, params_adds, solvers):
+        yield case
+
+    # restarted
+    params_adds = [
+        {'maxiter': [5], 'max_restarts': [20]},
+        {'M': [None] + test_utils.get_operators(Minv)},
+        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
+        {'ip_B': [None, B]}
+        ]
+    solvers = [krypy.linsys.RestartedGmres]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
