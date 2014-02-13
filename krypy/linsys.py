@@ -29,7 +29,7 @@ class _Solver(object):
                  Mr=None,
                  ip_B=None,
                  explicit_residual=False,
-                 store_basis=False,
+                 store_arnoldi=False,
                  reortho='None',
                  exact_solution=None
                  ):
@@ -56,7 +56,7 @@ class _Solver(object):
                                               self.Ml, self.Mr, self.ip_B)
 
         self.explicit_residual = explicit_residual
-        self.store_basis = False
+        self.store_arnoldi = store_arnoldi
         # TODO: reortho
 
         # init vectors for convergence measurement
@@ -274,11 +274,24 @@ class Cg(_Solver):
         self.iter = 0
         rho_new = 0  # will be set at end of iteration
 
+        # store Lanczos vectors + matrix?
+        if self.store_arnoldi:
+            self.V = numpy.zeros((N, self.maxiter+1), dtype=self.cdtype)
+            self.V[:, [0]] = MMlr0/norm_MMlr0
+            if self.M is not None:
+                self.P = numpy.zeros((N, self.maxiter+1), dtype=self.cdtype)
+                self.P[:, [0]] = Mlr0/norm_MMlr0
+            self.H = numpy.zeros((self.maxiter+1, self.maxiter))  # real
+            alpha_old = 0  # will be set at end of iteration
+
         # iterate
         while self.resnorms[-1] > self.tol and self.iter < self.maxiter:
-            if self.iter > 0:
+            k = self.iter
+            if k > 0:
                 # update the search direction
                 p = self.MMlrk + rho_new/rho_old * p
+                if self.store_arnoldi:
+                    omega = rho_new/rho_old
                 rho_old = rho_new
             # apply operators
             Ap = (self.Ml * (self.A * (self.Mr * p)))
@@ -292,8 +305,17 @@ class Cg(_Solver):
                     'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
                     'Is your operator self-adjoint in the provided inner '
                     'product?'
-                    .format(self.iter, abs(alpha.imag)))
+                    .format(k, abs(alpha.imag)))
             alpha = alpha.real
+
+            # compute new diagonal element
+            if self.store_arnoldi:
+                if k > 0:
+                    # copy superdiagonal from last iteration
+                    self.H[k-1, k] = self.H[k, k-1]
+                    self.H[k, k] = (1. + alpha*omega/alpha_old) / alpha
+                else:
+                    self.H[k, k] = 1. / alpha
 
             # update solution
             yk += alpha * p
@@ -307,6 +329,14 @@ class Cg(_Solver):
             # compute norm and rho_new
             norm_MMlrk = utils.norm(self.Mlrk, self.MMlrk, ip_B=self.ip_B)
             rho_new = norm_MMlrk**2
+
+            # compute Lanczos vector + new subdiagonal element
+            if self.store_arnoldi:
+                self.V[:, [k+1]] = (-1)**(k+1) * self.MMlrk / norm_MMlrk
+                if self.M is not None:
+                    self.P[:, [k+1]] = (-1)**(k+1) * self.Mlrk / norm_MMlrk
+                self.H[k+1, k] = numpy.sqrt(rho_new/rho_old) / alpha
+                alpha_old = alpha
 
             # compute norms
             # if explicit_residual: compute Mlrk and MMlrk here
@@ -504,6 +534,13 @@ class Minres(_Solver):
         if self.xk is None:
             self.xk = self._compute_xk(yk)
 
+        # store arnoldi?
+        if self.store_arnoldi:
+            if self.M:
+                self.V, self.H, self.P = self.lanczos.get()
+            else:
+                self.V, self.H = self.lanczos.get()
+
     @staticmethod
     def operations(nsteps):
         '''Returns the number of operations needed for nsteps of MINRES'''
@@ -519,6 +556,11 @@ class Minres(_Solver):
 class _RestartedSolver(_Solver):
     def __init__(self, Solver, A, b, max_restarts=0, **kwargs):
         super(_RestartedSolver, self).__init__(A, b, **kwargs)
+
+        if self.store_arnoldi:
+            raise ValueError(
+                'store_arnoldi=True is not allowed for a restarted solver'
+                'since there are multiple Arnoldi relations.')
 
         # start with initial guess
         self.xk = self.x0
@@ -639,7 +681,7 @@ class Gmres(_Solver):
       iteration is used in each iteration. If set to ``True``, the residual is
       computed explicitly in each iteration and thus requires an additional
       matrix-vector multiplication in each iteration.
-    :param return_basis: (optional)
+    :param store_arnoldi: (optional)
       if set to ``True`` then the computed Arnoldi basis and the Hessenberg
       matrix are returned in the result dictionary with the keys ``V``
       and ``H``. Defaults to ``False``.
@@ -723,6 +765,13 @@ class Gmres(_Solver):
         # compute solution if not yet done
         if self.xk is None:
             self.xk = self._compute_xk(y[:self.arnoldi.iter])
+
+        # store arnoldi?
+        if self.store_arnoldi:
+            if self.M:
+                self.V, self.H, self.P = self.arnoldi.get()
+            else:
+                self.V, self.H = self.arnoldi.get()
 
     @staticmethod
     def operations(nsteps):
