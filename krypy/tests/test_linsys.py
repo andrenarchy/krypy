@@ -153,7 +153,8 @@ def test_linsys_nonsymm():
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     B = test_utils.get_matrix_spd()
     params_adds = [
-        {'maxiter': [5], 'max_restarts': [20]},
+        #{'maxiter': [5], 'max_restarts': [20]},
+        {'maxiter': [10]},
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
@@ -177,7 +178,8 @@ def test_linsys_comp_nonsymm():
     M, Minv = numpy.diag(m), numpy.diag(1./m)
     B = test_utils.get_matrix_spd()
     params_adds = [
-        {'maxiter': [5], 'max_restarts': [20]},
+        #{'maxiter': [5], 'max_restarts': [20]},
+        {'maxiter': [10]},
         {'M': [None] + test_utils.get_operators(Minv)},
         {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
