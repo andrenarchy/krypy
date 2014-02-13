@@ -516,20 +516,58 @@ class Minres(_Solver):
                 }
 
 
-def gmres(A, b,
-          x0=None,
-          tol=1e-5,
-          maxiter=None,
-          M=None,
-          Ml=None,
-          Mr=None,
-          inner_product=utils.ip_euclid,
-          explicit_residual=False,
-          return_basis=False,
-          full_reortho=True,
-          exact_solution=None,
-          max_restarts=0
-          ):
+class _RestartedSolver(_Solver):
+    def __init__(self, Solver, A, b, max_restarts=0, **kwargs):
+        super(_RestartedSolver, self).__init__(A, b, **kwargs)
+
+        # start with initial guess
+        self.xk = self.x0
+
+        # work on own copy of args in order to include proper initial guesses
+        kwargs = dict(kwargs)
+
+        # append dummy values for first run
+        self.resnorms.append(numpy.Inf)
+        if self.exact_solution is not None:
+            self.errnorms.append(numpy.Inf)
+
+        restart = 0
+        while self.resnorms[-1] > self.tol and restart <= max_restarts:
+            try:
+                # use last approximate solution as initial guess
+                kwargs.update({'x0': self.xk})
+
+                # try to solve
+                sol = Solver(A, b, **kwargs)
+            except ConvergenceError as e:
+                # use solver of exception
+                sol = e.solver
+
+            # set last approximate solution
+            self.xk = sol.xk
+            print(sol.xk)
+
+            # concat resnorms / errnorms
+            del self.resnorms[-1]
+            self.resnorms += sol.resnorms
+            if self.exact_solution is not None:
+                del self.errnorms[-1]
+                self.errnorms += sol.errnorms
+
+            restart += 1
+
+        if self.resnorms[-1] > self.tol:
+            raise ConvergenceError(
+                'No convergence after {0} restarts.'.format(max_restarts),
+                self)
+
+
+class RestartedGmres(_RestartedSolver):
+    def __init__(self, A, b, **kwargs):
+        super(RestartedGmres, self).__init__(Gmres, A, b, **kwargs)
+
+
+class Gmres(_Solver):
     '''Preconditioned GMRES method.
 
     The *preconditioned generalized minimal residual method* can be used to
@@ -628,57 +666,7 @@ def gmres(A, b,
       * ``P``: present if ``return_basis=True`` and ``M`` is provided.
         The matrix :math:`P` fulfills :math:`V=MP`.
     '''
-    relresvec = [numpy.Inf]
-    if exact_solution is not None:
-        errvec = [numpy.Inf]
-    sols = []
-    xk = x0
-    restart = 0
-    while relresvec[-1] > tol and restart <= max_restarts:
-        sol = _gmres(A, b,
-                     xk,
-                     tol,
-                     maxiter,
-                     M,
-                     Ml,
-                     Mr,
-                     inner_product,
-                     explicit_residual,
-                     return_basis,
-                     full_reortho,
-                     exact_solution,
-                     # enable warnings in last restart
-                     conv_warning=(restart == max_restarts))
-        xk = sol['xk']
-        del relresvec[-1]
-        relresvec += sol['relresvec']
-        if exact_solution is not None:
-            del errvec[-1]
-            errvec += sol['errvec']
-        sols.append(sol)
-        restart += 1
-    ret = {'xk': xk,
-           'info': relresvec[-1] <= tol,
-           'relresvec': relresvec
-           }
-    if exact_solution is not None:
-        ret['errvec'] = errvec
-    if max_restarts == 0:
-        if return_basis:
-            ret['V'] = sol['V']
-            ret['H'] = sol['H']
-            if M is not None:
-                ret['P'] = sol['P']
-    return ret
-
-
-class RestartedGmres(object):
-    pass
-    # TODO!
-
-
-class Gmres(_Solver):
-    def __init__(self, A, b, ortho='mgs', *args, **kwargs):
+    def __init__(self, A, b, ortho='mgs', **kwargs):
         super(Gmres, self).__init__(A, b, **kwargs)
         self._solve(ortho=ortho)
 
