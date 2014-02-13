@@ -324,7 +324,9 @@ class Givens:
         a = numpy.asscalar(x[0])
         b = numpy.asscalar(x[1])
         # real vector
-        if numpy.isrealobj(x):
+        if numpy.isreal(x).all():
+            a = numpy.real(a)
+            b = numpy.real(b)
             c, s = blas.drotg(a, b)
         # complex vector
         else:
