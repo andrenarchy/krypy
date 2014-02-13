@@ -545,7 +545,6 @@ class _RestartedSolver(_Solver):
 
             # set last approximate solution
             self.xk = sol.xk
-            print(sol.xk)
 
             # concat resnorms / errnorms
             del self.resnorms[-1]
