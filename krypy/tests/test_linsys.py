@@ -159,7 +159,7 @@ def test_linsys_nonsymm():
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
         {'ip_B': [None, B]}
         ]
-    solvers = [krypy.linsys.gmres]
+    solvers = [krypy.linsys.Gmres]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
@@ -183,7 +183,7 @@ def test_linsys_comp_nonsymm():
         {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
         {'ip_B': [None, B]}
         ]
-    solvers = [krypy.linsys.gmres]
+    solvers = [krypy.linsys.Gmres]
     for case in produce_cases(A, x, params_adds, solvers):
         yield case
 
@@ -281,7 +281,7 @@ def run_case(solver, params):
 
     # has gmres (without restarts) found the solution after max N iterations?
     # (cg or minres may take longer because of roundoff errors)
-    if solver == krypy.linsys.gmres and \
+    if solver == krypy.linsys.Gmres and \
             ((not 'max_restarts' in params) or (params['max_restarts'] == 0)):
         assert (len(sol.resnorms)-1 <= params['b'].shape[0])
 
