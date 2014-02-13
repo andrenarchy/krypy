@@ -7,19 +7,8 @@ import scipy.linalg
 __all__ = ['Cg', 'Minres', 'Gmres']
 
 
-class ConvergenceError(RuntimeError):
-    '''Convergence error.
-
-    The ``ConvergenceError`` holds a message describing the error and
-    the attribute ``solver`` through which the last approximation and other
-    relevant information can be retrieved.
-    '''
-    def __init__(self, msg, solver):
-        super(ConvergenceError, self).__init__(msg)
-        self.solver = solver
-
-
-class _Solver(object):
+class _KrylovSolver(object):
+    '''Prototype of a Krylov subspace method for linear systems.'''
     def __init__(self, A, b,
                  x0=None,
                  tol=1e-5,
@@ -30,10 +19,86 @@ class _Solver(object):
                  ip_B=None,
                  explicit_residual=False,
                  store_arnoldi=False,
-                 reortho='None',
                  exact_solution=None
                  ):
-        '''Init standard attributes and perform checks.'''
+        r'''Init standard attributes and perform checks.
+
+        All Krylov subspace solvers in this module are applied to a linear
+        system of the form
+
+        .. math::
+
+          M M_l A M_r y = M M_l b,
+
+        where :math:`M` is self-adjoint positive definite with respect to a
+        given inner product (see argument ``ip_B``). The specific methods may
+        impose further restrictions on the operators
+
+        :param A: a linear operator on :math:`\mathbb{C}^N`. Note that
+          :math:`M_l A M_r` has to be self-adjoint in the inner product.
+        :param b: a vector in :math:`\mathbb{C}^N`.
+        :param x0: (optional) the initial guess to use. Defaults to zero
+          vector. Unless you have a good reason to use a nonzero initial guess
+          you should use the zero vector, cf. chapter 5.8.3 in *Liesen,
+          Strakos. Krylov subspace methods. 2013*. See also
+          :py:meth:`~krypy.utils.hegedus`.
+        :param tol: (optional) the tolerance for the stopping criterion with
+          respect to the relative residual norm:
+
+          .. math::
+
+             \frac{ \| M M_l (b-A (x_0+M_r y_k))\|_{M^{-1}} }
+             { \|M M_l b\|_{M^{-1}}}
+             \leq \text{tol}
+
+        :param maxiter: (optional) maximum number of iterations. Defaults to N.
+        :param M: (optional) a self-adjoint and positive definite
+          preconditioner, linear operator on :math:`\mathbb{C}^N` with respect
+          to the inner product defined by ``ip_B``. This preconditioner changes
+          the inner product used for orthogonalization to
+          :math:`\langle x,y\rangle_M = \langle Mx,y\rangle` where
+          :math:`\langle \cdot,\cdot\rangle` is the inner product defined by
+          the parameter ``ip_B``. Defaults to the identity.
+        :param Ml: (optional) left preconditioner, linear operator on
+          :math:`\mathbb{C}^N`. Defaults to the identity.
+        :param Mr: (optional) right preconditioner, linear operator on
+          :math:`\mathbb{C}^N`. Defaults to the identity.
+        :param ip_B: (optional) defines the inner product, see
+          :py:meth:`~krypy.utils.inner`.
+        :param explicit_residual: (optional)
+          if set to ``False`` (default), the updated residual norm from the
+          used method is used in each iteration. If set to ``True``, the
+          residual is computed explicitly in each iteration and thus requires
+          an additional application of ``M``, ``Ml``, ``A`` and ``Mr`` in each
+          iteration.
+        :param store_arnoldi: (optional)
+          if set to ``True`` then the computed Arnoldi basis and the Hessenberg
+          matrix are set as attributes ``V`` and ``H`` on the returned object.
+          If ``M`` is not ``None``, then also ``P`` is set where ``V=M*P``.
+          Defaults to ``False``. If the method is based on the Lanczos method
+          (e.g., :py:class:`Cg` or :py:class:`Minres`), then ``H`` is
+          real, symmetric and tridiagonal.
+        :param exact_solution: (optional)
+          if the solution vector :math:`x` is passed then the error norm
+          :math:`\|x-x_k\|` will be computed in each iteration (with respect
+          to ``ip_B``) and a list is set as attribute ``errnorms`` on the
+          returned object. Defaults to ``None``, which means that no errors are
+          computed.
+
+        Upon convergence, the instance contains the following attributes:
+
+          * ``xk``: the approximate solution :math:`x_k`.
+          * ``resnorms``: relative residual norms of all iterations, see
+            parameter ``tol``.
+          * ``errnorms``: the error norms of all iterations if
+            ``exact_solution`` was provided.
+          * ``V``, ``H`` and ``P`` if ``store_arnoldi==True``, see
+            ``store_arnoldi``
+
+        If the solver does not converge, a
+        :py:class:`~krypy.utils.ConvergenceError` is thrown which can be used
+        to examine the misconvergence.
+        '''
         N = len(b)
         shape = (N, N)
 
@@ -133,7 +198,7 @@ class _Solver(object):
                 # no convergence in last iteration -> raise exception
                 # (approximate solution can be obtained from exception)
                 if self.iter+1 == self.maxiter:
-                    raise ConvergenceError(
+                    raise utils.ConvergenceError(
                         'No convergence in last iteration.', self)
                 # updated residual was below but explicit is not: warn
                 elif not self.explicit_residual \
@@ -149,8 +214,8 @@ class _Solver(object):
         return rkn
 
 
-class Cg(_Solver):
-    '''Preconditioned CG method.
+class Cg(_KrylovSolver):
+    r'''Preconditioned CG method.
 
     The *preconditioned conjugate gradient method* can be used to solve a
     system of linear algebraic equations where the linear operator is
@@ -163,91 +228,42 @@ class Cg(_Solver):
 
     where :math:`x=M_r y` and :math:`M_l A M_r` is self-adjoint and
     positive definite with respect to the inner product
-    :math:`\\langle \\cdot,\\cdot \\rangle` defined by ``inner_product``.
+    :math:`\langle \cdot,\cdot \rangle` defined by ``ip_B``.
     The preconditioned CG method then computes (in exact arithmetics!)
-    iterates :math:`x_k \\in x_0 + M_r K_k` with
+    iterates :math:`x_k \in x_0 + M_r K_k` with
     :math:`K_k:= K_k(M M_l A M_r, r_0)` such that
 
     .. math::
 
-      \\|x - x_k\\|_A = \\min_{z \\in x_0 + M_r K_k} \\|x - z\\|_A.
+      \|x - x_k\|_A = \min_{z \in x_0 + M_r K_k} \|x - z\|_A.
 
     The Lanczos alorithm is used with the operator
     :math:`M M_l A M_r` and the inner product defined by
-    :math:`\\langle x,y \\rangle_{M^{-1}} = \\langle M^{-1}x,y \\rangle`.
+    :math:`\langle x,y \rangle_{M^{-1}} = \langle M^{-1}x,y \rangle`.
     The initial vector for Lanczos is
     :math:`r_0 = M M_l (b - Ax_0)` - note that :math:`M_r` is not used for
     the initial vector.
 
     Memory consumption is:
 
-    * if ``return_basis==False``: 3 vectors or 6 vectors if :math:`M` is used.
-    * if ``return_basis==True``: about maxiter+1 vectors for the Lanczos basis.
-      If :math:`M` is used the memory consumption is 2*(maxiter+1).
+    * if ``store_arnoldi==False``: 3 vectors or 6 vectors if :math:`M` is used.
+    * if ``store_arnoldi==True``: about maxiter+1 vectors for the Lanczos
+      basis. If :math:`M` is used the memory consumption is 2*(maxiter+1).
 
     **Caution:** CG's convergence may be delayed significantly due to round-off
-    errors, cf. chapter 5.9 in *Liesen, Strakos. Krylov subspace Methods.
-    2013.*
+    errors, cf. chapter 5.9 in [LieS13]_.
 
-    :param A:
-      a linear operator on :math:`\\mathbb{C}^N`. Note that
-      :math:`M_l A M_r` has to be self-adjoint and positive definite in the
-      inner product.
-    :param b:
-      a vector in :math:`\\mathbb{C}^N`.
-    :param x0: (optional) the initial guess to use. Defaults to zero vector.
-      Unless you have a good reason to use a nonzero initial guess you should
-      use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
-      subspace methods. 2013*. See also :py:meth:`~krypy.utils.hegedus`.
-    :param tol: (optional) the tolerance for the stopping criterion with
-      respect to the relative residual norm:
-
-      .. math::
-
-         \\frac{ \\| M M_l (b-A (x_0+M_r y_k))\\|_{M^{-1}} }
-         { \\|M M_l b\\|_{M^{-1}}}
-         \leq \\text{tol}
-
-    :param maxiter: (optional) maximum number of iterations. Defaults to N.
-    :param M: (optional)
-      a self-adjoint and positive definite preconditioner, linear operator on
-      :math:`\\mathbb{C}^N` with respect to ``inner_product``. This
-      preconditioner changes the inner product used for orthogonalization to
-      :math:`\\langle x,y\\rangle_M = \\langle Mx,y\\rangle` where
-      :math:`\\langle \\cdot,\\cdot\\rangle` is the inner product defined
-      by the parameter ``inner_product``. Defaults to the identity.
-    :param Ml: (optional) left preconditioner, linear operator on
-      :math:`\\mathbb{C}^N`. Defaults to the identity.
-    :param Mr: (optional) right preconditioner, linear operator on
-      :math:`\\mathbb{C}^N`. Defaults to the identity.
-    :param inner_product: (optional) a function that takes two arguments and
-      computes the (block-) inner product of the arguments. Defaults to
-      :py:meth:`~krypy.utils.ip_euclid`.
-    :param explicit_residual: (optional)
-      if set to ``False`` (default), the updated residual norm from the CG
-      iteration is used in each iteration. If set to ``True``, the residual is
-      computed explicitly in each iteration and thus requires an additional
-      matrix-vector multiplication in each iteration.
-    :param exact_solution: (optional)
-      if the solution vector :math:`x` is passed then the error norm
-      :math:`\|x-x_k\|` will be computed in each iteration (with respect
-      to ``inner_product``) and returned as a list in the result dictionary
-      with the key ``errvec``. Defaults to ``None``, which means that no
-      errors are computed.
-
-    :return:
-      a dictionary with the following keys:
-
-      * ``xk``: the approximate solution :math:`x_k`.
-      * ``info``: convergence flag (0 if converged, 1 otherwise).
-      * ``relresvec``: relative residual norms of all iterations, see
-        parameter ``tol``.
     '''
-    def __init__(self, A, b, ortho='lanczos', **kwargs):
+    def __init__(self, A, b, **kwargs):
+        '''
+        All parameters of :py:class:`_KrylovSolver` are valid in this solver.
+        Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
+        above.
+        '''
         super(Cg, self).__init__(A, b, **kwargs)
-        self._solve(ortho=ortho)
+        self._solve()
 
-    def _solve(self, ortho):
+    def _solve(self):
         N = self.b.shape[0]
 
         # compute norm of r0
@@ -366,8 +382,8 @@ class Cg(_Solver):
                 }
 
 
-class Minres(_Solver):
-    '''Preconditioned MINRES method.
+class Minres(_KrylovSolver):
+    r'''Preconditioned MINRES method.
 
     The *preconditioned minimal residual method* can be used to solve a
     system of linear algebraic equations where the linear operator is
@@ -380,95 +396,43 @@ class Minres(_Solver):
 
     where :math:`x=M_r y` and :math:`M_l A M_r` is self-adjoint with respect
     to the inner product
-    :math:`\\langle \\cdot,\\cdot \\rangle` defined by ``inner_product``.
+    :math:`\langle \cdot,\cdot \rangle` defined by ``inner_product``.
     The preconditioned MINRES method then computes (in exact arithmetics!)
-    iterates :math:`x_k \\in x_0 + M_r K_k` with
+    iterates :math:`x_k \in x_0 + M_r K_k` with
     :math:`K_k:= K_k(M M_l A M_r, r_0)` such that
 
     .. math::
 
-      \\|M M_l(b - A x_k)\\|_{M^{-1}} =
-      \\min_{z \\in x_0 + M_r K_k} \\|M M_l (b - A z)\\|_{M^{-1}}.
+      \|M M_l(b - A x_k)\|_{M^{-1}} =
+      \min_{z \in x_0 + M_r K_k} \|M M_l (b - A z)\|_{M^{-1}}.
 
     The Lanczos alorithm is used with the operator
     :math:`M M_l A M_r` and the inner product defined by
-    :math:`\\langle x,y \\rangle_{M^{-1}} = \\langle M^{-1}x,y \\rangle`.
+    :math:`\langle x,y \rangle_{M^{-1}} = \langle M^{-1}x,y \rangle`.
     The initial vector for Lanczos is
     :math:`r_0 = M M_l (b - Ax_0)` - note that :math:`M_r` is not used for
     the initial vector.
 
     Memory consumption is:
 
-    * if ``return_basis==False``: 3 vectors or 6 vectors if :math:`M` is used.
-    * if ``return_basis==True``: about maxiter+1 vectors for the Lanczos basis.
-      If :math:`M` is used the memory consumption is 2*(maxiter+1).
+    * if ``store_arnoldi==False``: 3 vectors or 6 vectors if :math:`M` is used.
+    * if ``store_arnoldi==True``: about maxiter+1 vectors for the Lanczos
+      basis.  If :math:`M` is used the memory consumption is 2*(maxiter+1).
 
     **Caution:** MINRES' convergence may be delayed significantly or even
-    stagnate due to round-off errors, cf. chapter 5.9 in *Liesen, Strakos.
-    Krylov subspace Methods. 2013.*
+    stagnate due to round-off errors, cf. chapter 5.9 in [LieS13]_.
 
-    :param A:
-      a linear operator on :math:`\\mathbb{C}^N`. Note that
-      :math:`M_l A M_r` has to be self-adjoint in the inner product.
-    :param b:
-      a vector in :math:`\\mathbb{C}^N`.
-    :param x0: (optional) the initial guess to use. Defaults to zero vector.
-      Unless you have a good reason to use a nonzero initial guess you should
-      use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
-      subspace methods. 2013*. See also :py:meth:`~krypy.utils.hegedus`.
-    :param tol: (optional) the tolerance for the stopping criterion with
-      respect to the relative residual norm:
+    In addition to the attributes described in :py:class:`_KrylovSolver`, the
+    following attributes are available in an instance of this solver:
 
-      .. math::
-
-         \\frac{ \\| M M_l (b-A (x_0+M_r y_k))\\|_{M^{-1}} }
-         { \\|M M_l b\\|_{M^{-1}}}
-         \leq \\text{tol}
-
-    :param maxiter: (optional) maximum number of iterations. Defaults to N.
-    :param M: (optional)
-      a self-adjoint and positive definite preconditioner, linear operator on
-      :math:`\\mathbb{C}^N` with respect to ``inner_product``. This
-      preconditioner changes the inner product used for orthogonalization to
-      :math:`\\langle x,y\\rangle_M = \\langle Mx,y\\rangle` where
-      :math:`\\langle \cdot,\cdot\\rangle` is the inner product defined by the
-      parameter ``inner_product``. Defaults to the identity.
-    :param Ml: (optional) left preconditioner, linear operator on
-      :math:`\\mathbb{C}^N`. Defaults to the identity.
-    :param Mr: (optional) right preconditioner, linear operator on
-      :math:`\\mathbb{C}^N`. Defaults to the identity.
-    :param inner_product: (optional) a function that takes two arguments and
-      computes the (block-) inner product of the arguments. Defaults to
-      :py:meth:`~krypy.utils.ip_euclid`.
-    :param explicit_residual: (optional)
-      if set to ``False`` (default), the updated residual norm from the MINRES
-      iteration is used in each iteration. If set to ``True``, the residual is
-      computed explicitly in each iteration and thus requires an additional
-      matrix-vector multiplication in each iteration.
-    :param return_basis: (optional)
-      if set to ``True`` then the computed Lanczos basis and the tridiagonal
-      matrix are returned in the result dictionary with the keys ``V``
-      and ``H``. Defaults to ``False``.
-    :param exact_solution: (optional)
-      if the solution vector :math:`x` is passed then the error norm
-      :math:`\|x-x_k\|` will be computed in each iteration (with respect to
-      ``inner_product``) and returned as a list in the result dictionary with
-      the key ``errvec``. Defaults to ``None``, which means that no errors are
-      computed.
-
-    Upon convergence, the ``Minres`` instance contains the following
-    attributes:
-
-      * ``xk``: the approximate solution :math:`x_k`.
-      * ``resnorms``: relative residual norms of all iterations, see
-        parameter ``tol``.
-      * ``errnorms``: the error norms of all iterations if ``exact_solution``
-        was provided.
-      * ``lanczos``: the Arnoldi instance.
-
-    If MINRES does not converge, a :py:class:`ConvergenceError` is thrown.
+    * ``lanczos``: the Lanczos relation (an instance of :py:class:`Arnoldi`).
     '''
     def __init__(self, A, b, ortho='lanczos', **kwargs):
+        '''
+        All parameters of :py:class:`_KrylovSolver` are valid in this solver.
+        Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
+        above.
+        '''
         super(Minres, self).__init__(A, b, **kwargs)
         self._solve(ortho=ortho)
 
@@ -553,63 +517,8 @@ class Minres(_Solver):
                 }
 
 
-class _RestartedSolver(_Solver):
-    def __init__(self, Solver, A, b, max_restarts=0, **kwargs):
-        super(_RestartedSolver, self).__init__(A, b, **kwargs)
-
-        if self.store_arnoldi:
-            raise ValueError(
-                'store_arnoldi=True is not allowed for a restarted solver'
-                'since there are multiple Arnoldi relations.')
-
-        # start with initial guess
-        self.xk = self.x0
-
-        # work on own copy of args in order to include proper initial guesses
-        kwargs = dict(kwargs)
-
-        # append dummy values for first run
-        self.resnorms.append(numpy.Inf)
-        if self.exact_solution is not None:
-            self.errnorms.append(numpy.Inf)
-
-        restart = 0
-        while self.resnorms[-1] > self.tol and restart <= max_restarts:
-            try:
-                # use last approximate solution as initial guess
-                kwargs.update({'x0': self.xk})
-
-                # try to solve
-                sol = Solver(A, b, **kwargs)
-            except ConvergenceError as e:
-                # use solver of exception
-                sol = e.solver
-
-            # set last approximate solution
-            self.xk = sol.xk
-
-            # concat resnorms / errnorms
-            del self.resnorms[-1]
-            self.resnorms += sol.resnorms
-            if self.exact_solution is not None:
-                del self.errnorms[-1]
-                self.errnorms += sol.errnorms
-
-            restart += 1
-
-        if self.resnorms[-1] > self.tol:
-            raise ConvergenceError(
-                'No convergence after {0} restarts.'.format(max_restarts),
-                self)
-
-
-class RestartedGmres(_RestartedSolver):
-    def __init__(self, A, b, **kwargs):
-        super(RestartedGmres, self).__init__(Gmres, A, b, **kwargs)
-
-
-class Gmres(_Solver):
-    '''Preconditioned GMRES method.
+class Gmres(_KrylovSolver):
+    r'''Preconditioned GMRES method.
 
     The *preconditioned generalized minimal residual method* can be used to
     solve a system of linear algebraic equations. Let the following linear
@@ -621,17 +530,17 @@ class Gmres(_Solver):
 
     where :math:`x=M_r y`.
     The preconditioned GMRES method then computes (in exact arithmetics!)
-    iterates :math:`x_k \\in x_0 + M_r K_k` with
+    iterates :math:`x_k \in x_0 + M_r K_k` with
     :math:`K_k:= K_k(M M_l A M_r, r_0)` such that
 
     .. math::
 
-      \\|M M_l(b - A x_k)\\|_{M^{-1}} =
-      \\min_{z \\in x_0 + M_r K_k} \\|M M_l (b - A z)\\|_{M^{-1}}.
+      \|M M_l(b - A x_k)\|_{M^{-1}} =
+      \min_{z \in x_0 + M_r K_k} \|M M_l (b - A z)\|_{M^{-1}}.
 
     The Arnoldi alorithm is used with the operator
     :math:`M M_l A M_r` and the inner product defined by
-    :math:`\\langle x,y \\rangle_{M^{-1}} = \\langle M^{-1}x,y \\rangle`.
+    :math:`\langle x,y \rangle_{M^{-1}} = \langle M^{-1}x,y \rangle`.
     The initial vector for Arnoldi is
     :math:`r_0 = M M_l (b - Ax_0)` - note that :math:`M_r` is not used for
     the initial vector.
@@ -640,74 +549,12 @@ class Gmres(_Solver):
     If :math:`M` is used the memory consumption is 2*(maxiter+1).
 
     If the operator :math:`M_l A M_r` is self-adjoint then consider using
-    the MINRES method :py:meth:`minres`.
-
-    :param A:
-      a linear operator on :math:`\\mathbb{C}^N`.
-    :param b:
-      a vector in :math:`\\mathbb{C}^N`.
-    :param x0: (optional) the initial guess to use. Defaults to zero vector.
-      Unless you have a good reason to use a nonzero initial guess you should
-      use the zero vector, cf. chapter 5.8.3 in *Liesen, Strakos. Krylov
-      subspace methods. 2013*. See also :py:meth:`~krypy.utils.hegedus`.
-    :param tol: (optional) the tolerance for the stopping criterion with
-      respect to the relative residual norm:
-
-      .. math::
-
-         \\frac{ \\| M M_l (b-A (x_0+M_r y_k))\\|_{M^{-1}} }
-         { \\|M M_l b\\|_{M^{-1}}}
-         \leq \\text{tol}
-
-    :param maxiter: (optional)
-      maximum number of iterations per restart cycle, see ``max_restarts``.
-      Has to fulfill :math:`\\text{maxiter}\leq N`. Defaults to N.
-    :param M: (optional)
-      a self-adjoint and positive definite preconditioner, linear operator on
-      :math:`\\mathbb{C}^N` with respect to ``inner_product``. This
-      preconditioner changes the inner product used for orthogonalization to
-      :math:`\\langle x,y\\rangle_M = \\langle Mx,y\\rangle` where
-      :math:`\\langle \cdot,\cdot\\rangle` is the inner product defined by the
-      parameter ``inner_product``. Defaults to the identity.
-    :param Ml: (optional) left preconditioner, linear operator on
-      :math:`\\mathbb{C}^N`. Defaults to the identity.
-    :param Mr: (optional) right preconditioner, linear operator on
-      :math:`\\mathbb{C}^N`.  Defaults to the identity.
-    :param inner_product: (optional) a function that takes two arguments and
-      computes the (block-) inner product of the arguments. Defaults to
-      :py:meth:`~krypy.utils.ip_euclid`.
-    :param explicit_residual: (optional)
-      if set to ``False`` (default), the updated residual norm from the GMRES
-      iteration is used in each iteration. If set to ``True``, the residual is
-      computed explicitly in each iteration and thus requires an additional
-      matrix-vector multiplication in each iteration.
-    :param store_arnoldi: (optional)
-      if set to ``True`` then the computed Arnoldi basis and the Hessenberg
-      matrix are returned in the result dictionary with the keys ``V``
-      and ``H``. Defaults to ``False``.
-    :param exact_solution:
-      if the solution vector :math:`x` is passed then the error norm
-      :math:`\|x-x_k\|` will be computed in each iteration (with respect to
-      ``inner_product``) and returned as a list in the result dictionary with
-      the key ``errvec``. Defaults to ``None``, which means that no errors
-      are computed.
-    :param max_restarts: the maximum number of restarts. The maximum number of
-      iterations is ``(max_restarts+1)*maxiter``.
-
-    :return:
-      a dictionary with the following keys:
-
-      * ``xk``: the approximate solution :math:`x_k`.
-      * ``info``: convergence flag (0 if converged, 1 otherwise).
-      * ``relresvec``: relative residual norms of all iterations, see
-        parameter ``tol``.
-      * ``V``: present if ``return_basis=True``. The Arnoldi basis
-        vectors.
-      * ``H``: present if ``return_basis=True``. The Hessenberg matrix.
-      * ``P``: present if ``return_basis=True`` and ``M`` is provided.
-        The matrix :math:`P` fulfills :math:`V=MP`.
+    the MINRES method :py:class:`Minres`.
     '''
     def __init__(self, A, b, ortho='mgs', **kwargs):
+        '''
+        All parameters of :py:class:`_KrylovSolver` are valid in this solver.
+        '''
         super(Gmres, self).__init__(A, b, **kwargs)
         self._solve(ortho=ortho)
 
@@ -783,3 +630,66 @@ class Gmres(_Solver):
                 'ip': 2 + nsteps + nsteps*(nsteps+1)/2,
                 'axpy': 4 + 2*nsteps + nsteps*(nsteps+1)/2
                 }
+
+
+class _RestartedSolver(_KrylovSolver):
+    '''Base class for restarted solvers.'''
+    def __init__(self, Solver, A, b, max_restarts=0, **kwargs):
+        '''
+        :param max_restarts: the maximum number of restarts. The maximum
+          number of iterations is ``(max_restarts+1)*maxiter``.
+        '''
+        super(_RestartedSolver, self).__init__(A, b, **kwargs)
+
+        if self.store_arnoldi:
+            raise ValueError(
+                'store_arnoldi=True is not allowed for a restarted solver'
+                'since there are multiple Arnoldi relations.')
+
+        # start with initial guess
+        self.xk = self.x0
+
+        # work on own copy of args in order to include proper initial guesses
+        kwargs = dict(kwargs)
+
+        # append dummy values for first run
+        self.resnorms.append(numpy.Inf)
+        if self.exact_solution is not None:
+            self.errnorms.append(numpy.Inf)
+
+        restart = 0
+        while self.resnorms[-1] > self.tol and restart <= max_restarts:
+            try:
+                # use last approximate solution as initial guess
+                kwargs.update({'x0': self.xk})
+
+                # try to solve
+                sol = Solver(A, b, **kwargs)
+            except utils.ConvergenceError as e:
+                # use solver of exception
+                sol = e.solver
+
+            # set last approximate solution
+            self.xk = sol.xk
+
+            # concat resnorms / errnorms
+            del self.resnorms[-1]
+            self.resnorms += sol.resnorms
+            if self.exact_solution is not None:
+                del self.errnorms[-1]
+                self.errnorms += sol.errnorms
+
+            restart += 1
+
+        if self.resnorms[-1] > self.tol:
+            raise utils.ConvergenceError(
+                'No convergence after {0} restarts.'.format(max_restarts),
+                self)
+
+
+class RestartedGmres(_RestartedSolver):
+    '''Restarted GMRES method.
+
+    See :py:class:`_RestartedSolver`.'''
+    def __init__(self, A, b, **kwargs):
+        super(RestartedGmres, self).__init__(Gmres, A, b, **kwargs)

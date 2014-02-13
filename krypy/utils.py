@@ -22,10 +22,10 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
-__all__ = ['BoundCG', 'BoundMinres', 'Givens', 'House',
-           'IdentityLinearOperator', 'LinearOperator', 'MatrixLinearOperator',
-           'Projection', 'Timer', 'angles', 'arnoldi', 'arnoldi_res',
-           'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
+__all__ = ['AssumptionError', 'BoundCG', 'BoundMinres', 'ConvergenceError',
+           'Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
+           'MatrixLinearOperator', 'Projection', 'Timer', 'angles', 'arnoldi',
+           'arnoldi_res', 'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
            'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
            'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
            'shape_vecs', 'strakos']
@@ -138,13 +138,13 @@ def norm_squared(x, Mx=None, inner_product=ip_euclid):
 
 
 def norm(x, y=None, ip_B=None):
-    '''Compute norm (Euclidean and non-Euclidean).
+    r'''Compute norm (Euclidean and non-Euclidean).
 
     :param x: a 2-dimensional ``numpy.array``.
     :param y: a 2-dimensional ``numpy.array``.
     :param ip_B: see :py:meth:`inner`.
 
-    Compute :math:`\\sqrt{\langle x,y\rangle}` where the inner product is
+    Compute :math:`\sqrt{\langle x,y\rangle}` where the inner product is
     defined via ``ip_B``.
     '''
     if y is None:
@@ -1536,6 +1536,18 @@ class Intervals(object):
 
 class AssumptionError(ValueError):
     pass
+
+
+class ConvergenceError(RuntimeError):
+    '''Convergence error.
+
+    The ``ConvergenceError`` holds a message describing the error and
+    the attribute ``solver`` through which the last approximation and other
+    relevant information can be retrieved.
+    '''
+    def __init__(self, msg, solver):
+        super(ConvergenceError, self).__init__(msg)
+        self.solver = solver
 
 
 class BoundCG(object):

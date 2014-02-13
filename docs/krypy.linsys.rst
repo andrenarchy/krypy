@@ -8,3 +8,5 @@ systems.
     :members:
     :undoc-members:
     :show-inheritance:
+
+.. autoclass:: krypy.linsys._KrylovSolver
