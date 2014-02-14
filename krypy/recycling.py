@@ -192,3 +192,21 @@ class _RecyclingSolver(object):
             for op, count in ops.iteritems():
                 time += self.timings[op]*count
         return time
+
+
+class RecyclingCg(_RecyclingSolver):
+    '''Recycling preconditioned CG method.'''
+    def __init__(self, *args, **kwargs):
+        super(RecyclingCg, self).__init__(linsys.Cg, *args, **kwargs)
+
+
+class RecyclingMinres(_RecyclingSolver):
+    '''Recycling preconditioned MINRES method.'''
+    def __init__(self, *args, **kwargs):
+        super(RecyclingMinres, self).__init__(linsys.Minres, *args, **kwargs)
+
+
+class RecyclingGmres(_RecyclingSolver):
+    '''Recycling preconditioned GMRES method.'''
+    def __init__(self, *args, **kwargs):
+        super(RecyclingGmres, self).__init__(linsys.Gmres, *args, **kwargs)
