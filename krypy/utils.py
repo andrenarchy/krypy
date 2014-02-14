@@ -751,13 +751,13 @@ class Arnoldi:
                 p = v
                 v = self.M*p
                 self.vnorm = norm(p, v, ip_B=ip_B)
-                if self.vnorm > 1e-15:
+                if self.vnorm > 0:
                     self.P[:, [0]] = p / self.vnorm
             else:
                 self.vnorm = norm(v, ip_B=ip_B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        if self.vnorm > 1e-15:
+        if self.vnorm > 0:
             self.V[:, [0]] = v / self.vnorm
         else:
             self.invariant = True
@@ -1189,6 +1189,8 @@ class LinearOperator(object):
         try:
             if isinstance(X, IdentityLinearOperator):
                 return self
+            elif isinstance(self, IdentityLinearOperator):
+                return X
             elif isinstance(X, LinearOperator):
                 return _ProductLinearOperator(self, X)
             elif numpy.isscalar(X):
@@ -1220,7 +1222,6 @@ class LinearOperator(object):
         try:
             return _ScaledLinearOperator(self, -1)
         except ValueError as e:
-            print(e)
             return NotImplemented
 
     def __sub__(self, X):
