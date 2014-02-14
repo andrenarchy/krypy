@@ -399,30 +399,30 @@ class Projection(object):
             raise ValueError('X and Y have different shapes')
 
         # orthogonalize X
-        self.U, self.UR = qr(X, ip_B=ip_B)
+        self.V, self.VR = qr(X, ip_B=ip_B)
 
         if Y is X:  # orthogonal projection
-            self.V, self.VR = self.U, self.UR
+            self.W, self.WR = self.V, self.VR
             self.Q, self.R = None, None
         else:  # general case
-            self.V, self.VR = qr(Y, ip_B=ip_B)
-            M = inner(self.V, self.U, ip_B=ip_B)
+            self.W, self.WR = qr(Y, ip_B=ip_B)
+            M = inner(self.W, self.V, ip_B=ip_B)
             self.Q, self.R = scipy.linalg.qr(M)
 
     def _apply(self, a):
         '''Single application of the projection.'''
-        c = inner(self.V, a, ip_B=self.ip_B)
+        c = inner(self.W, a, ip_B=self.ip_B)
         if self.Q is not None and self.R is not None:
             c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
-        return self.U.dot(c)
+        return self.V.dot(c)
 
     def _apply_adj(self, a):
         '''Single application of the adjoint projection.'''
-        c = inner(self.U, a, ip_B=self.ip_B)
+        c = inner(self.V, a, ip_B=self.ip_B)
         if self.Q is not None and self.R is not None:
             c = self.Q.dot(scipy.linalg.solve_triangular(self.R.T.conj(), c,
                                                          lower=True))
-        return self.V.dot(c)
+        return self.W.dot(c)
 
     def apply(self, a):
         """Apply the projection to an array.
@@ -475,8 +475,8 @@ class Projection(object):
         return z
 
     def _get_operator(self, fun, fun_adj):
-        N = self.U.shape[0]
-        t = numpy.find_common_type([self.U.dtype, self.V.dtype], [])
+        N = self.V.shape[0]
+        t = numpy.find_common_type([self.V.dtype, self.W.dtype], [])
         return LinearOperator((N, N), t, fun, fun_adj)
 
     def operator(self):
@@ -504,7 +504,7 @@ class Projection(object):
         should not be used in production codes for high dimensions since
         the resulting matrix is dense.
         """
-        return self.apply(numpy.eye(self.U.shape[0]))
+        return self.apply(numpy.eye(self.V.shape[0]))
 
 
 def qr(X, ip_B=None, reorthos=1):
