@@ -213,6 +213,19 @@ class _KrylovSolver(object):
 
         return rkn
 
+    @staticmethod
+    def operations(nsteps):
+        '''Returns the number of operations needed for nsteps of the solver.
+
+        :param nsteps: number of steps.
+
+        :returns: a dictionary with the same keys as the timings parameter.
+          Each value is the number of operations of the corresponding type for
+          ``nsteps`` iterations of the method.
+        '''
+        raise NotImplementedError('operations() has to be overridden by '
+                                  'the derived solver class.')
+
 
 class Cg(_KrylovSolver):
     r'''Preconditioned CG method.
