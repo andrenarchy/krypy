@@ -5,8 +5,8 @@ from . import utils, linsys
 
 
 class ObliqueProjection(utils.Projection):
-    def __init__(self, A, U,
-                 *args, **kwargs):
+    def __init__(self, A, U, ip_B=None,
+                 **kwargs):
         '''Oblique projection for (right) deflation.
 
         :param A: the linear operator (has to be compatible with
@@ -19,13 +19,14 @@ class ObliqueProjection(utils.Projection):
         # check and store input
         (N, d) = U.shape
         self.A = utils.get_linearoperator((N, N), A)
+        U, _ = utils.qr(U, ip_B=ip_B)
         self.U = U
 
         # apply adjoint operator to U
         self.AH_U = A.adj*U
 
         # call Projection constructor
-        super(ObliqueProjection, self).__init__(U, self.AH_U, *args, **kwargs)
+        super(ObliqueProjection, self).__init__(U, self.AH_U, **kwargs)
 
     def _correction(self, z):
         c = utils.inner(self.U, z, ip_B=self.ip_B)
@@ -46,6 +47,43 @@ class ObliqueProjection(utils.Projection):
         '''
         return pre.x0 + pre.Mr * self._correction(
             pre.Ml*(pre.b - pre.A*pre.x0))
+
+
+class _RecyclingStrategy(object):
+    def __init__(self, last_solver, last_P):
+        pass
+
+
+def _get_ritz(solver, P, mode='ritz', hermitian=False):
+    n = solver.iter
+    V = solver.V[:, :n+1]
+    N = V.shape[0]
+    H_ = solver.H[:n+1, :n]
+    H = H_[:n, :]
+    if P is not None and P.U is not None:
+        U = P.U
+        A = P.A
+    else:
+        U = numpy.zeros((N, 0))
+    B_ = utils.inner(V, A*U, ip_B=solver.ip_B)
+    B = B_[:-1, :]
+    E = utils.inner(U, A*U, ip_B=solver.ip_B)
+    C = utils.inner(U, A*V[:, :-1], ip_B=solver.ip_B)
+
+    # build block matrix
+    M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
+                    [C, E]])
+
+    # solve eigenvalue problem
+    if hermitian:
+        ritz_vals, Y = scipy.linalg.eigh(M)
+    else:
+        ritz_vals, Y = scipy.linalg.eig(M)
+
+    ritz_vecs = numpy.c_[V[:, :-1], U].dot(Y)
+    ritz_res = A * ritz_vecs - ritz_vecs * ritz_vals
+
+    return ritz_vals, ritz_vecs, ritz_res
 
 
 class _RecyclingSolver(object):
@@ -76,15 +114,21 @@ class _RecyclingSolver(object):
         # ``Ml``, ``Mr``, ``ip``, ``axpy``.
         self.timings = None
 
-        # will contain the Solver instance of the last run
-        self.last = None
+        # Solver instance of the last run
+        self.last_solver = None
 
-    def _get_deflation_basis(self, defl_extra_vecs):
+        # Projection that was used in the last run
+        self.last_P = None
+
+    def _get_deflation_basis(self, defl_extra_vecs, strategy_kwargs):
+        if strategy_kwargs is None:
+            strategy_kwargs = {}
+
         # deflation basis
         U = None
 
         # examine last run and store proposed deflation space in U
-        if self.last is not None:
+        if self.last_solver is not None and self.last_P is not None:
             # TODO
             pass
 
@@ -127,14 +171,12 @@ class _RecyclingSolver(object):
           solution. The approximate solution is available under the attribute
           ``xk``.
         '''
-        if strategy_kwargs is None:
-            strategy_kwargs = {}
 
         # check and process parameters
         pre = linsys._KrylovSolver(A, b, **kwargs)
 
         # get deflation basis
-        U = self._get_deflation_basis(defl_extra_vecs)
+        U = self._get_deflation_basis(defl_extra_vecs, strategy_kwargs)
 
         P = None
         # initialize deflation
@@ -160,8 +202,9 @@ class _RecyclingSolver(object):
         # solve deflated linear system
         solver = self.Solver(A, b, **solver_kwargs)
 
-        # store solver instance for later use
-        self.last = solver
+        # store solver and projection instance for later use
+        self.last_solver = solver
+        self.last_P = P
 
         # return solver instance
         return solver
