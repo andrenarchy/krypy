@@ -124,6 +124,8 @@ class _KrylovSolver(object):
         self.store_arnoldi = store_arnoldi
         # TODO: reortho
 
+        self.iter = 0
+
         # init vectors for convergence measurement
         self.resnorms = []
         if exact_solution is not None:
@@ -575,7 +577,8 @@ class Gmres(_KrylovSolver):
         k = self.arnoldi.iter
         if k > 0:
             yy = scipy.linalg.solve_triangular(self.R[:k, :k], y)
-            return self.x0 + self.Mr * self.V[:, :k].dot(yy)
+            yk = self.V[:, :k].dot(yy)
+            return self.x0 + self.Mr * yk
         return self.x0
 
     def _solve(self, ortho):
