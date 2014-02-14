@@ -31,10 +31,10 @@ class ObliqueProjection(utils.Projection):
         c = utils.inner(self.U, z, ip_B=self.ip_B)
         c = scipy.linalg.solve_triangular(self.WR.T.conj(), c, lower=True)
         if self.Q is not None and self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, self.Q.dot(c))
+            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
         return self.V.dot(c)
 
-    def correct_x0(self, b, x0=None):
+    def get_x0(self, pre):
         '''Get corrected initial guess for deflation.
 
         :param b: the right hand side. If a left preconditioner ``Ml`` is used,
@@ -44,10 +44,8 @@ class ObliqueProjection(utils.Projection):
         :param x0: (optional) the initial guess. Defaults to ``None`` which
           is treated as the zero initial guess.
         '''
-        correction = self._correction(b)
-        if x0 is None:
-            return correction
-        return self.apply_complement(x0) + correction
+        return pre.x0 + pre.Mr * self._correction(
+            pre.Ml*(pre.b - pre.A*pre.x0))
 
 
 class _RecyclingSolver(object):
@@ -156,8 +154,7 @@ class _RecyclingSolver(object):
         solver_kwargs = dict(kwargs)
         if P is not None:
             solver_kwargs['Mr'] = pre.Mr * P.operator_complement()
-            x0 = None if 'x0' not in solver_kwargs else solver_kwargs['x0']
-            solver_kwargs['x0'] = pre.Mr * P.correct_x0(pre.Ml*b, x0=x0)
+            solver_kwargs['x0'] = P.get_x0(pre)
         solver_kwargs['store_arnoldi'] = True
 
         # solve deflated linear system
