@@ -22,10 +22,10 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
-__all__ = ['BoundCG', 'BoundMinres', 'Givens', 'House',
-           'IdentityLinearOperator', 'LinearOperator', 'MatrixLinearOperator',
-           'Projection', 'Timer', 'angles', 'arnoldi', 'arnoldi_res',
-           'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
+__all__ = ['AssumptionError', 'BoundCG', 'BoundMinres', 'ConvergenceError',
+           'Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
+           'MatrixLinearOperator', 'Projection', 'Timer', 'angles', 'arnoldi',
+           'arnoldi_res', 'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
            'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
            'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
            'shape_vecs', 'strakos']
@@ -84,6 +84,42 @@ def ip_euclid(X, Y):
     return numpy.dot(X.T.conj(), Y)
 
 
+def inner(X, Y, ip_B=None):
+    '''Euclidean and non-Euclidean inner product.
+
+    numpy.vdot only works for vectors and numpy.dot does not use the conjugate
+    transpose.
+
+    :param X: numpy array with ``shape==(N,m)``
+    :param Y: numpy array with ``shape==(N,n)``
+    :param ip_B: (optional) May be one of the following
+
+        * ``None``: Euclidean inner product.
+        * a self-adjoint and positive definite operator :math:`B` (as
+          ``numpy.array`` or ``LinearOperator``). Then :math:`X^*B Y` is
+          returned.
+        * a callable which takes 2 arguments X and Y and returns
+          :math:`\\langle X,Y\\rangle`.
+
+    **Caution:** a callable should only be used if necessary. The choice
+    potentially has an impact on the round-off behavior, e.g. of projections.
+
+    :return: numpy array :math:`\\langle X,Y\\rangle` with ``shape==(m,n)``.
+    '''
+    if ip_B is None or isinstance(ip_B, IdentityLinearOperator):
+        return numpy.dot(X.T.conj(), Y)
+    (N, m) = X.shape
+    (_, n) = Y.shape
+    try:
+        B = get_linearoperator((N, N), ip_B)
+        if m > n:
+            return numpy.dot((B*X).T.conj(), Y)
+        else:
+            return numpy.dot(X.T.conj(), B*Y)
+    except TypeError:
+        return ip_B(X, Y)
+
+
 def norm_squared(x, Mx=None, inner_product=ip_euclid):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     assert(len(x.shape) == 2)
@@ -101,12 +137,28 @@ def norm_squared(x, Mx=None, inner_product=ip_euclid):
     return numpy.linalg.norm(rho, 2)
 
 
-def norm(x, Mx=None, inner_product=ip_euclid):
-    '''Compute the norm w.r.t. to a given scalar product.'''
-    if Mx is None and inner_product == ip_euclid:
+def norm(x, y=None, ip_B=None):
+    r'''Compute norm (Euclidean and non-Euclidean).
+
+    :param x: a 2-dimensional ``numpy.array``.
+    :param y: a 2-dimensional ``numpy.array``.
+    :param ip_B: see :py:meth:`inner`.
+
+    Compute :math:`\sqrt{\langle x,y\rangle}` where the inner product is
+    defined via ``ip_B``.
+    '''
+    if y is None:
+        y = x
+    # Euclidean inner product?
+    if y is None and (ip_B is None
+                      or isinstance(ip_B, IdentityLinearOperator)):
         return numpy.linalg.norm(x, 2)
-    else:
-        return numpy.sqrt(norm_squared(x, Mx=Mx, inner_product=inner_product))
+    ip = inner(x, y, ip_B=ip_B)
+    nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
+    if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
+        raise ValueError('inner product defined by ip_B not positive '
+                         'definite?')
+    return nrm
 
 
 def get_linearoperator(shape, A):
@@ -148,18 +200,18 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product=ip_euclid):
     return xk, Mlr, MMlr, norm_MMlr
 
 
-def orthonormality(V, inner_product=ip_euclid):
+def orthonormality(V, ip_B=None):
     """Measure orthonormality of given basis.
 
     :param V: a matrix :math:`V=[v_1,\ldots,v_n]` with ``shape==(N,n)``.
-    :param inner_product: (optional) the inner product to use, default is
-      :py:meth:`ip_euclid`.
+    :param ip_B: (optional) the inner product to use, see :py:meth:`inner`.
+
     :return: :math:`\\| I_n - \\langle V,V \\rangle \\|_2`.
     """
-    return norm(numpy.eye(V.shape[1]) - inner_product(V, V))
+    return norm(numpy.eye(V.shape[1]) - inner(V, V, ip_B=ip_B))
 
 
-def arnoldi_res(A, V, H, inner_product=ip_euclid):
+def arnoldi_res(A, V, H, ip_B=None):
     """Measure Arnoldi residual.
 
     :param A: a linear operator that can be used with scipy's aslinearoperator
@@ -168,8 +220,7 @@ def arnoldi_res(A, V, H, inner_product=ip_euclid):
     :param H: Hessenberg matrix: either :math:`\\underline{H}_{n-1}` with
       ``shape==(n,n-1)`` or :math:`H_n` with ``shape==(n,n)`` (if the Arnoldi
       basis spans an A-invariant subspace).
-    :param inner_product: (optional) the inner product to use, default is
-      :py:meth:`ip_euclid`.
+    :param ip_B: (optional) the inner product to use, see :py:meth:`inner`.
 
     :returns: either :math:`\\|AV_{n-1} - V_n \\underline{H}_{n-1}\\|` or
       :math:`\\|A V_n - V_n H_n\\|` (in the invariant case).
@@ -181,7 +232,7 @@ def arnoldi_res(A, V, H, inner_product=ip_euclid):
         res = A*V - numpy.dot(V, H)
     else:
         res = A*V[:, :-1] - numpy.dot(V, H)
-    return norm(res, inner_product=inner_product)
+    return norm(res, ip_B=ip_B)
 
 
 class House:
@@ -273,7 +324,9 @@ class Givens:
         a = numpy.asscalar(x[0])
         b = numpy.asscalar(x[1])
         # real vector
-        if numpy.isrealobj(x):
+        if numpy.isreal(x).all():
+            a = numpy.real(a)
+            b = numpy.real(b)
             c, s = blas.drotg(a, b)
         # complex vector
         else:
@@ -433,12 +486,11 @@ class Projection:
         return self.apply(numpy.eye(self.U.shape[0]))
 
 
-def qr(X, inner_product=ip_euclid, reorthos=1):
+def qr(X, ip_B=None, reorthos=1):
     """QR factorization with customizable inner product.
 
     :param X: array with ``shape==(N,k)``
-    :param inner_product: (optional) inner product in which the resulting Q
-      matrix should be orthogonal in. Defaults to :py:meth:`ip_euclid`.
+    :param ip_B: (optional) inner product, see :py:meth:`inner`.
     :param reorthos: (optional) numer of reorthogonalizations. Defaults to
       1 (i.e. 2 runs of modified Gram-Schmidt) which should be enough in most
       cases (TODO: add reference).
@@ -446,7 +498,7 @@ def qr(X, inner_product=ip_euclid, reorthos=1):
     :return: Q, R where :math:`X=QR` with :math:`\\langle Q,Q \\rangle=I_k` and
       R upper triangular.
     """
-    if inner_product == ip_euclid and X.shape[1] > 0:
+    if ip_B is None and X.shape[1] > 0:
         return scipy.linalg.qr(X, mode='economic')
     else:
         (N, k) = X.shape
@@ -455,16 +507,16 @@ def qr(X, inner_product=ip_euclid, reorthos=1):
         for i in range(k):
             for reortho in range(reorthos+1):
                 for j in range(i):
-                    alpha = inner_product(Q[:, [j]], Q[:, [i]])[0, 0]
+                    alpha = inner(Q[:, [j]], Q[:, [i]], ip_B=ip_B)[0, 0]
                     R[j, i] += alpha
                     Q[:, [i]] -= alpha * Q[:, [j]]
-            R[i, i] = norm(Q[:, [i]], inner_product=inner_product)
+            R[i, i] = norm(Q[:, [i]], ip_B=ip_B)
             if R[i, i] >= 1e-15:
                 Q[:, [i]] /= R[i, i]
         return Q, R
 
 
-def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
+def angles(F, G, ip_B=None, compute_vectors=False):
     """Principal angles between two subspaces.
 
     This algorithm is based on algorithm 6.2 in `Knyazev, Argentati. Principal
@@ -474,8 +526,8 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
 
     :param F: array with ``shape==(N,k)``.
     :param G: array with ``shape==(N,l)``.
-    :param inner_product: (optional) angles are computed with respect to this
-      inner product. Defaults to :py:meth:`ip_euclid`.
+    :param ip_B: (optional) angles are computed with respect to this
+      inner product. See :py:meth:`inner`.
     :param compute_vectors: (optional) if set to ``False`` then only the angles
       are returned (default). If set to ``True`` then also the principal
       vectors are returned.
@@ -513,8 +565,8 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
         reverse = True
         F, G = G, F
 
-    QF, _ = qr(F, inner_product=inner_product)
-    QG, _ = qr(G, inner_product=inner_product)
+    QF, _ = qr(F, ip_B=ip_B)
+    QG, _ = qr(G, ip_B=ip_B)
 
     # one or both matrices empty? (enough to check G here)
     if G.shape[1] == 0:
@@ -522,7 +574,7 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
         U = QF
         V = QG
     else:
-        Y, s, Z = scipy.linalg.svd(inner_product(QF, QG))
+        Y, s, Z = scipy.linalg.svd(inner(QF, QG, ip_B=ip_B))
         Vcos = numpy.dot(QG, Z.T.conj())
         n_large = numpy.flatnonzero((s**2) < 0.5).shape[0]
         n_small = s.shape[0] - n_large
@@ -536,8 +588,8 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
 
         if n_small > 0:
             RG = Vcos[:, :n_small]
-            S = RG - numpy.dot(QF, inner_product(QF, RG))
-            _, R = qr(S, inner_product=inner_product)
+            S = RG - numpy.dot(QF, inner(QF, RG, ip_B=ip_B))
+            _, R = qr(S, ip_B=ip_B)
             Y, u, Z = scipy.linalg.svd(R)
             theta = numpy.r_[
                 numpy.arcsin(u[::-1][:n_small]),
@@ -561,7 +613,7 @@ def angles(F, G, inner_product=ip_euclid, compute_vectors=False):
         return theta
 
 
-def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
+def hegedus(A, b, x0, M=None, Ml=None, ip_B=None):
     """Rescale initial guess appropriately (Hegedüs trick).
 
     The Hegedüs trick rescales the initial guess to :math:`\\gamma_{\\min} x_0`
@@ -596,10 +648,10 @@ def hegedus(A, b, x0, M=None, Ml=None, inner_product=ip_euclid):
 
     MlAx0 = Ml*(A*x0)
     z = M*MlAx0
-    znorm2 = inner_product(z, MlAx0)
+    znorm2 = inner(z, MlAx0, ip_B=ip_B)
     if znorm2 <= 1e-15:
         return numpy.zeros((N, 1))
-    gamma = inner_product(z, Ml*b) / znorm2
+    gamma = inner(z, Ml*b, ip_B=ip_B) / znorm2
     return gamma*x0
 
 
@@ -607,7 +659,8 @@ class Arnoldi:
     def __init__(self, A, v,
                  maxiter=None,
                  ortho='mgs',
-                 inner_product=ip_euclid
+                 M=None,
+                 ip_B=None
                  ):
         """Arnoldi algorithm.
 
@@ -623,27 +676,37 @@ class Arnoldi:
 
             * ``'mgs'``: modified Gram-Schmidt (default).
             * ``'dmgs'``: double Modified Gram-Schmidt.
+            * ``'lanczos'``: Lanczos short recurrence.
             * ``'house'``: Householder.
-        :param inner_product: (optional) the inner product to use (has to be
-            the Euclidean inner product if ``ortho=='house'``). It's unclear to
-            me (andrenarchy), how a variant of the Householder QR algorithm can
-            be used with a non-Euclidean inner product. Compare
+        :param M: (optional) a self-adjoint and positive definite
+          preconditioner. If ``M`` is provided, then also a second basis
+          :math:`P_n` is constructed such that :math:`V_n=MP_n`. This is of
+          importance in preconditioned methods. ``M`` has to be ``None`` if
+          ``ortho=='house'`` (see ``B``).
+        :param ip_B: (optional) defines the inner product to use. See
+          :py:meth:`inner`.
+
+          ``ip_B`` has to be ``None`` if ``ortho=='house'``. It's unclear to me
+          (andrenarchy), how a variant of the Householder QR algorithm can be
+          used with a non-Euclidean inner product. Compare
             http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
         """
         N = v.shape[0]
 
         # save parameters
         self.A = get_linearoperator((N, N), A)
-        self.v = v
         self.maxiter = N if maxiter is None else maxiter
         self.ortho = ortho
-        self.inner_product = inner_product
+        self.M = None if M is None else get_linearoperator((N, N), M)
+        self.ip_B = ip_B
 
-        self.dtype = find_common_dtype(A, v)
+        self.dtype = find_common_dtype(A, v, M)
         # number of iterations
         self.iter = 0
         # Arnoldi basis
         self.V = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
+        if self.M is not None:
+            self.P = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
         # Hessenberg matrix
         self.H = numpy.zeros((self.maxiter+1, self.maxiter),
                              dtype=self.dtype)
@@ -651,19 +714,32 @@ class Arnoldi:
         self.invariant = False
 
         if ortho == 'house':
-            if inner_product != ip_euclid:
+            if (M is not None
+                    and not isinstance(self.M, IdentityLinearOperator)) or \
+                    (not isinstance(self.ip_B, IdentityLinearOperator) and
+                     self.ip_B is not None):
                 raise ValueError('Only euclidean inner product allowed with '
                                  'Householder orthogonalization')
             self.houses = [House(v)]
             self.vnorm = numpy.linalg.norm(v, 2)
-        elif ortho in ['mgs', 'dmgs']:
+        elif ortho in ['mgs', 'dmgs', 'lanczos']:
             self.reorthos = 0
             if ortho == 'dmgs':
                 self.reorthos = 1
-            self.vnorm = norm(v, inner_product=inner_product)
+            if self.M is not None:
+                p = v
+                v = self.M*p
+                self.vnorm = norm(p, v, ip_B=ip_B)
+                if self.vnorm > 1e-15:
+                    self.P[:, [0]] = p / self.vnorm
+            else:
+                self.vnorm = norm(v, ip_B=ip_B)
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        self.V[:, [0]] = v / self.vnorm
+        if self.vnorm > 1e-15:
+            self.V[:, [0]] = v / self.vnorm
+        else:
+            self.invariant = True
 
     def advance(self):
         """Carry out one iteration of Arnoldi."""
@@ -693,7 +769,8 @@ class Arnoldi:
                 self.H[:k+1, [k]] = Av[:k+1]
             # next line is safe due to the multiplications with alpha
             self.H[k+1, k] = numpy.abs(self.H[k+1, k])
-            if self.H[k+1, k] <= 1e-15:
+            if self.H[k+1, k] / numpy.linalg.norm(self.H[:k+2, :k+1], 2)\
+                    <= 1e-14:
                 self.invariant = True
             else:
                 vnew = numpy.zeros((N, 1), dtype=self.dtype)
@@ -702,17 +779,53 @@ class Arnoldi:
                     vnew[j:] = self.houses[j].apply(vnew[j:])
                 self.V[:, [k+1]] = vnew * self.houses[-1].alpha
         else:
+            # determine vectors for orthogonalization
+            start = 0
+
+            # Lanczos?
+            if self.ortho == 'lanczos':
+                start = k
+                if k > 0:
+                    self.H[k-1, k] = self.H[k, k-1]
+                    if self.M is not None \
+                            and not isinstance(self.M, IdentityLinearOperator):
+                        Av -= self.H[k, k-1] * self.P[:, [k-1]]
+                    else:
+                        Av -= self.H[k, k-1] * self.V[:, [k-1]]
+
             # (double) modified Gram-Schmidt
             for reortho in range(self.reorthos+1):
-                for j in range(k+1):
-                    alpha = self.inner_product(self.V[:, [j]], Av)[0, 0]
+                # orthogonalize
+                for j in range(start, k+1):
+                    alpha = inner(self.V[:, [j]], Av, ip_B=self.ip_B)[0, 0]
+                    if self.ortho == 'lanczos':
+                        # check if alpha is real
+                        if abs(alpha.imag) > 1e-12:
+                            warnings.warn(
+                                'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
+                                'Is your operator self-adjoint in the '
+                                'provided inner product?'
+                                .format(self.iter, abs(alpha.imag)))
+                        alpha = alpha.real
                     self.H[j, k] += alpha
-                    Av -= alpha * self.V[:, [j]]
-            self.H[k+1, k] = norm(Av, inner_product=self.inner_product)
-            if self.H[k+1, k] <= 5e-14:
+                    if self.M is not None:
+                        Av -= alpha * self.P[:, [j]]
+                    else:
+                        Av -= alpha * self.V[:, [j]]
+            if self.M is not None:
+                MAv = self.M * Av
+                self.H[k+1, k] = norm(Av, MAv, ip_B=self.ip_B)
+            else:
+                self.H[k+1, k] = norm(Av, ip_B=self.ip_B)
+            if self.H[k+1, k] / numpy.linalg.norm(self.H[:k+2, :k+1], 2)\
+                    <= 1e-14:
                 self.invariant = True
             else:
-                self.V[:, [k+1]] = Av / self.H[k+1, k]
+                if self.M is not None:
+                    self.P[:, [k+1]] = Av / self.H[k+1, k]
+                    self.V[:, [k+1]] = MAv / self.H[k+1, k]
+                else:
+                    self.V[:, [k+1]] = Av / self.H[k+1, k]
 
         # increase iteration counter
         self.iter += 1
@@ -720,16 +833,28 @@ class Arnoldi:
     def get(self):
         k = self.iter
         if self.invariant:
-            return self.V[:, :k], self.H[:k, :k]
+            V, H = self.V[:, :k], self.H[:k, :k]
+            if self.M:
+                return V, H, self.P[:, :k]
+            return V, H
         else:
-            return self.V[:, :k+1], self.H[:k+1, :k]
+            V, H = self.V[:, :k+1], self.H[:k+1, :k]
+            if self.M:
+                return V, H, self.P[:, :k+1]
+            return V, H
 
     def get_last(self):
         k = self.iter
         if self.invariant:
-            return None, self.H[:k, [k-1]]
+            V, H = None, self.H[:k, [k-1]]
+            if self.M:
+                return V, H, None
+            return V, H
         else:
-            return self.V[:, [k]], self.H[:k+1, [k-1]]
+            V, H = self.V[:, [k]], self.H[:k+1, [k-1]]
+            if self.M:
+                return V, H, self.P[:, [k]]
+            return V, H
 
 
 def arnoldi(*args, **kwargs):
@@ -1041,7 +1166,9 @@ class LinearOperator(object):
 
     def __mul__(self, X):
         try:
-            if isinstance(X, LinearOperator):
+            if isinstance(X, IdentityLinearOperator):
+                return self
+            elif isinstance(X, LinearOperator):
                 return _ProductLinearOperator(self, X)
             elif numpy.isscalar(X):
                 return _ScaledLinearOperator(self, X)
@@ -1409,6 +1536,18 @@ class Intervals(object):
 
 class AssumptionError(ValueError):
     pass
+
+
+class ConvergenceError(RuntimeError):
+    '''Convergence error.
+
+    The ``ConvergenceError`` holds a message describing the error and
+    the attribute ``solver`` through which the last approximation and other
+    relevant information can be retrieved.
+    '''
+    def __init__(self, msg, solver):
+        super(ConvergenceError, self).__init__(msg)
+        self.solver = solver
 
 
 class BoundCG(object):
