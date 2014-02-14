@@ -342,161 +342,12 @@ class Givens:
         return numpy.dot(self.G, x)
 
 
-class _Projection(object):
-    '''Projection base class.'''
-    def __init__(self, X, Y, ip_B, iterations):
-        if iterations < 1:
-            raise ValueError('iterations < 1 not allowed')
-        self.iterations = iterations
-
-        if len(X.shape) != 2:
-            raise ValueError('X does not have shape==(N,k)')
-        if X.shape != Y.shape:
-            raise ValueError('X and Y have different shapes')
-
-    def _apply(self, a):
-        '''Single application of the projection.'''
-        raise NotImplementedError('_apply() has to be overridden in derived '
-                                  'class.')
-
-    def apply(self, a):
-        """Apply the projection to an array.
-
-        The computation is carried out without explicitly forming the
-        matrix corresponding to the projection (which would be an array with
-        ``shape==(N,N)``).
-
-        :param z: array with ``shape==(N,m)``.
-
-        :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
-            X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
-        """
-        x = self._apply(a)
-        for i in range(self.iterations-1):
-            z = a - x
-            w = self._apply(z)
-            x = x + w
-        return x
-
-    def apply_complement(self, a):
-        """Apply the complementary projection to an array.
-
-        :param z: array with ``shape==(N,m)``.
-
-        :return: :math:`P_{\\mathcal{Y}^\\perp,\\mathcal{X}}z =
-            z - P_{\\mathcal{X},\\mathcal{Y}^\\perp} z`.
-        """
-        x = self._apply(a)
-        z = a - x
-        for i in range(self.iterations-1):
-            w = self._apply(z)
-            z = z - w
-        return z
-
-    def _get_operator(self, fun):
-        N = self.U.shape[0]
-        t = numpy.find_common_type([self.U.dtype, self.U.dtype], [])
-        return LinearOperator((N, N), t, fun)
-
-    def operator(self):
-        """Get a ``LinearOperator`` corresponding to apply().
-
-        :return: a LinearOperator that calls apply().
-        """
-        return self._get_operator(self.apply)
-
-    def operator_complement(self):
-        """Get a ``LinearOperator`` corresponding to apply_complement().
-
-        :return: a LinearOperator that calls apply_complement().
-        """
-        return self._get_operator(self.apply_complement)
-
-    def matrix(self):
-        """Builds matrix representation of projection.
-
-        Builds the matrix representation
-        :math:`P = X \\langle Y,X\\rangle^{-1} \\langle Y, I_N\\rangle`.
-
-        **Use with care!** This routine may be helpful for testing purposes but
-        should not be used in production codes for high dimensions since
-        the resulting matrix is dense.
-        """
-        return self.apply(numpy.eye(self.U.shape[0]))
-
-
-class _ProjectionInner(_Projection):
-    '''A projection that is defined via an inner product function.'''
-    def __init__(self, X, Y, ip_B, iterations):
-        # check input
-        super(_ProjectionInner, self).__init__(X, Y, ip_B, iterations)
-
-        # orthogonalize X
-        self.U, _ = qr(X, ip_B=ip_B)
-        self.ip_B = ip_B
-
-        # orthogonal projection?
-        if Y is X:
-            self.V = self.U
-            self.Q, self.R = None, None
-        else:
-            self.V, _ = qr(Y, ip_B=ip_B)
-            M = inner(self.V, self.U, ip_B=ip_B)
-            self.Q, self.R = scipy.linalg.qr(M)
-
-    def _apply(self, a):
-        c = inner(self.V, a, ip_B=self.ip_B)
-        if self.Q is not None and self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
-        return self.U.dot(c)
-
-
-class _ProjectionB(_Projection):
-    '''A projection that is defined via a linear operator.'''
-    def __init__(self, X, Y, ip_B, iterations):
-        '''Here, it is assumed that ``ip_B`` is a ``LinearOperator``.'''
-        # check input
-        super(_ProjectionInner, self).__init__(X, Y, ip_B, iterations)
-
-        (N, k) = X.shape
-
-        # orthogonalize X
-        self.U = scipy.linalg.orth(X)
-
-        # special case of orthogonal projection in Euclidean inner product
-        # (the case of non-Euclidean inner products is handled in the general
-        # case below)
-        euclidean = isinstance(ip_B, IdentityLinearOperator)
-        if Y is X and euclidean:
-            self.V_H = self.U.T.conj()
-            self.R = None
-        # general case
-        else:
-            # apply inner product operator if needed
-            if not euclidean:
-                B = get_linearoperator((N, N), ip_B)
-                Y = B*Y
-            # orthogonalize Y
-            V = scipy.linalg.orth(Y)
-            # inner product matrix
-            M = numpy.dot(V.T.conj(), self.U)
-            # QR-decomposition of inner product matrix M
-            Q, self.R = scipy.linalg.qr(M)
-            self.V_H = V.dot(Q).T.conj()
-
-    def _apply(self, a):
-        c = self.V_H.dot(a)
-        if self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, c)
-        return self.U.dot(c)
-
-
 class Projection(object):
-    def __new__(self, X,
-                Y=None,
-                ip_B=None,
-                iterations=2
-                ):
+    def __init__(self, X,
+                 Y=None,
+                 ip_B=None,
+                 iterations=2
+                 ):
         """Generic projection.
 
         This class can represent any projection (orthogonal and oblique)
@@ -534,13 +385,126 @@ class Projection(object):
         algorithms that are considered as the most stable ones (e.g., the XQRY
         representation in [Ste11]_).
         """
+        # check and store input
+        self.ip_B = ip_B
+        if iterations < 1:
+            raise ValueError('iterations < 1 not allowed')
+        self.iterations = iterations
+
         Y = X if Y is None else Y   # default: orthogonal projection
-        try:
-            (N, k) = X.shape
-            B = get_linearoperator((N, N), ip_B)
-            return _ProjectionB(X, Y, B, iterations)
-        except:
-            return _ProjectionInner(X, Y, ip_B, iterations)
+
+        if len(X.shape) != 2:
+            raise ValueError('X does not have shape==(N,k)')
+        if X.shape != Y.shape:
+            raise ValueError('X and Y have different shapes')
+
+        # orthogonalize X
+        self.U, self.UR = qr(X, ip_B=ip_B)
+
+        if Y is X:  # orthogonal projection
+            self.V, self.VR = self.U, self.UR
+            self.Q, self.R = None, None
+        else:  # general case
+            self.V, self.VR = qr(Y, ip_B=ip_B)
+            M = inner(self.V, self.U, ip_B=ip_B)
+            self.Q, self.R = scipy.linalg.qr(M)
+
+    def _apply(self, a):
+        '''Single application of the projection.'''
+        c = inner(self.V, a, ip_B=self.ip_B)
+        if self.Q is not None and self.R is not None:
+            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
+        return self.U.dot(c)
+
+    def _apply_adj(self, a):
+        '''Single application of the adjoint projection.'''
+        c = inner(self.U, a, ip_B=self.ip_B)
+        if self.Q is not None and self.R is not None:
+            c = self.Q.dot(scipy.linalg.solve_triangular(self.R.T.conj(), c,
+                                                         lower=True))
+        return self.V.dot(c)
+
+    def apply(self, a):
+        """Apply the projection to an array.
+
+        The computation is carried out without explicitly forming the
+        matrix corresponding to the projection (which would be an array with
+        ``shape==(N,N)``).
+
+        :param z: array with ``shape==(N,m)``.
+
+        :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
+            X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
+        """
+        x = self._apply(a)
+        for i in range(self.iterations-1):
+            z = a - x
+            w = self._apply(z)
+            x = x + w
+        return x
+
+    def apply_adj(self, a):
+        x = self._apply_adj(a)
+        for i in range(self.iterations-1):
+            z = a - x
+            w = self._apply_adj(z)
+            x = x + w
+        return x
+
+    def apply_complement(self, a):
+        """Apply the complementary projection to an array.
+
+        :param z: array with ``shape==(N,m)``.
+
+        :return: :math:`P_{\\mathcal{Y}^\\perp,\\mathcal{X}}z =
+            z - P_{\\mathcal{X},\\mathcal{Y}^\\perp} z`.
+        """
+        x = self._apply(a)
+        z = a - x
+        for i in range(self.iterations-1):
+            w = self._apply(z)
+            z = z - w
+        return z
+
+    def apply_complement_adj(self, a):
+        x = self._apply_adj(a)
+        z = a - x
+        for i in range(self.iterations-1):
+            w = self._apply_adj(z)
+            z = z - w
+        return z
+
+    def _get_operator(self, fun, fun_adj):
+        N = self.U.shape[0]
+        t = numpy.find_common_type([self.U.dtype, self.V.dtype], [])
+        return LinearOperator((N, N), t, fun, fun_adj)
+
+    def operator(self):
+        """Get a ``LinearOperator`` corresponding to apply().
+
+        :return: a LinearOperator that calls apply().
+        """
+        return self._get_operator(self.apply, self.apply_adj)
+
+    def operator_complement(self):
+        """Get a ``LinearOperator`` corresponding to apply_complement().
+
+        :return: a LinearOperator that calls apply_complement().
+        """
+        return self._get_operator(self.apply_complement,
+                                  self.apply_complement_adj)
+
+    def matrix(self):
+        """Builds matrix representation of projection.
+
+        Builds the matrix representation
+        :math:`P = X \\langle Y,X\\rangle^{-1} \\langle Y, I_N\\rangle`.
+
+        **Use with care!** This routine may be helpful for testing purposes but
+        should not be used in production codes for high dimensions since
+        the resulting matrix is dense.
+        """
+        return self.apply(numpy.eye(self.U.shape[0]))
 
 
 def qr(X, ip_B=None, reorthos=1):
