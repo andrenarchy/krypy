@@ -26,9 +26,9 @@ __all__ = ['AssumptionError', 'BoundCG', 'BoundMinres', 'ConvergenceError',
            'Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
            'MatrixLinearOperator', 'Projection', 'Timer', 'angles', 'arnoldi',
            'arnoldi_res', 'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
-           'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
-           'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
-           'shape_vecs', 'strakos']
+           'get_linearoperator', 'hegedus', 'inner', 'ip_euclid', 'norm',
+           'norm_MMlr', 'norm_squared', 'orthonormality', 'qr', 'ritz',
+           'shape_vec', 'shape_vecs', 'strakos']
 
 
 def find_common_dtype(*args):
@@ -342,83 +342,22 @@ class Givens:
         return numpy.dot(self.G, x)
 
 
-class Projection:
-    def __init__(self, X,
-                 Y=None,
-                 B=None,
-                 iterations=2
-                 ):
-        """Generic projection.
-
-        This class can represent any projection (orthogonal and oblique)
-        on a N-dimensional Hilbert space. A projection is a linear operator
-        :math:`P` with :math:`P^2=P`. A projection is uniquely defined by its
-        range :math:`\\mathcal{V}:=\\operatorname{range}(P)` and its kernel
-        :math:`\\mathcal{W}:=\\operatorname{ker}(P)`; this projection is called
-        :math:`P_{\\mathcal{V},\\mathcal{W}}`.
-
-        Let X and Y be two full rank arrays with ``shape==(N,k)`` and let
-        :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N` where
-        :math:`\\mathcal{X}:=\\operatorname{colspan}(X)` and
-        :math:`\\mathcal{Y}:=\\operatorname{colspan}(Y)`.
-        Then this class constructs the projection
-        :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp}`.
-        The requirement
-        :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N`
-        is equivalent to ``\\langle X,Y\\rangle`` being nonsingular.
-
-        :param X: array with ``shape==(N,k)`` and
-            :math:`\\operatorname{rank}(X)=k`.
-        :param Y: (optional) ``None`` or array with ``shape==(N,k)`` and
-            :math:`\\operatorname{rank}(X)=k`. If Y is ``None`` then Y is
-            set to X which means that the resulting projection is orthogonal.
-        :param B: (optional) ``None`` (default) or positive definite
-            ``LinearOperator`` that defines the inner product by
-            :math:`\\langle x,y\\rangle_B=\\langle x,By\\rangle`.
-        :param iterations: (optional) number of applications of the projection.
-            It was suggested in [Ste11]_ to use 2 iterations (default) in order
-            to achieve high accuracy ("twice is enough" as in the orthogonal
-            case).
-
-        This projection class makes use of the round-off error analysis of
-        oblique projections in the work of Stewart [Ste11]_ and implements the
-        algorithms that are considered as the most stable ones.
-        """
+class _Projection(object):
+    '''Projection base class.'''
+    def __init__(self, X, Y, ip_B, iterations):
         if iterations < 1:
             raise ValueError('iterations < 1 not allowed')
         self.iterations = iterations
-        Y = X if Y is None else Y   # default: orthogonal projection
 
         if len(X.shape) != 2:
             raise ValueError('X does not have shape==(N,k)')
         if X.shape != Y.shape:
             raise ValueError('X and Y have different shapes')
 
-        (N, k) = X.shape
-        # special case of orthogonal projection in Euclidean inner product
-        # (the case of non-Euclidean inner products is handled in the general
-        # case below)
-        if Y is X and B is None:
-            self.U = scipy.linalg.orth(X)
-            self.V_H = self.U.T.conj()
-            self.R = None
-        # general case
-        else:
-            self.U = scipy.linalg.orth(X)
-            if B is not None:
-                B = get_linearoperator((N, N), B)
-                Y = B*Y
-            V = scipy.linalg.orth(Y)
-            M = numpy.dot(V.T.conj(), self.U)
-            Q, self.R = scipy.linalg.qr(M)
-            self.V_H = V.dot(Q).T.conj()
-
     def _apply(self, a):
         '''Single application of the projection.'''
-        c = self.V_H.dot(a)
-        if self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, c)
-        return numpy.dot(self.U, c)
+        raise NotImplementedError('_apply() has to be overridden in derived '
+                                  'class.')
 
     def apply(self, a):
         """Apply the projection to an array.
@@ -484,6 +423,124 @@ class Projection:
         the resulting matrix is dense.
         """
         return self.apply(numpy.eye(self.U.shape[0]))
+
+
+class _ProjectionInner(_Projection):
+    '''A projection that is defined via an inner product function.'''
+    def __init__(self, X, Y, ip_B, iterations):
+        # check input
+        super(_ProjectionInner, self).__init__(X, Y, ip_B, iterations)
+
+        # orthogonalize X
+        self.U, _ = qr(X, ip_B=ip_B)
+        self.ip_B = ip_B
+
+        # orthogonal projection?
+        if Y is X:
+            self.V = self.U
+            self.Q, self.R = None, None
+        else:
+            self.V, _ = qr(Y, ip_B=ip_B)
+            M = inner(self.V, self.U, ip_B=ip_B)
+            self.Q, self.R = scipy.linalg.qr(M)
+
+    def _apply(self, a):
+        c = inner(self.V, a, ip_B=self.ip_B)
+        if self.Q is not None and self.R is not None:
+            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
+        return self.U.dot(c)
+
+
+class _ProjectionB(_Projection):
+    '''A projection that is defined via a linear operator.'''
+    def __init__(self, X, Y, ip_B, iterations):
+        '''Here, it is assumed that ``ip_B`` is a ``LinearOperator``.'''
+        # check input
+        super(_ProjectionInner, self).__init__(X, Y, ip_B, iterations)
+
+        (N, k) = X.shape
+
+        # orthogonalize X
+        self.U = scipy.linalg.orth(X)
+
+        # special case of orthogonal projection in Euclidean inner product
+        # (the case of non-Euclidean inner products is handled in the general
+        # case below)
+        euclidean = isinstance(ip_B, IdentityLinearOperator)
+        if Y is X and euclidean:
+            self.V_H = self.U.T.conj()
+            self.R = None
+        # general case
+        else:
+            # apply inner product operator if needed
+            if not euclidean:
+                B = get_linearoperator((N, N), ip_B)
+                Y = B*Y
+            # orthogonalize Y
+            V = scipy.linalg.orth(Y)
+            # inner product matrix
+            M = numpy.dot(V.T.conj(), self.U)
+            # QR-decomposition of inner product matrix M
+            Q, self.R = scipy.linalg.qr(M)
+            self.V_H = V.dot(Q).T.conj()
+
+    def _apply(self, a):
+        c = self.V_H.dot(a)
+        if self.R is not None:
+            c = scipy.linalg.solve_triangular(self.R, c)
+        return self.U.dot(c)
+
+
+class Projection(object):
+    def __new__(self, X,
+                Y=None,
+                ip_B=None,
+                iterations=2
+                ):
+        """Generic projection.
+
+        This class can represent any projection (orthogonal and oblique)
+        on a N-dimensional Hilbert space. A projection is a linear operator
+        :math:`P` with :math:`P^2=P`. A projection is uniquely defined by its
+        range :math:`\\mathcal{V}:=\\operatorname{range}(P)` and its kernel
+        :math:`\\mathcal{W}:=\\operatorname{ker}(P)`; this projection is called
+        :math:`P_{\\mathcal{V},\\mathcal{W}}`.
+
+        Let X and Y be two full rank arrays with ``shape==(N,k)`` and let
+        :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N` where
+        :math:`\\mathcal{X}:=\\operatorname{colspan}(X)` and
+        :math:`\\mathcal{Y}:=\\operatorname{colspan}(Y)`.
+        Then this class constructs the projection
+        :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp}`.
+        The requirement
+        :math:`\\mathcal{X}\\oplus\\mathcal{Y}^\\perp=\\mathbb{C}^N`
+        is equivalent to ``\\langle X,Y\\rangle`` being nonsingular.
+
+        :param X: array with ``shape==(N,k)`` and
+            :math:`\\operatorname{rank}(X)=k`.
+        :param Y: (optional) ``None`` or array with ``shape==(N,k)`` and
+            :math:`\\operatorname{rank}(X)=k`. If Y is ``None`` then Y is
+            set to X which means that the resulting projection is orthogonal.
+        :param ip_B: (optional) inner product, see :py:meth:`inner`. ``None``,
+            a ``numpy.array`` or a ``LinearOperator`` is preferred due to the
+            applicability of the proposed algorithms in [Ste11]_, see below.
+        :param iterations: (optional) number of applications of the projection.
+            It was suggested in [Ste11]_ to use 2 iterations (default) in order
+            to achieve high accuracy ("twice is enough" as in the orthogonal
+            case).
+
+        This projection class makes use of the round-off error analysis of
+        oblique projections in the work of Stewart [Ste11]_ and implements the
+        algorithms that are considered as the most stable ones (e.g., the XQRY
+        representation in [Ste11]_).
+        """
+        Y = X if Y is None else Y   # default: orthogonal projection
+        try:
+            (N, k) = X.shape
+            B = get_linearoperator((N, N), ip_B)
+            return _ProjectionB(X, Y, B, iterations)
+        except:
+            return _ProjectionInner(X, Y, ip_B, iterations)
 
 
 def qr(X, ip_B=None, reorthos=1):

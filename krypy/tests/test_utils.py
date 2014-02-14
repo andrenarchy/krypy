@@ -57,7 +57,7 @@ def get_matrix_comp_nonsymm():
 def get_ip_Bs():
     B = numpy.diag(numpy.linspace(1, 5, 10))
     return [None,
-            krypy.utils.ip_euclid,
+            krypy.utils.MatrixLinearOperator(B),
             lambda x, y: numpy.dot(x.T.conj(), numpy.dot(B, y))
             ]
 
@@ -127,25 +127,21 @@ def run_givens(x):
 
 def test_projection():
     Xs = [numpy.eye(10, 1), numpy.eye(10, 5), numpy.eye(10)]
-    Bs = [None, numpy.eye(10), numpy.diag(numpy.linspace(1, 5, 10))]
+    ip_Bs = get_ip_Bs()
     its = [1, 2, 3]
-    for (X, B, iterations) in itertools.product(Xs, Bs, its):
+    for (X, ip_B, iterations) in itertools.product(Xs, ip_Bs, its):
         Ys = [None, X, X + numpy.ones((10, X.shape[1]))]
         for Y in Ys:
-            yield run_projection, X, Y, B, iterations
+            yield run_projection, X, Y, ip_B, iterations
 
 
-def run_projection(X, Y, B, iterations):
-    P = krypy.utils.Projection(X, Y, B=B, iterations=iterations)
+def run_projection(X, Y, ip_B, iterations):
+    P = krypy.utils.Projection(X, Y, ip_B=ip_B, iterations=iterations)
 
     (N, k) = X.shape
     I = numpy.eye(N)
     z = numpy.ones((10, 1))
     z /= numpy.linalg.norm(z, 2)
-    if B is None:
-        inner_product = lambda x, y: x.T.conj().dot(y)
-    else:
-        inner_product = lambda x, y: x.T.conj().dot(B.dot(y))
 
     # check that it's a projection, i.e. P^2=P
     assert_almost_equal(
@@ -154,8 +150,8 @@ def run_projection(X, Y, B, iterations):
     assert_almost_equal(numpy.linalg.norm(X - P.apply(X), 2), 0, 14)
     # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal to Y
     assert_almost_equal(
-        numpy.linalg.norm(inner_product(X if Y is None else Y,
-                          I - P.apply(I)), 2),
+        numpy.linalg.norm(krypy.utils.inner(X if Y is None else Y,
+                                            I - P.apply(I), ip_B=ip_B), 2),
         0, 13)
     # check that the complementary projection is correct
     assert_almost_equal(
