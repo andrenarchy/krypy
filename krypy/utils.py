@@ -398,7 +398,8 @@ class Projection(object):
         if X.shape != Y.shape:
             raise ValueError('X and Y have different shapes')
 
-        # set N-by-zero vectors if input is N-by-zero (results in identity)
+        # set N-by-zero vectors if input is N-by-zero
+        # (results in zero operator)
         if X.shape[1] == 0:
             self.V = self.W = numpy.zeros(X.shape)
             return
@@ -416,19 +417,19 @@ class Projection(object):
 
     def _apply(self, a):
         '''Single application of the projection.'''
-        # is projection the identity?
+        # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return a.copy()
+            return numpy.zeros(a.shape)
         c = inner(self.W, a, ip_B=self.ip_B)
         if self.Q is not None and self.R is not None:
             c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
         return self.V.dot(c)
 
     def _apply_adj(self, a):
-        '''Single application of the adjoint projection.'''
-        # is projection the identity?
+        # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return a.copy()
+            return numpy.zeros(a.shape)
+        '''Single application of the adjoint projection.'''
         c = inner(self.V, a, ip_B=self.ip_B)
         if self.Q is not None and self.R is not None:
             c = self.Q.dot(scipy.linalg.solve_triangular(self.R.T.conj(), c,
@@ -447,9 +448,9 @@ class Projection(object):
         :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
             X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
         """
-        # is projection the identity?
+        # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return a.copy()
+            return numpy.zeros(a.shape)
         x = self._apply(a)
         for i in range(self.iterations-1):
             z = a - x
@@ -458,9 +459,9 @@ class Projection(object):
         return x
 
     def apply_adj(self, a):
-        # is projection the identity?
+        # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return a.copy()
+            return numpy.zeros(a.shape)
         x = self._apply_adj(a)
         for i in range(self.iterations-1):
             z = a - x
@@ -476,9 +477,9 @@ class Projection(object):
         :return: :math:`P_{\\mathcal{Y}^\\perp,\\mathcal{X}}z =
             z - P_{\\mathcal{X},\\mathcal{Y}^\\perp} z`.
         """
-        # is projection the identity -> complement is zero
+        # is projection the zero operator? --> complement is identity
         if self.V.shape[1] == 0:
-            return numpy.zeros(a.shape)
+            return a.copy()
         x = self._apply(a)
         z = a - x
         for i in range(self.iterations-1):
@@ -487,9 +488,9 @@ class Projection(object):
         return z
 
     def apply_complement_adj(self, a):
-        # is projection the identity -> complement is zero
+        # is projection the zero operator? --> complement is identity
         if self.V.shape[1] == 0:
-            return numpy.zeros(a.shape)
+            return a.copy()
         x = self._apply_adj(a)
         z = a - x
         for i in range(self.iterations-1):
@@ -507,10 +508,12 @@ class Projection(object):
 
         :return: a LinearOperator that calls apply().
         """
-        # is projection the identity
+        # is projection the zero operator?
+        if self.V.shape[1] == 0:
+            return a.copy()
         if self.V.shape[1] == 0:
             N = self.V.shape[0]
-            return IdentityLinearOperator((N, N))
+            return ZeroLinearOperator((N, N))
         return self._get_operator(self.apply, self.apply_adj)
 
     def operator_complement(self):
@@ -518,10 +521,10 @@ class Projection(object):
 
         :return: a LinearOperator that calls apply_complement().
         """
-        # is projection the identity -> complement is zero
+        # is projection the zero operator? --> complement is identity
         if self.V.shape[1] == 0:
             N = self.V.shape[0]
-            return ZeroLinearOperator((N, N))
+            return IdentityLinearOperator((N, N))
         return self._get_operator(self.apply_complement,
                                   self.apply_complement_adj)
 
