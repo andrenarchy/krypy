@@ -17,7 +17,7 @@ Some features of KryPy are:
 # Usage
 
 ### Documentation
-Here is the [documentation](http://andrenarchy.github.io/krypy/).
+The documentation is hosted at [krypy.readthedocs.org](http://krypy.readthedocs.org).
 
 ### Example
 The following example shows how to use [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres) to solve a linear system `A*x=b` with the diagonal matrix `A=diag(1,...,10)` and the right hand side `b=[1,...,1]`. The found solution is printed afterwards.

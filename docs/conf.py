@@ -52,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'KryPy'
-copyright = u'2013, André Gaul'
+copyright = u'2013—2014, André Gaul'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

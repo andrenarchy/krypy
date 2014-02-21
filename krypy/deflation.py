@@ -117,6 +117,23 @@ class Arnoldifyer(object):
         self.Z = numpy.c_[V[:, n:], Q1]
 
     def get(self, Wt, full=False):
+        r'''Get Arnoldi relation for a deflation subspace choice.
+
+        :param Wt: the coefficients :math:`\tilde{W}` of the deflation vectors
+          in the basis :math:`[V_n,U]`, i.e., the deflation vectors are
+          :math:`W=[V_n,U]\tilde{W}`.
+        :param full: (optional) should the full Arnoldi
+          basis and the full perturbation be returned? Defaults to ``False``.
+
+        :return:
+
+          * ``Hh``: the Hessenberg matrix with ``Hh.shape == (n+d, n+d)``.
+          * ``Rh``: the perturbation core matrix with ``Rh.shape == m``.
+          * ``Vh``: (if ``full == True``) the Arnoldi basis with ``Vh.shape ==
+            (N, n+d)``.
+          * ``F``: (if ``full == True``) the perturbation matrix
+            :math:`F=-Z\hat{R}\hat{V}_n^* - \hat{V}_n\hat{R}^*Z^*`.
+        '''
         n = self.n
         d = self.d
 
