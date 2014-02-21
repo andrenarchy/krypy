@@ -65,7 +65,7 @@ class Arnoldifyer(object):
         :param U: basis :math:`U` with ``U.shape==(N,d)``.
         '''
         # get dimensions
-        n = self.n = H.shape[1]
+        n_, n = self.n_, self.n = H.shape
         d = self.d = U.shape[1]
 
         # store arguments
@@ -81,10 +81,10 @@ class Arnoldifyer(object):
 
         # store a few matrices for later use
         EinvC = numpy.linalg.solve(E, C) if d > 0 else numpy.zeros((0, n))
-        self.L = numpy.bmat([[H, numpy.zeros((H.shape[0], d))],
+        self.L = numpy.bmat([[H, numpy.zeros((n_, d))],
                              [EinvC, numpy.eye(d)]])
-        self.J = numpy.bmat([[numpy.eye(n, H.shape[0]), B_[:n, :]],
-                             [numpy.zeros((d, H.shape[0])), E]])
+        self.J = numpy.bmat([[numpy.eye(n, n_), B_[:n, :]],
+                             [numpy.zeros((d, n_)), E]])
         self.M = numpy.bmat([[H[:n, :n]
                               + B_[:n, :].dot(EinvC),
                               B_[:n, :]],
@@ -102,32 +102,34 @@ class Arnoldifyer(object):
             Q1 = Q[:, :l]
             R12 = R[:l, :]
             # residual helper matrix
-            self.N = numpy.c_[numpy.eye(l+H.shape[0]-n, H.shape[0]-n),
+            self.N = numpy.c_[numpy.eye(l+n_-n, n_-n),
                               numpy.r_[B_[n:, :],
                                        R12[:, P_inv]]
-                              ].dot(numpy.bmat([[numpy.zeros((d+1, n)),
-                                                 numpy.eye(d+1)]]))
+                              ].dot(
+                numpy.bmat([[numpy.zeros((d+n_-n, n)),
+                             numpy.eye(d+n_-n)]]))
         else:
             Q1 = numpy.zeros((self.U.shape[0], 0))
-            self.N = numpy.bmat([[numpy.zeros((1, n)),
-                                  numpy.eye(1, H.shape[0]-n)]])
+            self.N = numpy.bmat([[numpy.zeros((n_-n, n)),
+                                  numpy.eye(n_-n, n_-n)]])
 
         # residual basis
-        self.Z = numpy.c_[V[:, [-1]], Q1]
+        self.Z = numpy.c_[V[:, n:], Q1]
 
     def get(self, Wt, full=False):
         n = self.n
         d = self.d
 
         PtE = Wt.T.conj().dot(self.M.dot(Wt))
-        Pt = numpy.eye(self.H.shape[0]+d) - self.L.dot(Wt.dot(
+        Pt = numpy.eye(self.n_+d) - self.L.dot(Wt.dot(
             numpy.linalg.solve(PtE, Wt.T.conj().dot(self.J))))
         if d > 0:
-            qt = Pt.dot(numpy.r_[[[self.Pv_norm]], numpy.zeros((n, 1)),
+            qt = Pt.dot(numpy.r_[[[self.Pv_norm]],
+                                 numpy.zeros((self.n_-1, 1)),
                                  numpy.linalg.solve(self.E, self.U_v)])
         else:
             qt = Pt.dot(numpy.r_[[[self.Pv_norm]],
-                                 numpy.zeros((self.H.shape[0]-1, 1))])
+                                 numpy.zeros((self.n_-1, 1))])
         q = self.J.dot(qt)
 
         # rotate closest vector in [V_n,U] to first column
@@ -135,16 +137,16 @@ class Arnoldifyer(object):
 
         # Arnoldify
         LQ = Q.apply(self.L.T.conj()).T.conj()
-        H, T = scipy.linalg.hessenberg(Q.apply(self.J).dot(Pt.dot(LQ)),
-                                       calc_q=True)
+        Hh, T = utils.hessenberg(Q.apply(self.J).dot(Pt.dot(LQ)))
+
         QT = Q.apply(T)
 
         # construct residual
-        R = self.N.dot(Pt.dot(self.L.dot(QT)))
+        Rh = self.N.dot(Pt.dot(self.L.dot(QT)))
 
         if full:
             Vh = numpy.c_[self.V[:, :n], self.U].dot(QT)
-            F = - self.Z.dot(R.dot(Vh.T.conj()))
+            F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
-            return H, R, Vh, F
-        return H, R
+            return Hh, Rh, Vh, F
+        return Hh, Rh

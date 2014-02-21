@@ -12,7 +12,7 @@ def test_Arnoldifyer():
           numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
           ]
     for matrix in test_utils.get_matrices():
-        evecs, evals = scipy.linalg.eig(matrix)
+        evals, evecs = scipy.linalg.eig(matrix)
         sort = numpy.argsort(numpy.abs(evals))
         evecs = evecs[:, sort]
         Us = [numpy.zeros((10, 0)),
@@ -72,7 +72,7 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     F = krypy.utils.get_linearoperator((N, N), F)
     assert_almost_equal(numpy.linalg.norm((At+F).dot(Vh) - Vh.dot(Hh), 2)
                         / numpy.linalg.norm(M, 2),
-                        0, 12)
+                        0, 6)
 
 
 if __name__ == '__main__':
