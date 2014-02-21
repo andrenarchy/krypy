@@ -12,7 +12,7 @@ def test_Arnoldifyer():
           numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
           ]
     for matrix in test_utils.get_matrices():
-        evecs, evals = numpy.linalg.eig(matrix)
+        evecs, evals = scipy.linalg.eig(matrix)
         sort = numpy.argsort(numpy.abs(evals))
         evecs = evecs[:, sort]
         Us = [numpy.zeros((10, 0)),
@@ -47,7 +47,7 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
 
     VU = numpy.c_[V[:, :n], U]
     M = VU.T.conj().dot(A.dot(VU))
-    rvals, rvecs = numpy.linalg.eig(M)
+    rvals, rvecs = scipy.linalg.eig(M)
     sort = numpy.argsort(numpy.abs(rvals))
     rvecs = rvecs[sort]
     if Wt_sel == 'none':
