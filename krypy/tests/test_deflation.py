@@ -8,7 +8,9 @@ from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
 
 
 def test_Arnoldifyer():
-    v = numpy.ones((10, 1))
+    vs = [numpy.ones((10, 1)),
+          numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
+          ]
     for matrix in test_utils.get_matrices():
         evecs, evals = numpy.linalg.eig(matrix)
         sort = numpy.argsort(numpy.abs(evals))
@@ -18,13 +20,13 @@ def test_Arnoldifyer():
               evecs[:, -2:] + 1e-5*numpy.random.rand(10, 2)
               ]
         Wt_sels = ['none', 'smallest', 'largest']
-        for A, U, Wt_sel in itertools.product(test_utils.get_operators(matrix),
-                                              Us,
-                                              Wt_sels):
+        for A, v, U, Wt_sel in \
+                itertools.product(test_utils.get_operators(matrix),
+                                  vs, Us, Wt_sels):
             yield run_Arnoldifyer, A, v, U, 5, Wt_sel
 
 
-def run_Arnoldifyer(A, v, U, n, Wt_sel):
+def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     N, d = U.shape
     # orthonormalize if U is not zero-dim
     if d > 0:
@@ -35,7 +37,8 @@ def run_Arnoldifyer(A, v, U, n, Wt_sel):
     P = krypy.utils.Projection(AU, U).operator_complement()
 
     # run Arnoldi
-    V, H = krypy.utils.arnoldi(P*A, P*v, maxiter=n)
+    V, H = krypy.utils.arnoldi(P*A, P*v, maxiter=maxiter)
+    n = H.shape[1]
 
     # build matrices used in Arnoldifyer
     B_ = V.T.conj().dot(AU)

@@ -60,13 +60,12 @@ class Arnoldifyer(object):
           :math:`\langle V_n,AU\rangle` (``B_.shape==(n,d)``; invariant case).
         :param C: :math:`\langle U,AV_n\rangle` with ``C.shape==(d,n)``.
         :param E: :math:`\langle U,AU\rangle` with ``E.shape==(d,d)``.
-        :param V: (optional) basis :math:`V_{n+1}` (``V.shape==(N,n+1)``) or
+        :param V: basis :math:`V_{n+1}` (``V.shape==(N,n+1)``) or
           :math:`V_n` (``V.shape==(N,n)``; invariant case).
-        :param U: (optional) basis :math:`U` with ``U.shape==(N,d)``.
+        :param U: basis :math:`U` with ``U.shape==(N,d)``.
         '''
         # get dimensions
         n = self.n = H.shape[1]
-        invariant = self.invariant = H.shape[0] == n
         d = self.d = U.shape[1]
 
         # store arguments
@@ -82,10 +81,10 @@ class Arnoldifyer(object):
 
         # store a few matrices for later use
         EinvC = numpy.linalg.solve(E, C) if d > 0 else numpy.zeros((0, n))
-        self.L = numpy.bmat([[H, numpy.zeros((n+1, d))],
+        self.L = numpy.bmat([[H, numpy.zeros((H.shape[0], d))],
                              [EinvC, numpy.eye(d)]])
-        self.J = numpy.bmat([[numpy.eye(n, n+1), B_[:n, :]],
-                             [numpy.zeros((d, n+1)), E]])
+        self.J = numpy.bmat([[numpy.eye(n, H.shape[0]), B_[:n, :]],
+                             [numpy.zeros((d, H.shape[0])), E]])
         self.M = numpy.bmat([[H[:n, :n]
                               + B_[:n, :].dot(EinvC),
                               B_[:n, :]],
@@ -103,32 +102,32 @@ class Arnoldifyer(object):
             Q1 = Q[:, :l]
             R12 = R[:l, :]
             # residual helper matrix
-            self.N = numpy.bmat([[[[1]], B_[[-1], :]],
-                                 [numpy.zeros((l, 1)), R12[:, P_inv]]
-                                 ]).dot(numpy.bmat([[numpy.zeros((d+1, n)),
-                                                    numpy.eye(d+1)]]))
+            self.N = numpy.c_[numpy.eye(l+H.shape[0]-n, H.shape[0]-n),
+                              numpy.r_[B_[n:, :],
+                                       R12[:, P_inv]]
+                              ].dot(numpy.bmat([[numpy.zeros((d+1, n)),
+                                                 numpy.eye(d+1)]]))
         else:
             Q1 = numpy.zeros((self.U.shape[0], 0))
             self.N = numpy.bmat([[numpy.zeros((1, n)),
-                                  numpy.eye(1)]])
+                                  numpy.eye(1, H.shape[0]-n)]])
 
         # residual basis
         self.Z = numpy.c_[V[:, [-1]], Q1]
 
     def get(self, Wt, full=False):
         n = self.n
-        invariant = self.invariant
         d = self.d
-        k = Wt.shape[1]
 
         PtE = Wt.T.conj().dot(self.M.dot(Wt))
-        Pt = numpy.eye(n+d+1) - self.L.dot(Wt.dot(
+        Pt = numpy.eye(self.H.shape[0]+d) - self.L.dot(Wt.dot(
             numpy.linalg.solve(PtE, Wt.T.conj().dot(self.J))))
         if d > 0:
             qt = Pt.dot(numpy.r_[[[self.Pv_norm]], numpy.zeros((n, 1)),
                                  numpy.linalg.solve(self.E, self.U_v)])
         else:
-            qt = Pt.dot(numpy.r_[[[self.Pv_norm]], numpy.zeros((n, 1))])
+            qt = Pt.dot(numpy.r_[[[self.Pv_norm]],
+                                 numpy.zeros((self.H.shape[0]-1, 1))])
         q = self.J.dot(qt)
 
         # rotate closest vector in [V_n,U] to first column
