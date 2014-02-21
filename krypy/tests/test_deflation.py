@@ -37,7 +37,8 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     P = krypy.utils.Projection(AU, U).operator_complement()
 
     # run Arnoldi
-    V, H = krypy.utils.arnoldi(P*A, P*v, maxiter=maxiter)
+    V, H = krypy.utils.arnoldi(P*krypy.utils.get_linearoperator((N, N), A),
+                               P*v, maxiter=maxiter)
     n = H.shape[1]
 
     # build matrices used in Arnoldifyer
@@ -69,10 +70,29 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     PW = krypy.utils.Projection(A.dot(W), W).operator_complement()
     A = krypy.utils.get_linearoperator((N, N), A)
     At = PW*A
-    F = krypy.utils.get_linearoperator((N, N), F)
-    assert_almost_equal(numpy.linalg.norm((At+F).dot(Vh) - Vh.dot(Hh), 2)
+    Fop = krypy.utils.get_linearoperator((N, N), F)
+
+    # check arnoldi relation
+    assert_almost_equal(numpy.linalg.norm((At+Fop).dot(Vh) - Vh.dot(Hh), 2)
                         / numpy.linalg.norm(M, 2),
                         0, 6)
+
+    # check projection
+    assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot((At+Fop).dot(Vh))
+                                          - Hh, 2)
+                        / numpy.linalg.norm(M, 2),
+                        0, 6)
+
+    # check orthonormality
+    assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot(Vh)
+                        - numpy.eye(n+d), 2),
+                        0, 5)
+
+    # check norm of perturbation
+    if Rh.size > 0:
+        assert_almost_equal(numpy.linalg.norm(Rh, 2), numpy.linalg.norm(F, 2),
+                            8)
+
 
 
 if __name__ == '__main__':
