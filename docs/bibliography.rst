@@ -5,6 +5,9 @@ Bibliography
     for deflated and augmented Krylov subspace methods. SIAM J. Matrix Anal.
     Appl., 34 (2013), pp. 495-518.
 
+.. [GolV13] G. H. Golub and C. F. Van Loan. Matrix Computations. Fourth edition.
+    Johns Hopkins University Press, Baltimore, MD, 2013.
+
 .. [Gre97] A. Greenbaum. Iterative methods for solving linear systems. Vol. 17.
     Frontiers in Applied Mathematics. Philadelphia, PA: Society for Industrial
     and Applied Mathematics (SIAM), 1997.
