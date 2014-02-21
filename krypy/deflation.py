@@ -121,8 +121,10 @@ class Arnoldifyer(object):
         d = self.d
 
         PtE = Wt.T.conj().dot(self.M.dot(Wt))
-        Pt = numpy.eye(self.n_+d) - self.L.dot(Wt.dot(
-            numpy.linalg.solve(PtE, Wt.T.conj().dot(self.J))))
+        Pt = numpy.eye(self.n_+d,)
+        if PtE.size > 0:
+            Pt = Pt - self.L.dot(Wt.dot(
+                numpy.linalg.solve(PtE, Wt.T.conj().dot(self.J))))
         if d > 0:
             qt = Pt.dot(numpy.r_[[[self.Pv_norm]],
                                  numpy.zeros((self.n_-1, 1)),
