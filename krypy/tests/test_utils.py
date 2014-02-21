@@ -183,7 +183,7 @@ def run_projection(X, Y, ip_B, iterations):
                                                 I - P.apply(I), ip_B=ip_B), 2),
             0, 13)
     else:
-        assert_equal(numpy.linalg.norm(I - P.apply(I)), 0)
+        assert_equal(numpy.linalg.norm(P.apply(I)), 0)
 
     # check that the complementary projection is correct
     assert_almost_equal(

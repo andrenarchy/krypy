@@ -510,8 +510,6 @@ class Projection(object):
         """
         # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return a.copy()
-        if self.V.shape[1] == 0:
             N = self.V.shape[0]
             return ZeroLinearOperator((N, N))
         return self._get_operator(self.apply, self.apply_adj)
