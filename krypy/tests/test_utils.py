@@ -4,7 +4,7 @@ import itertools
 from scipy.sparse import csr_matrix
 import scipy.linalg
 from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
-    assert_array_equal
+    assert_array_equal, assert_equal
 
 
 def get_matrix_spd():
@@ -52,6 +52,28 @@ def get_matrix_comp_nonsymm():
     A = numpy.diag(a)
     A[0, -1] = 1.e2j
     return A
+
+
+def get_matrices(spd=True,
+                 hpd=True,
+                 symm_indef=True,
+                 herm_indef=True,
+                 nonsymm=True,
+                 comp_nonsymm=True):
+    matrices = []
+    if spd:
+        matrices.append(get_matrix_spd())
+    if hpd:
+        matrices.append(get_matrix_hpd())
+    if symm_indef:
+        matrices.append(get_matrix_symm_indef())
+    if herm_indef:
+        matrices.append(get_matrix_herm_indef())
+    if nonsymm:
+        matrices.append(get_matrix_nonsymm())
+    if comp_nonsymm:
+        matrices.append(get_matrix_comp_nonsymm())
+    return matrices
 
 
 def get_ip_Bs():
@@ -126,7 +148,11 @@ def run_givens(x):
 
 
 def test_projection():
-    Xs = [numpy.eye(10, 1), numpy.eye(10, 5), numpy.eye(10)]
+    Xs = [numpy.eye(10, 1),
+          numpy.eye(10, 5),
+          numpy.eye(10),
+          numpy.zeros((10, 0))
+          ]
     ip_Bs = get_ip_Bs()
     its = [1, 2, 3]
     for (X, ip_B, iterations) in itertools.product(Xs, ip_Bs, its):
@@ -146,22 +172,31 @@ def run_projection(X, Y, ip_B, iterations):
     # check that it's a projection, i.e. P^2=P
     assert_almost_equal(
         numpy.linalg.norm(P.apply(I - P.apply(I)), 2), 0, 14)
-    # check that the range is X, i.e. the kernel of I-P is X
-    assert_almost_equal(numpy.linalg.norm(X - P.apply(X), 2), 0, 14)
-    # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal to Y
-    assert_almost_equal(
-        numpy.linalg.norm(krypy.utils.inner(X if Y is None else Y,
-                                            I - P.apply(I), ip_B=ip_B), 2),
-        0, 13)
+    if k > 0:
+        # check that the range is X, i.e. the kernel of I-P is X
+        assert_almost_equal(numpy.linalg.norm(X - P.apply(X), 2), 0, 14)
+
+        # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal
+        # to Y
+        assert_almost_equal(
+            numpy.linalg.norm(krypy.utils.inner(X if Y is None else Y,
+                                                I - P.apply(I), ip_B=ip_B), 2),
+            0, 13)
+    else:
+        assert_equal(numpy.linalg.norm(I - P.apply(I)), 0)
+
     # check that the complementary projection is correct
     assert_almost_equal(
         numpy.linalg.norm(I-P.apply(I) - P.apply_complement(I), 2),
         0, 14)
+
     # check that operator()*z executes apply(z)
     assert(numpy.linalg.norm(P.operator()*z - P.apply(z)) == 0)
+
     # check that operator_complement()*z executes apply_complement(z)
     assert(numpy.linalg.norm(P.operator_complement()*z - P.apply_complement(z))
            == 0)
+
     # check that the matrix representation is correct
     assert_almost_equal(numpy.linalg.norm(P.matrix() - P.apply(I), 2),
                         0, 14)
