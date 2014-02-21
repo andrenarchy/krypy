@@ -308,6 +308,29 @@ class House:
         return numpy.eye(n, n) - self.beta * numpy.dot(self.v, self.v.T.conj())
 
 
+def hessenberg(A):
+    '''Hessenberg decomposition via Householder transformations.
+
+    The function ``scipy.linalg.hessenberg`` suffers from a bug, see
+    https://github.com/scipy/scipy/issues/3364.
+
+    This function implements algorithm TODO in [GolV13]_.
+
+    :returns: ``H`` and ``Q`` such that ``A = Q H Q^*``
+    '''
+    n = A.shape[0]
+    if A.shape[1] != n:
+        raise ValueError('matrix must be square')
+    H = A.copy()
+    Q = numpy.eye(n, dtype=H.dtype)
+    for k in range(n-2):
+        house = House(H[k+1:, [k]])
+        H[k+1:, k:] = house.apply(H[k+1:, k:])
+        H[:, k+1:] = house.apply(H[:, k+1:].T.conj()).T.conj()
+        Q[k+1:, :] = house.apply(Q[k+1:, :])
+    return H, Q.T.conj()
+
+
 class Givens:
     def __init__(self, x):
         """Compute Givens rotation for provided vector x.
