@@ -1,3 +1,2 @@
-from . import linsys
-from . import utils
-__all__ = ['linsys', 'utils']
+from . import linsys, deflation, recycling, utils
+__all__ = ['linsys', 'deflation', 'recycling', 'utils']

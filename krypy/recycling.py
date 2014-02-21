@@ -1,52 +1,7 @@
 # -*- coding: utf8 -*-
 import numpy
 import scipy.linalg
-from . import utils, linsys
-
-
-class ObliqueProjection(utils.Projection):
-    def __init__(self, A, U, ip_B=None,
-                 **kwargs):
-        '''Oblique projection for (right) deflation.
-
-        :param A: the linear operator (has to be compatible with
-          :py:meth:`~krypy.utils.get_linearoperator`).
-        :param U: basis of the deflation space with ``U.shape == (N, d)``.
-
-        All parameters of :py:class:`~krypy.utils.Projection` are valid except
-        ``X`` and ``Y``.
-        '''
-        # check and store input
-        (N, d) = U.shape
-        self.A = utils.get_linearoperator((N, N), A)
-        U, _ = utils.qr(U, ip_B=ip_B)
-        self.U = U
-
-        # apply adjoint operator to U
-        self.AH_U = A.adj*U
-
-        # call Projection constructor
-        super(ObliqueProjection, self).__init__(U, self.AH_U, **kwargs)
-
-    def _correction(self, z):
-        c = utils.inner(self.U, z, ip_B=self.ip_B)
-        c = scipy.linalg.solve_triangular(self.WR.T.conj(), c, lower=True)
-        if self.Q is not None and self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
-        return self.V.dot(c)
-
-    def get_x0(self, pre):
-        '''Get corrected initial guess for deflation.
-
-        :param b: the right hand side. If a left preconditioner ``Ml`` is used,
-          then it has to be applied to ``b`` before passing it to this
-          function. This does not apply to the left preconditioner ``M`` due
-          to the implicitly changed inner product.
-        :param x0: (optional) the initial guess. Defaults to ``None`` which
-          is treated as the zero initial guess.
-        '''
-        return pre.x0 + pre.Mr * self._correction(
-            pre.Ml*(pre.b - pre.A*pre.x0))
+from . import utils, linsys, deflation
 
 
 class _RecyclingStrategy(object):
@@ -183,8 +138,8 @@ class _RecyclingSolver(object):
         if U is not None:
             # get projection
             if self.projection == 'oblique':
-                P = ObliqueProjection(pre.Ml*pre.A*pre.Mr, U,
-                                      ip_B=pre.ip_B)
+                P = deflation.ObliqueProjection(pre.Ml*pre.A*pre.Mr, U,
+                                                ip_B=pre.ip_B)
             elif self.projection == 'orthogonal':
                 raise NotImplementedError('orthogonal projections are not yet '
                                           'implemented.')

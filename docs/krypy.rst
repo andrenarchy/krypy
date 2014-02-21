@@ -6,6 +6,7 @@ krypy Package
 .. toctree::
 
     krypy.linsys
+    krypy.deflation
     krypy.recycling
     krypy.utils
 
