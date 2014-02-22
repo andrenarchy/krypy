@@ -129,6 +129,8 @@ class Arnoldifyer(object):
 
           * ``Hh``: the Hessenberg matrix with ``Hh.shape == (n+d, n+d)``.
           * ``Rh``: the perturbation core matrix with ``Rh.shape == m``.
+          * ``vdiff_norm``: the norm of the difference of the initial vectors
+            :math:`\tilde{v}-\hat{v}`.
           * ``Vh``: (if ``full == True``) the Arnoldi basis with ``Vh.shape ==
             (N, n+d)``.
           * ``F``: (if ``full == True``) the perturbation matrix
@@ -137,18 +139,15 @@ class Arnoldifyer(object):
         n = self.n
         d = self.d
 
-        PtE = Wt.T.conj().dot(self.M.dot(Wt))
-        Pt = numpy.eye(self.n_+d,)
-        if PtE.size > 0:
-            Pt = Pt - self.L.dot(Wt.dot(
-                numpy.linalg.solve(PtE, Wt.T.conj().dot(self.J))))
+        Pt = utils.Projection(self.L.dot(Wt), self.J.T.conj().dot(Wt)) \
+            .operator_complement()
         if d > 0:
-            qt = Pt.dot(numpy.r_[[[self.Pv_norm]],
-                                 numpy.zeros((self.n_-1, 1)),
-                                 numpy.linalg.solve(self.E, self.U_v)])
+            qt = Pt*(numpy.r_[[[self.Pv_norm]],
+                              numpy.zeros((self.n_-1, 1)),
+                              numpy.linalg.solve(self.E, self.U_v)])
         else:
-            qt = Pt.dot(numpy.r_[[[self.Pv_norm]],
-                                 numpy.zeros((self.n_-1, 1))])
+            qt = Pt*(numpy.r_[[[self.Pv_norm]],
+                              numpy.zeros((self.n_-1, 1))])
         q = self.J.dot(qt)
 
         # rotate closest vector in [V_n,U] to first column
@@ -156,16 +155,20 @@ class Arnoldifyer(object):
 
         # Arnoldify
         LQ = Q.apply(self.L.T.conj()).T.conj()
-        Hh, T = utils.hessenberg(Q.apply(self.J).dot(Pt.dot(LQ)))
+        Hh, T = utils.hessenberg(Q.apply(self.J).dot(Pt*LQ))
 
         QT = Q.apply(T)
 
         # construct residual
-        Rh = self.N.dot(Pt.dot(self.L.dot(QT)))
+        Rh = self.N.dot(Pt*self.L.dot(QT))
+
+        # norm of difference between initial vectors
+        vdiff = self.N.dot(qt)
+        vdiff_norm = 0 if vdiff.size == 0 else numpy.linalg.norm(vdiff, 2)
 
         if full:
             Vh = numpy.c_[self.V[:, :n], self.U].dot(QT)
             F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
-            return Hh, Rh, Vh, F
-        return Hh, Rh
+            return Hh, Rh, vdiff_norm, Vh, F
+        return Hh, Rh, vdiff_norm
