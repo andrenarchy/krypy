@@ -8,6 +8,7 @@ from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
 
 
 def test_Arnoldifyer():
+    numpy.random.seed(0)
     vs = [numpy.ones((10, 1)),
           numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
           ]
@@ -81,12 +82,12 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot((At+Fop).dot(Vh))
                                           - Hh, 2)
                         / numpy.linalg.norm(M, 2),
-                        0, 8)
+                        0, 7)
 
     # check orthonormality
     assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot(Vh)
                         - numpy.eye(n+d), 2),
-                        0, 8)
+                        0, 7)
 
     # check norm of perturbation
     if Rh.size > 0:
