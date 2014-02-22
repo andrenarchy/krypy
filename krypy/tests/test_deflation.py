@@ -75,7 +75,7 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     # check arnoldi relation
     assert_almost_equal(numpy.linalg.norm((At+Fop).dot(Vh) - Vh.dot(Hh), 2)
                         / numpy.linalg.norm(M, 2),
-                        0, 8)
+                        0, 7)
 
     # check projection
     assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot((At+Fop).dot(Vh))

@@ -150,6 +150,10 @@ class Arnoldifyer(object):
                               numpy.zeros((self.n_-1, 1))])
         q = self.J.dot(qt)
 
+        # TODO: q seems to suffer from round-off errors and thus the first
+        #       vector in the computed basis may differ from the exact
+        #       projected one more than on the level of unit round-off.
+
         # rotate closest vector in [V_n,U] to first column
         Q = utils.House(q)
 
