@@ -314,7 +314,7 @@ def hessenberg(A):
     The function ``scipy.linalg.hessenberg`` suffers from a bug, see
     https://github.com/scipy/scipy/issues/3364.
 
-    This function implements algorithm TODO in [GolV13]_.
+    This function implements algorithm 7.4.2 in [GolV13]_.
 
     :returns: ``H`` and ``Q`` such that ``A = Q H Q^*``
     '''
