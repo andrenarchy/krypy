@@ -8,11 +8,11 @@ from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
 
 
 def test_Arnoldifyer():
-    numpy.random.seed(0)
     vs = [numpy.ones((10, 1)),
           numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
           ]
     for matrix in test_utils.get_matrices():
+        numpy.random.seed(0)
         evals, evecs = scipy.linalg.eig(matrix)
         sort = numpy.argsort(numpy.abs(evals))
         evecs = evecs[:, sort]
@@ -59,6 +59,8 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
     elif Wt_sel == 'largest':
         Wt = rvecs[:, -2:]
 
+    k = Wt.shape[1]
+
     # get Arnoldifyer instance
     arnoldifyer = krypy.deflation.Arnoldifyer(V, U, AU, H, B_, C, E,
                                               numpy.linalg.norm(P*v, 2),
@@ -86,7 +88,7 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
 
     # check orthonormality
     assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot(Vh)
-                        - numpy.eye(n+d), 2),
+                        - numpy.eye(n+d-k), 2),
                         0, 7)
 
     # check norm of perturbation

@@ -120,24 +120,33 @@ class Arnoldifyer(object):
         r'''Get Arnoldi relation for a deflation subspace choice.
 
         :param Wt: the coefficients :math:`\tilde{W}` of the deflation vectors
-          in the basis :math:`[V_n,U]`, i.e., the deflation vectors are
-          :math:`W=[V_n,U]\tilde{W}`.
+          in the basis :math:`[V_n,U]` with ``Wt.shape == (n+d, k)``, i.e., the
+          deflation vectors are :math:`W=[V_n,U]\tilde{W}`.
         :param full: (optional) should the full Arnoldi
           basis and the full perturbation be returned? Defaults to ``False``.
 
         :return:
 
-          * ``Hh``: the Hessenberg matrix with ``Hh.shape == (n+d, n+d)``.
-          * ``Rh``: the perturbation core matrix with ``Rh.shape == m``.
+          * ``Hh``: the Hessenberg matrix with ``Hh.shape == (n+d-k, n+d-k)``.
+          * ``Rh``: the perturbation core matrix with
+            ``Rh.shape == (l, n+d-k)``.
           * ``vdiff_norm``: the norm of the difference of the initial vectors
             :math:`\tilde{v}-\hat{v}`.
           * ``Vh``: (if ``full == True``) the Arnoldi basis with ``Vh.shape ==
-            (N, n+d)``.
+            (N, n+d-k)``.
           * ``F``: (if ``full == True``) the perturbation matrix
             :math:`F=-Z\hat{R}\hat{V}_n^* - \hat{V}_n\hat{R}^*Z^*`.
         '''
         n = self.n
         d = self.d
+        k = Wt.shape[1]
+
+        # get orthonormal basis of Wt^\perp
+        if k > 0:
+            Wto, _ = scipy.linalg.qr(Wt)
+            Wto = Wto[:, k:]
+        else:
+            Wto = numpy.eye(Wt.shape[0])
 
         Pt = utils.Projection(self.L.dot(Wt), self.J.T.conj().dot(Wt)) \
             .operator_complement()
@@ -148,7 +157,7 @@ class Arnoldifyer(object):
         else:
             qt = Pt*(numpy.r_[[[self.Pv_norm]],
                               numpy.zeros((self.n_-1, 1))])
-        q = self.J.dot(qt)
+        q = Wto.T.conj().dot(self.J.dot(qt))
 
         # TODO: q seems to suffer from round-off errors and thus the first
         #       vector in the computed basis may differ from the exact
@@ -158,20 +167,21 @@ class Arnoldifyer(object):
         Q = utils.House(q)
 
         # Arnoldify
-        LQ = Q.apply(self.L.T.conj()).T.conj()
-        Hh, T = utils.hessenberg(Q.apply(self.J).dot(Pt*LQ))
+        WtoQ = Q.apply(Wto.T.conj()).T.conj()
+        Hh, T = utils.hessenberg(
+            Q.apply(Wto.T.conj().dot(self.J).dot(Pt*(self.L.dot(WtoQ)))))
 
         QT = Q.apply(T)
 
         # construct residual
-        Rh = self.N.dot(Pt*self.L.dot(QT))
+        Rh = self.N.dot(Pt*self.L.dot(Wto.dot(QT)))
 
         # norm of difference between initial vectors
         vdiff = self.N.dot(qt)
         vdiff_norm = 0 if vdiff.size == 0 else numpy.linalg.norm(vdiff, 2)
 
         if full:
-            Vh = numpy.c_[self.V[:, :n], self.U].dot(QT)
+            Vh = numpy.c_[self.V[:, :n], self.U].dot(Wto.dot(QT))
             F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
             return Hh, Rh, vdiff_norm, Vh, F
