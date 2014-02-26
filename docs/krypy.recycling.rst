@@ -14,3 +14,4 @@ strategys are available.
 
 .. autoclass:: krypy.recycling._RecyclingSolver
     :members:
+    :private-members:
