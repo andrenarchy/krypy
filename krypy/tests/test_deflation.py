@@ -68,7 +68,8 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
                                               numpy.linalg.norm(P*v, 2),
                                               U.T.conj().dot(v))
     # arnoldify given Wt
-    Hh, Rh, vdiff_norm, PWAW_norm, Vh, F = arnoldifyer.get(Wt, full=True)
+    Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F = \
+        arnoldifyer.get(Wt, full=True)
 
     # perform checks
     W = VU.dot(Wt)

@@ -137,6 +137,7 @@ class Arnoldifyer(object):
           * ``Hh``: the Hessenberg matrix with ``Hh.shape == (n+d-k, n+d-k)``.
           * ``Rh``: the perturbation core matrix with
             ``Rh.shape == (l, n+d-k)``.
+          * ``q_norm``: norm :math:`\|q\|_2`.
           * ``vdiff_norm``: the norm of the difference of the initial vectors
             :math:`\tilde{v}-\hat{v}`.
           * ``PWAW_norm``: norm of the projection
@@ -175,6 +176,7 @@ class Arnoldifyer(object):
 
         # rotate closest vector in [V_n,U] to first column
         Q = utils.House(q)
+        q_norm = Q.xnorm
 
         # Arnoldify
         WtoQ = Q.apply(Wto.T.conj()).T.conj()
@@ -209,16 +211,21 @@ class Arnoldifyer(object):
             Vh = numpy.c_[self.V[:, :n], self.U].dot(Wto.dot(QT))
             F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
-            return Hh, Rh, vdiff_norm, PWAW_norm, Vh, F
-        return Hh, Rh, vdiff_norm, PWAW_norm
+            return Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F
+        return Hh, Rh, q_norm, vdiff_norm, PWAW_norm
 
 
-def bound_pseudo(self, arnoldifyer, Wt,
+def bound_pseudo(self, arnoldifyer, Wt, b_norm,
                  g_norm=0.,
                  G_norm=0.,
                  GW_norm=0.,
                  WGW_norm=0.,
-                 pseudo='nonnormal'):
+                 tol=1e-6,
+                 method='gmres',
+                 pseudo_type='auto',
+                 delta_n=20,
+                 delta_exp=5
+                 ):
     r'''Bound residual norms of next deflated system.
 
     :param arnoldifyer: an instance of
@@ -237,7 +244,13 @@ def bound_pseudo(self, arnoldifyer, Wt,
     :param GW_norm: Norm :math:`\|G|_{\mathcal{W}}\|` of difference
       :math:`G=B-A` of operators restricted to :math:`\mathcal{W}`.
     :param WGW_norm: Norm :math:`\|\langle W,GW\rangle\|_2`.
-    :param pseudo: One of
+    :param method: type of method that is used to construct the residuals and
+      residual/error polynomial from :math:`\hat{H}`:
+
+      * ``'cg'``: for the CG method
+      * ``'minres'``: for the MINRES method
+      * ``'gmres'``: for the GMRES method
+    :param pseudo_type: One of
 
       * ``'auto'``: determines if :math:`\hat{H}` is non-normal, normal or
         Hermitian and uses the corresponding mode (see other options below).
@@ -251,7 +264,7 @@ def bound_pseudo(self, arnoldifyer, Wt,
         :math:`\begin{bmatrix}\hat{H}\\S_i\end{bmatrix}` is used
         (pseudospectrum has to be re computed for each iteration).
     '''
-    Hh, Rh, vdiff_norm = arnoldifyer.get(Wt)
+    Hh, Rh, q_norm, vdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
 
     # smallest singular value of E=W^*AW
     sigma_min = numpy.min(scipy.linalg.svdvals(arnoldifyer.E))
@@ -259,16 +272,16 @@ def bound_pseudo(self, arnoldifyer, Wt,
     if sigma_min <= WGW_norm:
         raise utils.AssumptionError(
             'sigma_min(W^*AW) > ||W^*GW|| not satisfied.')
-    eta = GW_norm / (sigma_min - WGW_norm)
-    #beta = 
+    eta = GW_norm/(sigma_min - WGW_norm)
+    beta = PWAW_norm*(eta*(b_norm + g_norm) + g_norm) + vdiff_norm
 
     # spectrum of Hh
     evals, evecs = scipy.linalg.eig(Hh)
     # norm of Hh
     Hh_norm = numpy.linalg.norm(Hh, 2)
 
-    # determine pseudo automatically
     def _auto():
+        '''determine pseudo automatically'''
         # is Hh Hermitian?
         if numpy.linalg.norm(Hh-Hh.T.conj(), 2) < 1e-14*Hh_norm:
             return 'hermitian'
@@ -279,8 +292,66 @@ def bound_pseudo(self, arnoldifyer, Wt,
 
         return 'nonnormal'
 
-    if pseudo == 'auto':
-        pseudo = _auto()
+    if pseudo_type == 'auto':
+        pseudo_type = _auto()
 
+    # compute residual norms of Hh*z=e_1*b_norm
+    if method == 'cg':
+        Solver = linsys.Cg
+    elif method == 'minres':
+        Solver = linsys.Minres
+    elif method == 'gmres':
+        Solver = linsys.Gmres
+    else:
+        raise ValueError('unknown method: {0}'.format(method))
+    solver = Solver(Hh, numpy.eye(Hh.shape[0], 1)*b_norm,
+                    tol=tol, maxiter=Hh.shape[0])
 
-    pass
+    import pseudopy
+    if pseudo_type == 'nonnormal':
+        # todo: construct bounding box!
+        raise NotImplementedError('nonnormal not yet implemented')
+    elif pseudo_type == 'normal':
+        pseudo = pseudopy.NormalEvals(evals)
+    elif pseudo_type == 'hermitian':
+        raise NotImplementedError('hermitian not yet implemented')
+
+    bounds = []
+    for i in range(1, len(solver.resnorms)):
+        res = solver.resnorms[i]*b_norm
+        epsilon = PWAW_norm*(eta*(Hh_norm + G_norm) + G_norm) \
+            + numpy.linalg.norm(Rh[:, :i], 2)
+        if pseudo_type == 'contain':
+            raise NotImplementedError('contain not yet implemented')
+        pseudo_terms = []
+        # TODO: compute polynomial from (harmonic) Ritz values
+        for delta in epsilon*numpy.logspace(0, delta_exp, delta_n)[1:]:
+            # get pseudospectrum paths
+            pseudo_path = pseudo.contour_paths(delta)
+
+            # compute roots of polynomial
+            if method == 'cg':
+                roots = scipy.linalg.eigvalsh(Hh[:i, :i])
+            else:
+                # TODO: more stable way of computing the roots of the MINRES
+                #       poly with exploitation of symmetry?
+                HhQ, HhR = scipy.linalg.qr(Hh[:i+1, :i], mode='economic')
+                roots_inv = scipy.linalg.eigvals(HhQ[:i, :].T.conj(), HhR)
+                roots = 1./roots_inv[numpy.abs(roots_inv) > 1e-14]
+
+            # compute polynomial
+            from numpy.polynomial import Polynomial as P
+            p = P.fromroots(roots)
+
+            # evaluate polynomial on points of path
+            polymax = numpy.max(p(pseudo_path.vertices()))
+
+            # compute THE bound
+            pseudo_terms.append(
+                pseudo_path.length()/(2*numpy.pi*delta)
+                * (epsilon/(delta-epsilon)*(q_norm + beta) + beta)
+                * polymax
+                )
+        # append minimal vound value
+        bounds.append(res + numpy.min(pseudo_terms))
+    return numpy.array(bounds)
