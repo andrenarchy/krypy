@@ -215,7 +215,7 @@ class Arnoldifyer(object):
         return Hh, Rh, q_norm, vdiff_norm, PWAW_norm
 
 
-def bound_pseudo(self, arnoldifyer, Wt, b_norm,
+def bound_pseudo(arnoldifyer, Wt, b_norm,
                  g_norm=0.,
                  G_norm=0.,
                  GW_norm=0.,
@@ -266,8 +266,9 @@ def bound_pseudo(self, arnoldifyer, Wt, b_norm,
     '''
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
 
-    # smallest singular value of E=W^*AW
-    sigma_min = numpy.min(scipy.linalg.svdvals(arnoldifyer.E))
+    # smallest singular value of W^*AW
+    WAW = Wt.T.conj().dot(arnoldifyer.J.dot(arnoldifyer.L.dot(Wt)))
+    sigma_min = numpy.min(scipy.linalg.svdvals(WAW))
 
     if sigma_min <= WGW_norm:
         raise utils.AssumptionError(
@@ -344,7 +345,7 @@ def bound_pseudo(self, arnoldifyer, Wt, b_norm,
             p = P.fromroots(roots)
 
             # evaluate polynomial on points of path
-            polymax = numpy.max(p(pseudo_path.vertices()))
+            polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
 
             # compute THE bound
             pseudo_terms.append(
