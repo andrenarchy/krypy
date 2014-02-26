@@ -60,13 +60,15 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
         Wt = rvecs[:, -2:]
 
     k = Wt.shape[1]
+    if k > 0:
+        Wt, _ = scipy.linalg.qr(Wt, mode='economic')
 
     # get Arnoldifyer instance
     arnoldifyer = krypy.deflation.Arnoldifyer(V, U, AU, H, B_, C, E,
                                               numpy.linalg.norm(P*v, 2),
                                               U.T.conj().dot(v))
     # arnoldify given Wt
-    Hh, Rh, vdiff_norm, Vh, F = arnoldifyer.get(Wt, full=True)
+    Hh, Rh, vdiff_norm, PWAW_norm, Vh, F = arnoldifyer.get(Wt, full=True)
 
     # perform checks
     W = VU.dot(Wt)
@@ -98,6 +100,8 @@ def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
         #                    8)
         pass
 
+    # check PWAW_norm
+    assert_almost_equal(PWAW_norm, numpy.linalg.norm(PW*numpy.eye(N), 2))
 
 
 if __name__ == '__main__':

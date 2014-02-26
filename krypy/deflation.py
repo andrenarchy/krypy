@@ -20,7 +20,12 @@ class ObliqueProjection(utils.Projection):
         (N, d) = U.shape
         self.A = utils.get_linearoperator((N, N), A)
         U, _ = utils.qr(U, ip_B=ip_B)
+
         self.U = U
+        '''Orthonormal basis of deflation space.
+
+        An orthonormalized basis of ``U`` with respect to provided inner
+        product.'''
 
         # apply adjoint operator to U
         self.AH_U = A.adj*U
@@ -100,16 +105,17 @@ class Arnoldifyer(object):
             # rank of R
             l = (numpy.abs(numpy.diag(R)) > 1e-14*self.A_norm).sum()
             Q1 = Q[:, :l]
-            R12 = R[:l, :]
+            self.R12 = R[:l, P_inv]
             # residual helper matrix
             self.N = numpy.c_[numpy.eye(l+n_-n, n_-n),
                               numpy.r_[B_[n:, :],
-                                       R12[:, P_inv]]
+                                       self.R12]
                               ].dot(
                 numpy.bmat([[numpy.zeros((d+n_-n, n)),
                              numpy.eye(d+n_-n)]]))
         else:
             Q1 = numpy.zeros((self.U.shape[0], 0))
+            self.R12 = numpy.zeros((0, 0))
             self.N = numpy.bmat([[numpy.zeros((n_-n, n)),
                                   numpy.eye(n_-n, n_-n)]])
 
@@ -121,7 +127,8 @@ class Arnoldifyer(object):
 
         :param Wt: the coefficients :math:`\tilde{W}` of the deflation vectors
           in the basis :math:`[V_n,U]` with ``Wt.shape == (n+d, k)``, i.e., the
-          deflation vectors are :math:`W=[V_n,U]\tilde{W}`.
+          deflation vectors are :math:`W=[V_n,U]\tilde{W}`. Must fulfill
+          :math:`\tilde{W}^*\tilde{W}=I_k`.
         :param full: (optional) should the full Arnoldi
           basis and the full perturbation be returned? Defaults to ``False``.
 
@@ -132,12 +139,15 @@ class Arnoldifyer(object):
             ``Rh.shape == (l, n+d-k)``.
           * ``vdiff_norm``: the norm of the difference of the initial vectors
             :math:`\tilde{v}-\hat{v}`.
+          * ``PWAW_norm``: norm of the projection
+            :math:`P_{\mathcal{W}^\perp,A\mathcal{W}}`.
           * ``Vh``: (if ``full == True``) the Arnoldi basis with ``Vh.shape ==
             (N, n+d-k)``.
           * ``F``: (if ``full == True``) the perturbation matrix
             :math:`F=-Z\hat{R}\hat{V}_n^* - \hat{V}_n\hat{R}^*Z^*`.
         '''
         n = self.n
+        n_ = self.n_
         d = self.d
         k = Wt.shape[1]
 
@@ -180,9 +190,97 @@ class Arnoldifyer(object):
         vdiff = self.N.dot(qt)
         vdiff_norm = 0 if vdiff.size == 0 else numpy.linalg.norm(vdiff, 2)
 
+        # compute norm of projection P_{W^\perp,AW}
+        if k > 0:
+            # compute coefficients of orthonormalized AW in the basis [V,Z]
+            Y = numpy.bmat([[numpy.eye(n_), self.B_],
+                            [numpy.zeros((d, n_)), self.E],
+                            [numpy.zeros((self.R12.shape[0], n_)), self.R12]])
+            YL_Q, _ = scipy.linalg.qr(Y.dot(self.L.dot(Wt)), mode='economic')
+
+            # compute <W,X> where X is an orthonormal basis of AW
+            WX = Wt.T.conj().dot(numpy.r_[YL_Q[:n, :],
+                                          YL_Q[n_:n_+d, :]])
+            PWAW_norm = 1./numpy.min(scipy.linalg.svdvals(WX))
+        else:
+            PWAW_norm = 1.
+
         if full:
             Vh = numpy.c_[self.V[:, :n], self.U].dot(Wto.dot(QT))
             F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
-            return Hh, Rh, vdiff_norm, Vh, F
-        return Hh, Rh, vdiff_norm
+            return Hh, Rh, vdiff_norm, PWAW_norm, Vh, F
+        return Hh, Rh, vdiff_norm, PWAW_norm
+
+
+def bound_pseudo(self, arnoldifyer, Wt,
+                 g_norm=0.,
+                 G_norm=0.,
+                 GW_norm=0.,
+                 WGW_norm=0.,
+                 pseudo='nonnormal'):
+    r'''Bound residual norms of next deflated system.
+
+    :param arnoldifyer: an instance of
+      :py:class:`~krypy.deflation.Arnoldifyer`.
+    :param Wt: coefficients :math:`\tilde{W}\in\C^{n+d,k}` of the
+      considered deflation vectors :math:`W` for the basis :math:`[V,U]`
+      where ``V=last_solver.V`` and ``U=last_P.U``, i.e.,
+      :math:`W=[V,U]\tilde{W}` and
+      :math:`\mathcal{W}=\operatorname{colspan}(W)`. Must fulfill
+      :math:`\tilde{W}^*\tilde{W}=I_k`.
+    :param b_norm: norm :math:`\|b\|` of right hand side.
+    :param g_norm: norm :math:`\|g\|` of difference :math:`g=c-b` of
+      right hand sides.
+    :param G_norm: norm :math:`\|G\|` of difference
+      :math:`G=B-A` of operators.
+    :param GW_norm: Norm :math:`\|G|_{\mathcal{W}}\|` of difference
+      :math:`G=B-A` of operators restricted to :math:`\mathcal{W}`.
+    :param WGW_norm: Norm :math:`\|\langle W,GW\rangle\|_2`.
+    :param pseudo: One of
+
+      * ``'auto'``: determines if :math:`\hat{H}` is non-normal, normal or
+        Hermitian and uses the corresponding mode (see other options below).
+      * ``'nonnormal'``: the pseudospectrum of the Hessenberg matrix
+        :math:`\hat{H}` is used (involves one computation of a pseudospectrum)
+      * ``'normal'``: the pseudospectrum of :math:`\hat{H}` is computed
+        efficiently by the union of circles around the eigenvalues.
+      * ``'hermitian'``: the pseudospectrum of :math:`\hat{H}` is computed
+        efficiently by the union of intervals around the eigenvalues.
+      * ``'contain'``: the pseudospectrum of the extended Hessenberg matrix
+        :math:`\begin{bmatrix}\hat{H}\\S_i\end{bmatrix}` is used
+        (pseudospectrum has to be re computed for each iteration).
+    '''
+    Hh, Rh, vdiff_norm = arnoldifyer.get(Wt)
+
+    # smallest singular value of E=W^*AW
+    sigma_min = numpy.min(scipy.linalg.svdvals(arnoldifyer.E))
+
+    if sigma_min <= WGW_norm:
+        raise utils.AssumptionError(
+            'sigma_min(W^*AW) > ||W^*GW|| not satisfied.')
+    eta = GW_norm / (sigma_min - WGW_norm)
+    #beta = 
+
+    # spectrum of Hh
+    evals, evecs = scipy.linalg.eig(Hh)
+    # norm of Hh
+    Hh_norm = numpy.linalg.norm(Hh, 2)
+
+    # determine pseudo automatically
+    def _auto():
+        # is Hh Hermitian?
+        if numpy.linalg.norm(Hh-Hh.T.conj(), 2) < 1e-14*Hh_norm:
+            return 'hermitian'
+
+        # is Hh normal?
+        if numpy.linalg.cond(evecs, 2) < 1+1e-14:
+            return 'normal'
+
+        return 'nonnormal'
+
+    if pseudo == 'auto':
+        pseudo = _auto()
+
+
+    pass
