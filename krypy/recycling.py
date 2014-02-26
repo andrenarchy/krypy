@@ -55,6 +55,9 @@ class _RecyclingSolver(object):
         :param ip_B: (optional) defines the inner product, see
           :py:meth:`~krypy.utils.inner`.
         :param d_max: maximum number of deflation vectors.
+
+        After a run of the provided ``Solver``, the resulting ``Solver``
+        instance is available in the attribute ``last_solver``.
         '''
         self.Solver = Solver
         self.projection = projection
@@ -64,16 +67,26 @@ class _RecyclingSolver(object):
         self.d_max = d_max
         self.strategy = strategy
 
-        # timings have to be filled after each run of solve():
-        # a dictionary holding the time needed for applying ``A``, ``M``,
-        # ``Ml``, ``Mr``, ``ip``, ``axpy``.
-        self.timings = None
+        self.last_timings = None
+        '''Timings from last run of :py:meth:`solve`.
+
+        Timings have to be filled after each run of :py:meth:`solve` and has
+        to be a dictionary holding the time needed for applying ``A``, ``M``,
+        ``Ml``, ``Mr``, ``ip``, ``axpy``.'''
 
         # Solver instance of the last run
         self.last_solver = None
+        '''``Solver`` instance from last run of :py:meth:`solve`.
 
-        # Projection that was used in the last run
+        Instance of ``Solver`` that resulted from the last call to
+        :py:meth:`solve`. Initialized with ``None`` before the first run.'''
+
         self.last_P = None
+        '''Projection instance from last run of :py:meth:`solve`.
+
+        Instance of :py:class:`~krypy.deflation.ObliqueProjection` (if
+        ``projection=='oblique'``) that was used in the last call to
+        :py:meth:`solve`. Initialized with ``None`` before the first run.'''
 
     def _get_deflation_basis(self, defl_extra_vecs, strategy_kwargs):
         if strategy_kwargs is None:
@@ -133,25 +146,25 @@ class _RecyclingSolver(object):
         # get deflation basis
         U = self._get_deflation_basis(defl_extra_vecs, strategy_kwargs)
 
-        P = None
-        # initialize deflation
-        if U is not None:
-            # get projection
-            if self.projection == 'oblique':
-                P = deflation.ObliqueProjection(pre.Ml*pre.A*pre.Mr, U,
-                                                ip_B=pre.ip_B)
-            elif self.projection == 'orthogonal':
-                raise NotImplementedError('orthogonal projections are not yet '
-                                          'implemented.')
-            else:
-                raise ValueError('projection {0} is unknown.'
-                                 .format(self.projection))
+        # set deflation space to zero-dim deflation space if U is None
+        if U is None:
+            U = numpy.zeros((b.shape[0], 0))
+
+        # initialize projection for deflation
+        if self.projection == 'oblique':
+            P = deflation.ObliqueProjection(pre.Ml*pre.A*pre.Mr, U,
+                                            ip_B=pre.ip_B)
+        elif self.projection == 'orthogonal':
+            raise NotImplementedError('orthogonal projections are not yet '
+                                      'implemented.')
+        else:
+            raise ValueError('projection {0} is unknown.'
+                             .format(self.projection))
 
         # set up deflation via right preconditioner and adapted initial guess
         solver_kwargs = dict(kwargs)
-        if P is not None:
-            solver_kwargs['Mr'] = pre.Mr * P.operator_complement()
-            solver_kwargs['x0'] = P.get_x0(pre)
+        solver_kwargs['Mr'] = pre.Mr * P.operator_complement()
+        solver_kwargs['x0'] = P.get_x0(pre)
         solver_kwargs['store_arnoldi'] = True
 
         # solve deflated linear system
@@ -167,12 +180,14 @@ class _RecyclingSolver(object):
     def _estimate_time(self, nsteps, d):
         '''Estimate time needed to run nsteps iterations with deflation
 
+        Uses timings from :py:attr:`last_timings`.
+
         :param nsteps: number of iterations.
         :param d: number of deflation vectors.
         '''
-        if not self.timings is None:
-            raise RuntimeError('timinigs not yet present. Called before first '
-                               'run of solve()?')
+        if not self.last_timings is None:
+            raise RuntimeError('last_timinigs not yet present. Called before '
+                               'first run of solve()?')
 
         solver_ops = self.Solver.operations(nsteps)
         proj_ops = {'A': 1,
@@ -185,7 +200,7 @@ class _RecyclingSolver(object):
         time = 0.
         for ops in [solver_ops, proj_ops]:
             for op, count in ops.iteritems():
-                time += self.timings[op]*count
+                time += self.last_timings[op]*count
         return time
 
 
