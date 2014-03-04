@@ -230,7 +230,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
 
     :param arnoldifyer: an instance of
       :py:class:`~krypy.deflation.Arnoldifyer`.
-    :param Wt: coefficients :math:`\tilde{W}\in\C^{n+d,k}` of the
+    :param Wt: coefficients :math:`\tilde{W}\in\mathbb{C}^{n+d,k}` of the
       considered deflation vectors :math:`W` for the basis :math:`[V,U]`
       where ``V=last_solver.V`` and ``U=last_P.U``, i.e.,
       :math:`W=[V,U]\tilde{W}` and
