@@ -22,13 +22,14 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
-__all__ = ['AssumptionError', 'BoundCG', 'BoundMinres', 'ConvergenceError',
-           'Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
-           'MatrixLinearOperator', 'Projection', 'Timer', 'angles', 'arnoldi',
-           'arnoldi_res', 'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
-           'get_linearoperator', 'hegedus', 'inner', 'ip_euclid', 'norm',
-           'norm_MMlr', 'norm_squared', 'orthonormality', 'qr', 'ritz',
-           'shape_vec', 'shape_vecs', 'strakos']
+__all__ = ['AssumptionError', 'Arnoldi', 'BoundCG', 'BoundMinres',
+           'ConvergenceError', 'Givens', 'House', 'IdentityLinearOperator',
+           'LinearOperator', 'MatrixLinearOperator', 'Projection', 'Timer',
+           'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected',
+           'bound_perturbed_gmres', 'gap', 'get_linearoperator', 'hegedus',
+           'inner', 'ip_euclid', 'norm', 'norm_MMlr', 'norm_squared',
+           'orthonormality', 'qr', 'ritz', 'shape_vec', 'shape_vecs',
+           'strakos']
 
 
 def find_common_dtype(*args):
