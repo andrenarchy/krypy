@@ -1831,6 +1831,18 @@ class NormalizedRootsPolynomial(object):
             raise ValueError('one-dimensional array of roots expected.')
         self.roots = roots
 
+    def minmax_candidates(self):
+        '''Get points where derivative is zero.
+
+        Useful for computing the extrema of the polynomial over an interval if
+        the polynomial has real roots. In this case, the maximum is attained
+        for one of the interval endpoints or a point from the result of this
+        function that is contained in the interval.
+        '''
+        from numpy.polynomial import Polynomial as P
+        p = P.fromroots(self.roots)
+        return p.deriv(1).roots()
+
     def __call__(self, points):
         '''Evaluate polyonmial at given points.
 

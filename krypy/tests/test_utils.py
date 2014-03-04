@@ -640,6 +640,16 @@ def run_NormalizedRootsPolynomial(roots):
     # check if polynomial is normalized at origin
     assert_equal(p(0), 1)
 
+    if numpy.isrealobj(roots):
+        interval = numpy.linspace(roots[0], roots[1], 100)
+        candidates = p.minmax_candidates()
+        c = [roots[0], roots[1]]
+        for candidate in candidates:
+            if roots[0] <= candidate <= roots[1]:
+                c.append(candidate)
+        assert_almost_equal(numpy.max(numpy.abs(p(interval))),
+                            numpy.max(numpy.abs(p(c))), decimal=4)
+
 
 if __name__ == '__main__':
     import nose
