@@ -24,8 +24,9 @@ except ImportError:
 
 __all__ = ['AssumptionError', 'Arnoldi', 'BoundCG', 'BoundMinres',
            'ConvergenceError', 'Givens', 'House', 'IdentityLinearOperator',
-           'LinearOperator', 'MatrixLinearOperator', 'Projection', 'Timer',
-           'angles', 'arnoldi', 'arnoldi_res', 'arnoldi_projected',
+           'LinearOperator', 'MatrixLinearOperator',
+           'NormalizedRootsPolynomial', 'Projection', 'Timer', 'angles',
+           'arnoldi', 'arnoldi_res', 'arnoldi_projected',
            'bound_perturbed_gmres', 'gap', 'get_linearoperator', 'hegedus',
            'inner', 'ip_euclid', 'norm', 'norm_MMlr', 'norm_squared',
            'orthonormality', 'qr', 'ritz', 'shape_vec', 'shape_vecs',
