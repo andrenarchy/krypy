@@ -1810,3 +1810,56 @@ def bound_perturbed_gmres(pseudo, p, epsilon, deltas):
                      * paths.length()/(2*numpy.pi*delta)
                      * supremum)
     return bound
+
+
+class NormalizedRootsPolynomial(object):
+    def __init__(self, roots):
+        r'''A polynomial with specified roots and p(0)=1.
+
+        Represents the polynomial
+
+        .. math::
+
+            p(\lambda) = \prod_{i=1}^n \left(1-\frac{\lambda}{\theta_i}\right).
+
+        :param roots: array with roots :math:`\theta_1,\dots,\theta_n` of the
+          polynomial and ``roots.shape==(n,)``.
+        '''
+        # check input
+        roots = numpy.asarray(roots)
+        if len(roots.shape) != 1:
+            raise ValueError('one-dimensional array of roots expected.')
+        self.roots = roots
+
+    def __call__(self, points):
+        '''Evaluate polyonmial at given points.
+
+        :param points: a point :math:`x` or array of points
+          :math:`x_1,\dots,x_m` with ``points.shape==(m,)``.
+        :returns: :math:`p(x)` or array of shape ``(m,)`` with
+          :math:`p(x_1),\dots,p(x_m)`.
+        '''
+        # check input
+        p = numpy.asarray(points)
+        if len(p.shape) > 1:
+            raise ValueError('scalar or one-dimensional array of points '
+                             'expected.')
+        n = self.roots.shape[0]
+        vals = 1 - p/self.roots.reshape(n, 1)
+
+        # prevent under/overflow by multiplying interlaced large and small
+        # values
+        for j in range(vals.shape[1]):
+            sort_tmp = numpy.argsort(numpy.abs(vals[:, j]))
+            sort = numpy.zeros((n,), dtype=numpy.int)
+            mid = numpy.ceil(float(n)/2)
+            sort[::2] = sort_tmp[:mid]
+            sort[1::2] = sort_tmp[mid:][::-1]
+            vals[:, j] = vals[sort, j]
+
+        # form product of each column
+        vals = numpy.prod(vals, axis=0)
+
+        if numpy.isscalar(points):
+            return numpy.asscalar(vals)
+        return vals
