@@ -767,7 +767,7 @@ class Arnoldi:
           ``ip_B`` has to be ``None`` if ``ortho=='house'``. It's unclear to me
           (andrenarchy), how a variant of the Householder QR algorithm can be
           used with a non-Euclidean inner product. Compare
-            http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
+          http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
         """
         N = v.shape[0]
 

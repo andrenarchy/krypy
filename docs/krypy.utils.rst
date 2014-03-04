@@ -7,4 +7,6 @@ process of solving linear algebraic systems.
 .. automodule:: krypy.utils
     :members:
     :undoc-members:
+    :special-members:
+    :exclude-members: __dict__, __weakref__, __module__, __init__
     :show-inheritance:
