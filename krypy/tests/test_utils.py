@@ -621,6 +621,26 @@ def test_BoundMinres():
     assert(b.get_step(2e-3) == 8)
 
 
+def test_NormalizedRootsPolynomial():
+    rs = [[1, 2],
+          [1, 1j],
+          [1, 2, 1e8],
+          [1, 2, 1e8, 1e8+1e-3]
+          ]
+    for roots in rs:
+        yield run_NormalizedRootsPolynomial, roots
+
+
+def run_NormalizedRootsPolynomial(roots):
+    p = krypy.utils.NormalizedRootsPolynomial(roots)
+
+    # check if roots are exactly (!) zero
+    assert_array_equal(p(roots), numpy.zeros((len(roots),)))
+
+    # check if polynomial is normalized at origin
+    assert_equal(p(0), 1)
+
+
 if __name__ == '__main__':
     import nose
     nose.main()
