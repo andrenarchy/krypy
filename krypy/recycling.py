@@ -4,17 +4,20 @@ import scipy.linalg
 from . import utils, linsys, deflation
 
 
-class _RecyclingStrategy(object):
-    def __init__(self, last_solver, last_P):
-        pass
-
-
 class _RitzCandidatesGenerator(object):
     '''Abstract base class for candidate set generation.'''
-    def generate(self, ritz):
-        for i in range(self.max_vectors):
-            yield set(range(i))
-        pass
+    def generate(self, solver, P, ritz):
+        raise NotImplementedError('abstract base class cannot be instanciated')
+
+
+class SmallRitz(_RitzCandidatesGenerator):
+    def __init__(self, max_vectors=numpy.Inf):
+        self.max_vectors = max_vectors
+
+    def generate(self, solver, P, ritz):
+        sort = numpy.argsort(ritz.values)
+        for i in range(min(self.max_vectors, len(sort))):
+            yield sort[:i]
 
 
 class _DeflationVectorFactory(object):
@@ -24,18 +27,33 @@ class _DeflationVectorFactory(object):
 
         :returns: numpy.array of shape ``(N,k)``
         '''
-        pass
+        raise NotImplementedError('abstract base class cannot be instanciated')
+
+
+class RitzEvaluator(object):
+    def __init__(self, Bound, tol):
+        self.Bound = Bound
+        self.tol = tol
+
+    def evaluate(self, solver, P, ritz, candidate):
+        indices = list(set(range(len(ritz.values))).difference(set(candidate)))
+        bound = self.Bound(ritz.values[indices])
+        return bound.get_steps(self.tol)
 
 
 class RitzFactory(_DeflationVectorFactory):
     '''Select Ritz vectors.'''
-    def __init__(self, candidate_generator, candidate_evaluator):
+    def __init__(self, candidate_generator, candidate_evaluator,
+                 mode='ritz',
+                 hermitian=False):
         self.candidate_generator = candidate_generator
         self.candidate_evaluator = candidate_evaluator
+        self.mode = mode
+        self.hermitian = hermitian
 
     def get(self, solver, P):
-        ritz = Ritz(solver.V, solver.H)
-        return ritz.V[:, self._get_best_candidate(solver, P, ritz)]
+        ritz = Ritz(solver, P, mode=self.mode, hermitian=self.hermitian)
+        return ritz.get_vectors(self._get_best_candidate(solver, P, ritz))
 
     def _get_best_candidate(self, solver, P, ritz):
         '''Return candidate set with least goal functional.'''
@@ -44,46 +62,67 @@ class RitzFactory(_DeflationVectorFactory):
         # evaluate candidate
         for candidate in self.candidate_generator.generate(solver, P, ritz):
             try:
-                evaluations[candidate] = \
-                    self.candidates_evaluator.evaluate(solver, P, ritz,
-                                                       candidate)
+                evaluations[frozenset(candidate)] = \
+                    self.candidate_evaluator.evaluate(solver, P, ritz,
+                                                      candidate)
             except utils.AssumptionError:
                 # no evaluation possible -> move on
                 pass
 
-        return min(evaluations, key=evaluations.get)
+        if evaluations:
+            return list(min(evaluations, key=evaluations.get))
+        return []
 
 
-def _get_ritz(solver, P, mode='ritz', hermitian=False):
-    n = solver.iter
-    V = solver.V[:, :n+1]
-    N = V.shape[0]
-    H_ = solver.H[:n+1, :n]
-    H = H_[:n, :]
-    if P is not None and P.U is not None:
-        U = P.U
-        A = P.A
-    else:
-        U = numpy.zeros((N, 0))
-    B_ = utils.inner(V, A*U, ip_B=solver.ip_B)
-    B = B_[:-1, :]
-    E = utils.inner(U, A*U, ip_B=solver.ip_B)
-    C = utils.inner(U, A*V[:, :-1], ip_B=solver.ip_B)
+class Ritz(object):
+    def __init__(self, solver, P, mode='ritz', hermitian=False):
+        self.solver = solver
+        self.P = P
 
-    # build block matrix
-    M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
-                    [C, E]])
+        n = solver.iter
+        V = solver.V[:, :n+1]
+        N = V.shape[0]
+        H_ = solver.H[:n+1, :n]
+        H = H_[:n, :]
+        if P is not None and P.U is not None:
+            U = P.U
+            A = P.A
+        else:
+            U = numpy.zeros((N, 0))
 
-    # solve eigenvalue problem
-    if hermitian:
-        ritz_vals, Y = scipy.linalg.eigh(M)
-    else:
-        ritz_vals, Y = scipy.linalg.eig(M)
+        # TODO: optimize
+        B_ = utils.inner(V, A*U, ip_B=solver.ip_B)
+        B = B_[:-1, :]
+        E = utils.inner(U, A*U, ip_B=solver.ip_B)
+        if hermitian:
+            C = B.T.conj()
+        else:
+            C = utils.inner(U, A*V[:, :-1], ip_B=solver.ip_B)
 
-    ritz_vecs = numpy.c_[V[:, :-1], U].dot(Y)
-    ritz_res = A * ritz_vecs - ritz_vecs * ritz_vals
+        if mode == 'ritz':
+            # build block matrix
+            M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
+                            [C, E]])
 
-    return ritz_vals, ritz_vecs, ritz_res
+            # solve eigenvalue problem
+            eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
+            self.values, self.coeffs = eig(M)
+
+            # TODO: compute residual norms
+
+        elif mode == 'harmonic':
+            # TODO
+            raise NotImplementedError('mode {0} not implemented'.format(mode))
+        else:
+            raise ValueError('mode {0} not known'.format(mode))
+
+    def get_vectors(self, indices=None):
+        coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
+        return numpy.c_[self.solver.V[:, :-1], self.P.U].dot(coeffs)
+
+    def get_explicit_residual(self):
+        ritz_vecs = self.get_vecs()
+        return self.solver.A * ritz_vecs - ritz_vecs * self.ritz_values
 
 
 class _RecyclingSolver(object):
