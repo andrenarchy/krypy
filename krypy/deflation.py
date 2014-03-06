@@ -4,10 +4,9 @@ import scipy.linalg
 from . import utils, linsys
 
 
-class ObliqueProjection(utils.Projection):
-    def __init__(self, A, U, ip_B=None,
-                 **kwargs):
-        '''Oblique projection for (right) deflation.
+class _Projection(utils.Projection):
+    def __init__(self, A, U, ip_B, **kwargs):
+        '''Abstract base class of a projection for deflation.
 
         :param A: the linear operator (has to be compatible with
           :py:meth:`~krypy.utils.get_linearoperator`).
@@ -15,6 +14,15 @@ class ObliqueProjection(utils.Projection):
 
         All parameters of :py:class:`~krypy.utils.Projection` are valid except
         ``X`` and ``Y``.
+        '''
+        raise NotImplementedError('abstract base class cannot be instanciated')
+
+
+class ObliqueProjection(_Projection):
+    def __init__(self, A, U, ip_B=None,
+                 **kwargs):
+        '''Oblique projection for (right) deflation.
+
         '''
         # check and store input
         (N, d) = U.shape
@@ -356,3 +364,56 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         # append minimal vound value
         bounds.append(res + numpy.min(pseudo_terms))
     return numpy.array(bounds)
+
+
+class Ritz(object):
+    def __init__(self, solver, P, mode='ritz', hermitian=False):
+        self.solver = solver
+        self.P = P
+
+        n = solver.iter
+        V = solver.V[:, :n+1]
+        N = V.shape[0]
+        H_ = solver.H[:n+1, :n]
+        H = H_[:n, :]
+        if P is not None and P.U is not None:
+            if not isinstance(P, ObliqueProjection):
+                raise ValueError('P is invalid')
+            U = P.U
+            A = P.A
+        else:
+            U = numpy.zeros((N, 0))
+
+        # TODO: optimize
+        B_ = utils.inner(V, A*U, ip_B=solver.ip_B)
+        B = B_[:-1, :]
+        E = utils.inner(U, A*U, ip_B=solver.ip_B)
+        if hermitian:
+            C = B.T.conj()
+        else:
+            C = utils.inner(U, A*V[:, :-1], ip_B=solver.ip_B)
+
+        if mode == 'ritz':
+            # build block matrix
+            M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
+                            [C, E]])
+
+            # solve eigenvalue problem
+            eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
+            self.values, self.coeffs = eig(M)
+
+            # TODO: compute residual norms
+
+        elif mode == 'harmonic':
+            # TODO
+            raise NotImplementedError('mode {0} not implemented'.format(mode))
+        else:
+            raise ValueError('mode {0} not known'.format(mode))
+
+    def get_vectors(self, indices=None):
+        coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
+        return numpy.c_[self.solver.V[:, :-1], self.P.U].dot(coeffs)
+
+    def get_explicit_residual(self):
+        ritz_vecs = self.get_vectors()
+        return self.solver.A * ritz_vecs - ritz_vecs * self.values

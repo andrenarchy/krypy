@@ -4,152 +4,26 @@ import scipy.linalg
 from .. import utils, linsys, deflation
 
 
-class _RitzCandidatesGenerator(object):
-    '''Abstract base class for candidate set generation.'''
-    def generate(self, solver, P, ritz):
-        raise NotImplementedError('abstract base class cannot be instanciated')
-
-
-class SmallRitz(_RitzCandidatesGenerator):
-    def __init__(self, max_vectors=numpy.Inf):
-        self.max_vectors = max_vectors
-
-    def generate(self, solver, P, ritz):
-        sort = numpy.argsort(ritz.values)
-        for i in range(min(self.max_vectors, len(sort))):
-            yield sort[:i]
-
-
-class _DeflationVectorFactory(object):
-    '''Abstract base class for selectors.'''
-    def get(self, solver, P):
-        '''Get deflation vectors.
-
-        :returns: numpy.array of shape ``(N,k)``
-        '''
-        raise NotImplementedError('abstract base class cannot be instanciated')
-
-
-class RitzEvaluator(object):
-    def __init__(self, Bound, tol):
-        self.Bound = Bound
-        self.tol = tol
-
-    def evaluate(self, solver, P, ritz, candidate):
-        indices = list(set(range(len(ritz.values))).difference(set(candidate)))
-        bound = self.Bound(ritz.values[indices])
-        return bound.get_steps(self.tol)
-
-
-class RitzFactory(_DeflationVectorFactory):
-    '''Select Ritz vectors.'''
-    def __init__(self, candidate_generator, candidate_evaluator,
-                 mode='ritz',
-                 hermitian=False):
-        self.candidate_generator = candidate_generator
-        self.candidate_evaluator = candidate_evaluator
-        self.mode = mode
-        self.hermitian = hermitian
-
-    def get(self, solver, P):
-        ritz = Ritz(solver, P, mode=self.mode, hermitian=self.hermitian)
-        return ritz.get_vectors(self._get_best_candidate(solver, P, ritz))
-
-    def _get_best_candidate(self, solver, P, ritz):
-        '''Return candidate set with least goal functional.'''
-        evaluations = {}
-
-        # evaluate candidate
-        for candidate in self.candidate_generator.generate(solver, P, ritz):
-            try:
-                evaluations[frozenset(candidate)] = \
-                    self.candidate_evaluator.evaluate(solver, P, ritz,
-                                                      candidate)
-            except utils.AssumptionError:
-                # no evaluation possible -> move on
-                pass
-
-        if evaluations:
-            return list(min(evaluations, key=evaluations.get))
-        return []
-
-
-class Ritz(object):
-    def __init__(self, solver, P, mode='ritz', hermitian=False):
-        self.solver = solver
-        self.P = P
-
-        n = solver.iter
-        V = solver.V[:, :n+1]
-        N = V.shape[0]
-        H_ = solver.H[:n+1, :n]
-        H = H_[:n, :]
-        if P is not None and P.U is not None:
-            U = P.U
-            A = P.A
-        else:
-            U = numpy.zeros((N, 0))
-
-        # TODO: optimize
-        B_ = utils.inner(V, A*U, ip_B=solver.ip_B)
-        B = B_[:-1, :]
-        E = utils.inner(U, A*U, ip_B=solver.ip_B)
-        if hermitian:
-            C = B.T.conj()
-        else:
-            C = utils.inner(U, A*V[:, :-1], ip_B=solver.ip_B)
-
-        if mode == 'ritz':
-            # build block matrix
-            M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
-                            [C, E]])
-
-            # solve eigenvalue problem
-            eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
-            self.values, self.coeffs = eig(M)
-
-            # TODO: compute residual norms
-
-        elif mode == 'harmonic':
-            # TODO
-            raise NotImplementedError('mode {0} not implemented'.format(mode))
-        else:
-            raise ValueError('mode {0} not known'.format(mode))
-
-    def get_vectors(self, indices=None):
-        coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
-        return numpy.c_[self.solver.V[:, :-1], self.P.U].dot(coeffs)
-
-    def get_explicit_residual(self):
-        ritz_vecs = self.get_vecs()
-        return self.solver.A * ritz_vecs - ritz_vecs * self.ritz_values
-
-
 class _RecyclingSolver(object):
     '''Base class for recycling solvers.'''
     def __init__(self, Solver,
-                 projection='oblique',
-                 projection_kwargs=None,
-                 ip_B=None,
-                 d_max=None,
-                 strategy='aggressive'
+                 Projection=deflation.ObliqueProjection,
+                 projection_kwargs=None
                  ):
         '''Initialize recycling solver base.
 
         :param ip_B: (optional) defines the inner product, see
           :py:meth:`~krypy.utils.inner`.
-        :param d_max: maximum number of deflation vectors.
 
         After a run of the provided ``Solver``, the resulting ``Solver``
         instance is available in the attribute ``last_solver``.
         '''
-        self.Solver = Solver
-        self.projection = projection
-        self.projection_kwargs = {} if projection_kwargs is None \
+        self._Solver = Solver
+        if not issubclass(Projection, deflation._Projection):
+            raise ValueError('Projection invalid')
+        self._Projection = Projection
+        self._projection_kwargs = {} if projection_kwargs is None \
             else projection_kwargs
-        self.ip_B = ip_B
-        self.d_max = d_max
-        self.strategy = strategy
 
         self.last_timings = None
         '''Timings from last run of :py:meth:`solve`.
@@ -158,7 +32,6 @@ class _RecyclingSolver(object):
         to be a dictionary holding the time needed for applying ``A``, ``M``,
         ``Ml``, ``Mr``, ``ip``, ``axpy``.'''
 
-        # Solver instance of the last run
         self.last_solver = None
         '''``Solver`` instance from last run of :py:meth:`solve`.
 
@@ -199,8 +72,7 @@ class _RecyclingSolver(object):
         return U
 
     def solve(self, A, b,
-              defl_extra_vecs=None,
-              strategy_kwargs=None,
+              deflation_vector_factory=None,
               **kwargs):
         '''Solve the given linear system with recycling.
 
@@ -213,9 +85,8 @@ class _RecyclingSolver(object):
         :param A: the linear operator (has to be compatible with
           :py:meth:`~krypy.utils.get_linearoperator`).
         :param b: the right hand side with length ``N``.
-        :param defl_extra_vecs: vectors to include for deflation additional
-          to automatically determined vectors.
-        :param strategy_kwargs: arguments for the deflation vector selection.
+        :param deflation_vector_factory: (optional) An instance of a subclass
+          of :py:class:`krypy.recycling.factories._DeflationVectorFactory`.
 
         All remaining keyword arguments are passed to the solver.
 
@@ -223,27 +94,18 @@ class _RecyclingSolver(object):
           solution. The approximate solution is available under the attribute
           ``xk``.
         '''
-
         # check and process parameters
         pre = linsys._KrylovSolver(A, b, **kwargs)
 
-        # get deflation basis
-        U = self._get_deflation_basis(defl_extra_vecs, strategy_kwargs)
-
-        # set deflation space to zero-dim deflation space if U is None
-        if U is None:
+        # get deflation vectors
+        if self.last_solver is None or deflation_vector_factory is None:
             U = numpy.zeros((b.shape[0], 0))
+        else:
+            U = deflation_vector_factory(self.last_solver, self.last_P)
 
         # initialize projection for deflation
-        if self.projection == 'oblique':
-            P = deflation.ObliqueProjection(pre.Ml*pre.A*pre.Mr, U,
-                                            ip_B=pre.ip_B)
-        elif self.projection == 'orthogonal':
-            raise NotImplementedError('orthogonal projections are not yet '
-                                      'implemented.')
-        else:
-            raise ValueError('projection {0} is unknown.'
-                             .format(self.projection))
+        P = self._Projection(pre.Ml*pre.A*pre.Mr, U,
+                             ip_B=pre.ip_B)
 
         # set up deflation via right preconditioner and adapted initial guess
         solver_kwargs = dict(kwargs)
