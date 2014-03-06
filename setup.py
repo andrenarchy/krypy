@@ -3,15 +3,16 @@ import os
 from distutils.core import setup
 import codecs
 
-
 # shamelessly copied from VoroPy
 def read(fname):
     return codecs.open(os.path.join(os.path.dirname(__file__), fname),
                        encoding='utf-8').read()
 
+from krypy import __version__
+
 setup(name='krypy',
-      packages=['krypy'],
-      version='2.0.0a1',
+      packages=['krypy', 'krypy.recycling'],
+      version=__version__,
       description='Krylov subspace methods for linear algebraic systems',
       long_description=read('README.md'),
       author='André Gaul',
