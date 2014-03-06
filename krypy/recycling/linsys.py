@@ -1,7 +1,7 @@
 # -*- coding: utf8 -*-
 import numpy
 import scipy.linalg
-from . import utils, linsys, deflation
+from .. import utils, linsys, deflation
 
 
 class _RitzCandidatesGenerator(object):
