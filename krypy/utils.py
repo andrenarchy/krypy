@@ -738,6 +738,8 @@ class Arnoldi:
                  maxiter=None,
                  ortho='mgs',
                  M=None,
+                 Mv=None,
+                 Mv_norm=None,
                  ip_B=None
                  ):
         """Arnoldi algorithm.
@@ -806,12 +808,21 @@ class Arnoldi:
                 self.reorthos = 1
             if self.M is not None:
                 p = v
-                v = self.M*p
-                self.vnorm = norm(p, v, ip_B=ip_B)
+                if Mv is None:
+                    v = self.M*p
+                else:
+                    v = Mv
+                if Mv_norm is None:
+                    self.vnorm = norm(p, v, ip_B=ip_B)
+                else:
+                    self.vnorm = Mv_norm
                 if self.vnorm > 0:
                     self.P[:, [0]] = p / self.vnorm
             else:
-                self.vnorm = norm(v, ip_B=ip_B)
+                if Mv_norm is None:
+                    self.vnorm = norm(v, ip_B=ip_B)
+                else:
+                    self.vnorm = Mv_norm
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
         if self.vnorm > 0:

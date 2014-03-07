@@ -69,6 +69,7 @@ class LinearSystem(object):
         self.M = utils.get_linearoperator(shape, M)
         self.Ml = utils.get_linearoperator(shape, Ml)
         self.Mr = utils.get_linearoperator(shape, Mr)
+        self.MlAMr = self.Ml*self.A*self.Mr
         self.ip_B = ip_B
 
         # process vectors
@@ -375,7 +376,7 @@ class Cg(_KrylovSolver):
     errors, cf. chapter 5.9 in [LieS13]_.
 
     '''
-    def __init__(self, linear_system, *args, **kwargs):
+    def __init__(self, linear_system, **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
@@ -385,7 +386,7 @@ class Cg(_KrylovSolver):
                 not linear_system.positive_definite:
             warnings.warn('Cg applied to a non-self-adjoint or non-definite '
                           'linear system. Consider using Minres or Gmres.')
-        super(Cg, self).__init__(linear_system, *args, **kwargs)
+        super(Cg, self).__init__(linear_system, **kwargs)
 
     def _solve(self):
         N = self.linear_system.N
@@ -547,34 +548,37 @@ class Minres(_KrylovSolver):
 
     * ``lanczos``: the Lanczos relation (an instance of :py:class:`Arnoldi`).
     '''
-    def __init__(self, A, b, ortho='lanczos', **kwargs):
+    def __init__(self, linear_system, ortho='lanczos', **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
         above.
         '''
-        super(Minres, self).__init__(A, b, **kwargs)
-        self._solve(ortho=ortho)
+        if not linear_system.self_adjoint or \
+                not linear_system.positive_definite:
+            warnings.warn('Cg applied to a non-self-adjoint or non-definite '
+                          'linear system. Consider using Minres or Gmres.')
+        self.ortho = ortho
+        super(Minres, self).__init__(linear_system, **kwargs)
 
-    def _solve(self, ortho):
-        N = self.b.shape[0]
+    def _solve(self):
+        N = self.linear_system.N
 
         # initialize Lanczos
-        self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
-                                     self.Ml*(self.b - self.A*self.x0),
+        self.lanczos = utils.Arnoldi(self.linear_system.MlAMr,
+                                     self.Mlr0,
                                      maxiter=self.maxiter,
-                                     ortho=ortho,
-                                     M=self.M,
-                                     ip_B=self.ip_B
+                                     ortho=self.ortho,
+                                     M=self.linear_system.M,
+                                     Mv=self.MMlr0,
+                                     Mv_norm=self.MMlr0_norm,
+                                     ip_B=self.linear_system.ip_B
                                      )
-
-        # prepare
-        self._prepare(self.lanczos.vnorm)
 
         # Necessary for efficient update of yk:
         W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
         # some small helpers
-        y = [self.norm_MMlr0, 0]  # first entry is (updated) residual
+        y = [self.MMlr0_norm, 0]  # first entry is (updated) residual
         G2 = None                 # old givens rotation
         G1 = None                 # even older givens rotation ;)
 
@@ -612,15 +616,15 @@ class Minres(_KrylovSolver):
             yk = yk + y[0] * z
             y = [y[1], 0]
 
-            self._compute_norms(yk, numpy.abs(y[0]))
+            self._finalize_iteration(yk, numpy.abs(y[0]))
 
         # compute solution if not yet done
         if self.xk is None:
-            self.xk = self._compute_xk(yk)
+            self.xk = self._get_xk(yk)
 
         # store arnoldi?
         if self.store_arnoldi:
-            if self.M:
+            if self.linear_system.M:
                 self.V, self.H, self.P = self.lanczos.get()
             else:
                 self.V, self.H = self.lanczos.get()
