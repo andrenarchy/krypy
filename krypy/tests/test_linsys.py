@@ -2,6 +2,8 @@ import krypy
 import krypy.tests.test_utils as test_utils
 import numpy
 import itertools
+from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
+    assert_array_equal, assert_equal
 
 
 def dictproduct(d):
@@ -14,6 +16,29 @@ def dictproduct(d):
     '''
     for p in itertools.product(*d.values()):
         yield dict(zip(d.keys(), p))
+
+
+def test_LinearSystem():
+    A = numpy.diag(range(1, 11))
+    exact_solution = numpy.ones((10, 1))
+    b = A.dot(exact_solution)
+    ls = krypy.linsys.LinearSystem(A, b,
+                                   M=numpy.eye(10),
+                                   Ml=numpy.eye(10),
+                                   Mr=numpy.eye(10))
+    # check that r=b for z=0
+    assert_equal(ls.get_residual(numpy.zeros((10, 1))), b)
+
+    # check above for norm
+    _, rnorm = ls.get_residual(numpy.zeros((10, 1)), compute_norm=True)
+    assert_equal(rnorm, numpy.linalg.norm(b, 2))
+
+    # check that r=0 for exact solution
+    assert_equal(ls.get_residual(exact_solution), numpy.zeros((10, 1)))
+
+    # check above for norm
+    _, rnorm = ls.get_residual(exact_solution, compute_norm=True)
+    assert_equal(rnorm, 0)
 
 
 def test_linsys_spd_zero():
