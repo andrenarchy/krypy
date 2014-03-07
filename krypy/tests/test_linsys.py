@@ -27,17 +27,15 @@ def test_LinearSystem():
                                    Ml=numpy.eye(10),
                                    Mr=numpy.eye(10))
     # check that r=b for z=0
-    assert_equal(ls.get_residual(numpy.zeros((10, 1))), b)
-
-    # check above for norm
-    _, rnorm = ls.get_residual(numpy.zeros((10, 1)), compute_norm=True)
+    Mr, r, rnorm = ls.get_residual(numpy.zeros((10, 1)), compute_norm=True)
+    assert_equal(r, b)
+    assert_equal(r, Mr)
     assert_equal(rnorm, numpy.linalg.norm(b, 2))
 
     # check that r=0 for exact solution
-    assert_equal(ls.get_residual(exact_solution), numpy.zeros((10, 1)))
-
-    # check above for norm
-    _, rnorm = ls.get_residual(exact_solution, compute_norm=True)
+    Mr, r, rnorm = ls.get_residual(exact_solution, compute_norm=True)
+    assert_equal(r, numpy.zeros((10, 1)))
+    assert_equal(r, Mr)
     assert_equal(rnorm, 0)
 
 
