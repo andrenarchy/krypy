@@ -216,7 +216,7 @@ class _KrylovSolver(object):
         '''Approximate solution.'''
 
         # find common dtype
-        self.cdtype = utils.find_common_dtype(linear_system.dtype, self.x0)
+        self.dtype = utils.find_common_dtype(linear_system.dtype, self.x0)
 
         # TODO: reortho
         self.iter = 0
@@ -392,7 +392,7 @@ class Cg(_KrylovSolver):
         N = self.linear_system.N
 
         # resulting approximation is xk = x0 + Mr*yk
-        yk = numpy.zeros((N, 1), dtype=self.cdtype)
+        yk = numpy.zeros((N, 1), dtype=self.dtype)
 
         # square of the old residual norm
         rho_old = self.MMlr0_norm**2
@@ -408,11 +408,11 @@ class Cg(_KrylovSolver):
 
         # store Lanczos vectors + matrix?
         if self.store_arnoldi:
-            self.V = numpy.zeros((N, self.maxiter+1), dtype=self.cdtype)
+            self.V = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
             self.V[:, [0]] = self.MMlr0/self.MMlr0_norm
             if not isinstance(self.linear_system.M,
                               utils.IdentityLinearOperator):
-                self.P = numpy.zeros((N, self.maxiter+1), dtype=self.cdtype)
+                self.P = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
                 self.P[:, [0]] = self.Mlr0/self.MMlr0_norm
             self.H = numpy.zeros((self.maxiter+1, self.maxiter))  # real
             alpha_old = 0  # will be set at end of iteration
@@ -576,14 +576,14 @@ class Minres(_KrylovSolver):
                                      )
 
         # Necessary for efficient update of yk:
-        W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
+        W = numpy.c_[numpy.zeros(N, dtype=self.dtype), numpy.zeros(N)]
         # some small helpers
         y = [self.MMlr0_norm, 0]  # first entry is (updated) residual
         G2 = None                 # old givens rotation
         G1 = None                 # even older givens rotation ;)
 
         # resulting approximation is xk = x0 + Mr*yk
-        yk = numpy.zeros((N, 1), dtype=self.cdtype)
+        yk = numpy.zeros((N, 1), dtype=self.dtype)
 
         # iterate Lanczos
         while self.resnorms[-1] > self.tol \
@@ -624,7 +624,8 @@ class Minres(_KrylovSolver):
 
         # store arnoldi?
         if self.store_arnoldi:
-            if self.linear_system.M:
+            if not isinstance(self.linear_system.M,
+                              utils.IdentityLinearOperator):
                 self.V, self.H, self.P = self.lanczos.get()
             else:
                 self.V, self.H = self.lanczos.get()
@@ -675,42 +676,41 @@ class Gmres(_KrylovSolver):
     If the operator :math:`M_l A M_r` is self-adjoint then consider using
     the MINRES method :py:class:`Minres`.
     '''
-    def __init__(self, A, b, ortho='mgs', **kwargs):
+    def __init__(self, linear_system, ortho='mgs', **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         '''
-        super(Gmres, self).__init__(A, b, **kwargs)
-        self._solve(ortho=ortho)
+        self.ortho = ortho
+        super(Gmres, self).__init__(linear_system, **kwargs)
 
-    def _compute_xk(self, y):
+    def _get_xk(self, y):
         k = self.arnoldi.iter
         if k > 0:
             yy = scipy.linalg.solve_triangular(self.R[:k, :k], y)
             yk = self.V[:, :k].dot(yy)
-            return self.x0 + self.Mr * yk
+            return self.x0 + self.linear_system.Mr * yk
         return self.x0
 
-    def _solve(self, ortho):
+    def _solve(self):
         # initialize Arnoldi
-        self.arnoldi = utils.Arnoldi(self.Ml*self.A*self.Mr,
-                                     self.Ml*(self.b - self.A*self.x0),
+        self.arnoldi = utils.Arnoldi(self.linear_system.MlAMr,
+                                     self.Mlr0,
                                      maxiter=self.maxiter,
-                                     ortho=ortho,
-                                     M=self.M,
-                                     ip_B=self.ip_B
+                                     ortho=self.ortho,
+                                     M=self.linear_system.M,
+                                     Mv=self.MMlr0,
+                                     Mv_norm=self.MMlr0_norm,
+                                     ip_B=self.linear_system.ip_B
                                      )
-
-        # prepare
-        self._prepare(self.arnoldi.vnorm)
 
         # Givens rotations:
         G = []
         # QR decomposition of Hessenberg matrix via Givens and R
         self.R = numpy.zeros([self.maxiter+1, self.maxiter],
-                             dtype=numpy.complex)
-        y = numpy.zeros((self.maxiter+1, 1), dtype=numpy.complex)
+                             dtype=self.dtype)
+        y = numpy.zeros((self.maxiter+1, 1), dtype=self.dtype)
         # Right hand side of projected system:
-        y[0] = self.norm_MMlr0
+        y[0] = self.MMlr0_norm
 
         # iterate Arnoldi
         while self.resnorms[-1] > self.tol \
@@ -732,15 +732,16 @@ class Gmres(_KrylovSolver):
             self.R[k:k+2, k] = G[k].apply(self.R[k:k+2, k])
             y[k:k+2] = G[k].apply(y[k:k+2])
 
-            self._compute_norms(y[:k+1], abs(y[k+1, 0]))
+            self._finalize_iteration(y[:k+1], abs(y[k+1, 0]))
 
         # compute solution if not yet done
         if self.xk is None:
-            self.xk = self._compute_xk(y[:self.arnoldi.iter])
+            self.xk = self._get_xk(y[:self.arnoldi.iter])
 
         # store arnoldi?
         if self.store_arnoldi:
-            if self.M:
+            if not isinstance(self.linear_system.M,
+                              utils.IdentityLinearOperator):
                 self.V, self.H, self.P = self.arnoldi.get()
             else:
                 self.V, self.H = self.arnoldi.get()
