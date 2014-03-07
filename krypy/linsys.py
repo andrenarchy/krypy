@@ -7,6 +7,102 @@ import scipy.linalg
 __all__ = ['Cg', 'Minres', 'Gmres']
 
 
+class LinearSystem(object):
+    def __init__(self, A, b,
+                 M=None,
+                 Ml=None,
+                 Mr=None,
+                 ip_B=None,
+                 self_adjoint=False,
+                 positive_definite=False,
+                 exact_solution=None
+                 ):
+        r'''Representation of a (preconditioned) linear system.
+
+        Represents a possibly preconditioned linear system
+
+        .. math::
+
+          M M_l A M_r y = M M_l b.
+
+        :param A: a linear operator on :math:`\mathbb{C}^N` (has to be
+          compatible with :py:meth:`~krypy.utils.get_linearoperator`).
+        :param b: the right hand side in :math:`\mathbb{C}^N`, i.e.,
+          ``b.shape == (N, 1)``.
+        :param M: (optional) a self-adjoint and positive definite
+          preconditioner, linear operator on :math:`\mathbb{C}^N` with respect
+          to the inner product defined by ``ip_B``. This preconditioner changes
+          the inner product to
+          :math:`\langle x,y\rangle_M = \langle Mx,y\rangle` where
+          :math:`\langle \cdot,\cdot\rangle` is the inner product defined by
+          the parameter ``ip_B``. Defaults to the identity.
+        :param Ml: (optional) left preconditioner, linear operator on
+          :math:`\mathbb{C}^N`. Defaults to the identity.
+        :param Mr: (optional) right preconditioner, linear operator on
+          :math:`\mathbb{C}^N`. Defaults to the identity.
+        :param ip_B: (optional) defines the inner product, see
+          :py:meth:`~krypy.utils.inner`.
+        :param self_adjoint: (bool, optional) Is :math:`M_l A M_r` has to be
+          self-adjoint in the inner product defined by ``ip_B``? Defaults to
+          ``False``.
+        :param positive_definite: (bool, optional) Is :math:`M_l A M_r`
+          positive (semi-)definite with respect to the inner product defined by
+          ``ip_B``? Defaults to ``False``.
+        :param exact_solution: (optional) If an exact solution :math:`x` is
+          known, it can be provided as a ``numpy.array`` with
+          ``exact_solution.shape == (N,1)``. Then error norms can be computed
+          (for debugging or research purposes). Defaults to ``None``.
+        '''
+        N = len(b)
+        shape = (N, N)
+
+        # init linear operators
+        self.A = utils.get_linearoperator(shape, A)
+        self.M = utils.get_linearoperator(shape, M)
+        self.Ml = utils.get_linearoperator(shape, Ml)
+        self.Mr = utils.get_linearoperator(shape, Mr)
+        self.ip_B = ip_B
+
+        # process vectors
+        self.flat_vecs, (self.b, self.exact_solution) = \
+            utils.shape_vecs(b, exact_solution)
+
+        # store properties of operators
+        self.self_adjoint = self_adjoint
+        self.positive_definite = positive_definite
+
+        # get common dtype
+        self.dtype = utils.find_common_dtype(self.A, self.b, self.M,
+                                             self.Ml, self.Mr, self.ip_B)
+
+        # Compute M^{-1}-norm of M*Ml*b.
+        self.Mlb = self.Ml*self.b
+        self.MMlb = self.M*self.Mlb
+        self.norm_MMlb = utils.norm(self.Mlb, self.MMlb, ip_B=self.ip_B)
+
+    def get_residual(self, z, compute_norm=False):
+        r'''Compute residual.
+
+        For a given :math:`z\in\mathbb{C}^N`, the residual
+
+        .. math::
+
+          r = M M_l ( b - A z )
+
+        is computed.
+
+        :param z: approximate solution with ``z.shape == (N, 1)``.
+        :param compute_norm: (bool, optional) pass ``True`` if also the norm
+          of the residual should be computed.
+        '''
+        r = self.b - self.A*z
+        Mlr = self.Mr*r
+        MMlr = self.M*Mlr
+        if compute_norm:
+            return MMlr, utils.norm(Mlr, MMlr, ip_B=self.ip_B)
+        return MMlr
+
+
 class _KrylovSolver(object):
     '''Prototype of a Krylov subspace method for linear systems.'''
     def __init__(self, A, b,
