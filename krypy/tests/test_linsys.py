@@ -74,8 +74,8 @@ def linear_systems_generator(A, **ls_kwargs):
 
 def solver_params_generator(solver, ls):
     params_add = {}
-    #if solver is krypy.linsys.RestartedGmres:
-    #    params_add = {'maxiter': [5], 'max_restarts': [20]}
+    if solver is krypy.linsys.RestartedGmres:
+        params_add = {'maxiter': [5], 'max_restarts': [20]}
     solver_params = {
         'x0': [None, numpy.zeros(ls.b.shape), numpy.ones(ls.b.shape)],
         'tol': [1e-13, 1e-2],
@@ -109,7 +109,7 @@ def test_solver():
         ]
     for case_params in cases_params:
         for ls in linear_systems_generator(**case_params):
-            solvers = [krypy.linsys.Gmres]
+            solvers = [krypy.linsys.Gmres, krypy.linsys.RestartedGmres]
             if ls.self_adjoint:
                 solvers.append(krypy.linsys.Minres)
             if ls.positive_definite:
