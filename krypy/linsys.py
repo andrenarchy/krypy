@@ -13,6 +13,7 @@ class LinearSystem(object):
                  Ml=None,
                  Mr=None,
                  ip_B=None,
+                 normal=False,
                  self_adjoint=False,
                  positive_definite=False,
                  exact_solution=None
@@ -49,6 +50,8 @@ class LinearSystem(object):
           :math:`\mathbb{C}^N`. Defaults to the identity.
         :param ip_B: (optional) defines the inner product, see
           :py:meth:`~krypy.utils.inner`.
+        :param normal: (bool, optional) Is :math:`M_l A M_r` normal
+          in the inner product defined by ``ip_B``? Defaults to ``False``.
         :param self_adjoint: (bool, optional) Is :math:`M_l A M_r` self-adjoint
           in the inner product defined by ``ip_B``? Defaults to ``False``.
         :param positive_definite: (bool, optional) Is :math:`M_l A M_r`
@@ -77,8 +80,11 @@ class LinearSystem(object):
             utils.shape_vecs(b, exact_solution)
 
         # store properties of operators
+        self.normal = normal
         self.self_adjoint = self_adjoint
         self.positive_definite = positive_definite
+        if self_adjoint and not normal:
+            raise ValueError('self-adjointness implies normality')
 
         # get common dtype
         self.dtype = utils.find_common_dtype(self.A, self.b, self.M,
@@ -122,7 +128,7 @@ class LinearSystem(object):
                 return self.MMlb, self.Mlb, self.MMlb_norm
             return self.MMlb, self.Mlb
         r = self.b - self.A*z
-        Mlr = self.Mr*r
+        Mlr = self.Ml*r
         MMlr = self.M*Mlr
         if compute_norm:
             return MMlr, Mlr, utils.norm(Mlr, MMlr, ip_B=self.ip_B)
@@ -427,12 +433,11 @@ class Cg(_KrylovSolver):
                     omega = rho_new/rho_old
                 rho_old = rho_new
             # apply operators
-            Ap = self.linear_system.Ml \
-                * (self.linear_system.A
-                   * (self.linear_system.Mr * p))
+            Ap = self.linear_system.MlAMr*p
 
             # compute inner product
-            alpha = rho_old / utils.inner(p, Ap, ip_B=self.linear_system.ip_B)
+            alpha = rho_old / utils.inner(p, Ap,
+                                          ip_B=self.linear_system.ip_B)[0, 0]
 
             # check if alpha is real
             if abs(alpha.imag) > 1e-12:
