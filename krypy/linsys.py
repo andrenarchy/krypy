@@ -222,7 +222,8 @@ class _KrylovSolver(object):
         '''Approximate solution.'''
 
         # find common dtype
-        self.dtype = utils.find_common_dtype(linear_system.dtype, self.x0)
+        self.dtype = numpy.find_common_type([linear_system.dtype,
+                                              self.x0.dtype], [])
 
         # TODO: reortho
         self.iter = 0
@@ -559,10 +560,9 @@ class Minres(_KrylovSolver):
         Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
         above.
         '''
-        if not linear_system.self_adjoint or \
-                not linear_system.positive_definite:
-            warnings.warn('Cg applied to a non-self-adjoint or non-definite '
-                          'linear system. Consider using Minres or Gmres.')
+        if not linear_system.self_adjoint:
+            warnings.warn('Minres applied to a non-self-adjoint '
+                          'linear system. Consider using Gmres.')
         self.ortho = ortho
         super(Minres, self).__init__(linear_system, **kwargs)
 
@@ -763,64 +763,64 @@ class Gmres(_KrylovSolver):
                 }
 
 
-class _RestartedSolver(_KrylovSolver):
-    '''Base class for restarted solvers.'''
-    def __init__(self, Solver, A, b, max_restarts=0, **kwargs):
-        '''
-        :param max_restarts: the maximum number of restarts. The maximum
-          number of iterations is ``(max_restarts+1)*maxiter``.
-        '''
-        super(_RestartedSolver, self).__init__(A, b, **kwargs)
-
-        if self.store_arnoldi:
-            raise ValueError(
-                'store_arnoldi=True is not allowed for a restarted solver'
-                'since there are multiple Arnoldi relations.')
-
-        # start with initial guess
-        self.xk = self.x0
-
-        # work on own copy of args in order to include proper initial guesses
-        kwargs = dict(kwargs)
-
-        # append dummy values for first run
-        self.resnorms.append(numpy.Inf)
-        if self.exact_solution is not None:
-            self.errnorms.append(numpy.Inf)
-
-        restart = 0
-        while self.resnorms[-1] > self.tol and restart <= max_restarts:
-            try:
-                # use last approximate solution as initial guess
-                kwargs.update({'x0': self.xk})
-
-                # try to solve
-                sol = Solver(A, b, **kwargs)
-            except utils.ConvergenceError as e:
-                # use solver of exception
-                sol = e.solver
-
-            # set last approximate solution
-            self.xk = sol.xk
-
-            # concat resnorms / errnorms
-            del self.resnorms[-1]
-            self.resnorms += sol.resnorms
-            if self.exact_solution is not None:
-                del self.errnorms[-1]
-                self.errnorms += sol.errnorms
-
-            restart += 1
-
-        if self.resnorms[-1] > self.tol:
-            raise utils.ConvergenceError(
-                'No convergence after {0} restarts.'.format(max_restarts),
-                self)
-
-
-class RestartedGmres(_RestartedSolver):
-    '''Restarted GMRES method.
-
-    See :py:class:`_RestartedSolver`.'''
-    def __init__(self, A, b, **kwargs):
-        super(RestartedGmres, self).__init__(Gmres, A, b, **kwargs)
+#class _RestartedSolver(_KrylovSolver):
+#    '''Base class for restarted solvers.'''
+#    def __init__(self, Solver, linear_system, max_restarts=0, **kwargs):
+#        '''
+#        :param max_restarts: the maximum number of restarts. The maximum
+#          number of iterations is ``(max_restarts+1)*maxiter``.
+#        '''
+#        super(_RestartedSolver, self).__init__(linear_system, **kwargs)
+#
+#        if self.store_arnoldi:
+#            raise ValueError(
+#                'store_arnoldi=True is not allowed for a restarted solver'
+#                'since there are multiple Arnoldi relations.')
+#
+#        # start with initial guess
+#        self.xk = self.x0
+#
+#        # work on own copy of args in order to include proper initial guesses
+#        kwargs = dict(kwargs)
+#
+#        # append dummy values for first run
+#        self.resnorms.append(numpy.Inf)
+#        if self.exact_solution is not None:
+#            self.errnorms.append(numpy.Inf)
+#
+#        restart = 0
+#        while self.resnorms[-1] > self.tol and restart <= max_restarts:
+#            try:
+#                # use last approximate solution as initial guess
+#                kwargs.update({'x0': self.xk})
+#
+#                # try to solve
+#                sol = Solver(A, b, **kwargs)
+#            except utils.ConvergenceError as e:
+#                # use solver of exception
+#                sol = e.solver
+#
+#            # set last approximate solution
+#            self.xk = sol.xk
+#
+#            # concat resnorms / errnorms
+#            del self.resnorms[-1]
+#            self.resnorms += sol.resnorms
+#            if self.exact_solution is not None:
+#                del self.errnorms[-1]
+#                self.errnorms += sol.errnorms
+#
+#            restart += 1
+#
+#        if self.resnorms[-1] > self.tol:
+#            raise utils.ConvergenceError(
+#                'No convergence after {0} restarts.'.format(max_restarts),
+#                self)
+#
+#
+#class RestartedGmres(_RestartedSolver):
+#    '''Restarted GMRES method.
+#
+#    See :py:class:`_RestartedSolver`.'''
+#    def __init__(self, A, b, **kwargs):
+#        super(RestartedGmres, self).__init__(Gmres, A, b, **kwargs)
