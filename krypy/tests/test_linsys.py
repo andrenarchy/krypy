@@ -35,15 +35,15 @@ def test_LinearSystem():
                                    Mr=numpy.eye(10))
     # check that r=b for z=0
     Mr, r, rnorm = ls.get_residual(numpy.zeros((10, 1)), compute_norm=True)
-    assert_equal(r, b)
-    assert_equal(r, Mr)
-    assert_equal(rnorm, numpy.linalg.norm(b, 2))
+    assert_almost_equal(r, b)
+    assert_almost_equal(r, Mr)
+    assert_almost_equal(rnorm, numpy.linalg.norm(b, 2))
 
     # check that r=0 for exact solution
     Mr, r, rnorm = ls.get_residual(exact_solution, compute_norm=True)
-    assert_equal(r, numpy.zeros((10, 1)))
-    assert_equal(r, Mr)
-    assert_equal(rnorm, 0)
+    assert_almost_equal(r, numpy.zeros((10, 1)))
+    assert_almost_equal(r, Mr)
+    assert_almost_equal(rnorm, 0)
 
 
 def linear_systems_generator(A, **ls_kwargs):
