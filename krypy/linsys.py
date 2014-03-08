@@ -223,7 +223,10 @@ class _KrylovSolver(object):
 
         # find common dtype
         self.dtype = numpy.find_common_type([linear_system.dtype,
-                                              self.x0.dtype], [])
+                                             self.x0.dtype], [])
+
+        # store operator (can be modified in derived classes)
+        self.MlAMr = linear_system.MlAMr
 
         # TODO: reortho
         self.iter = 0
@@ -434,7 +437,7 @@ class Cg(_KrylovSolver):
                     omega = rho_new/rho_old
                 rho_old = rho_new
             # apply operators
-            Ap = self.linear_system.MlAMr*p
+            Ap = self.MlAMr*p
 
             # compute inner product
             alpha = rho_old / utils.inner(p, Ap,
@@ -570,7 +573,7 @@ class Minres(_KrylovSolver):
         N = self.linear_system.N
 
         # initialize Lanczos
-        self.lanczos = utils.Arnoldi(self.linear_system.MlAMr,
+        self.lanczos = utils.Arnoldi(self.MlAMr,
                                      self.Mlr0,
                                      maxiter=self.maxiter,
                                      ortho=self.ortho,
@@ -698,7 +701,7 @@ class Gmres(_KrylovSolver):
 
     def _solve(self):
         # initialize Arnoldi
-        self.arnoldi = utils.Arnoldi(self.linear_system.MlAMr,
+        self.arnoldi = utils.Arnoldi(self.MlAMr,
                                      self.Mlr0,
                                      maxiter=self.maxiter,
                                      ortho=self.ortho,

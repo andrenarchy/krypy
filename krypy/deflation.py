@@ -5,11 +5,10 @@ from . import utils, linsys
 
 
 class _Projection(utils.Projection):
-    def __init__(self, A, U, ip_B, **kwargs):
+    def __init__(self, linear_system, U, **kwargs):
         '''Abstract base class of a projection for deflation.
 
-        :param A: the linear operator (has to be compatible with
-          :py:meth:`~krypy.utils.get_linearoperator`).
+        :param A: the :py:class:`~krypy.linsys.LinearSystem`.
         :param U: basis of the deflation space with ``U.shape == (N, d)``.
 
         All parameters of :py:class:`~krypy.utils.Projection` are valid except
@@ -19,15 +18,15 @@ class _Projection(utils.Projection):
 
 
 class ObliqueProjection(_Projection):
-    def __init__(self, A, U, ip_B=None,
-                 **kwargs):
-        '''Oblique projection for (right) deflation.
+    def __init__(self, linear_system, U, **kwargs):
+        '''Oblique projection for left deflation.
 
         '''
         # check and store input
+
+        self.linear_system = linear_system
         (N, d) = U.shape
-        self.A = utils.get_linearoperator((N, N), A)
-        U, _ = utils.qr(U, ip_B=ip_B)
+        U, _ = utils.qr(U, ip_B=linear_system.ip_B)
 
         self.U = U
         '''Orthonormal basis of deflation space.
@@ -35,11 +34,11 @@ class ObliqueProjection(_Projection):
         An orthonormalized basis of ``U`` with respect to provided inner
         product.'''
 
-        # apply adjoint operator to U
-        self.AH_U = A.adj*U
+        # apply operator to U
+        self.AU = linear_system.MlAMr*U
 
         # call Projection constructor
-        super(ObliqueProjection, self).__init__(U, self.AH_U, **kwargs)
+        super(_Projection, self).__init__(self.AU, self.U, **kwargs)
 
     def _correction(self, z):
         c = utils.inner(self.U, z, ip_B=self.ip_B)
@@ -47,6 +46,16 @@ class ObliqueProjection(_Projection):
         if self.Q is not None and self.R is not None:
             c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
         return self.V.dot(c)
+
+    def correct(self, z):
+        c = self.linear_system.Ml*(
+            self.linear_system.b - self.linear_system.A*z)
+        c = utils.inner(self.W, c, ip_B=self.ip_B)
+        if self.Q is not None and self.R is not None:
+            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
+        if self.WR is not self.VR:
+            c = self.WR.dot(scipy.linalg.solve_triangular(self.VR, c))
+        return z + self.W.dot(c)
 
     def get_x0(self, pre):
         '''Get corrected initial guess for deflation.
@@ -60,6 +69,53 @@ class ObliqueProjection(_Projection):
         '''
         return pre.x0 + pre.Mr * self._correction(
             pre.Ml*(pre.b - pre.A*pre.x0))
+
+
+def _get_DeflatedKrylovSolver(Solver):
+    '''Construct a deflated Krylov subspace method as a class.
+
+    :param Solver: a solver from :py:module:`~krypy.linsys`.
+    '''
+    class DeflatedKrylovSolver(Solver):
+        def __init__(self, linear_system, U=None, *args, **kwargs):
+            if U is None:
+                U = numpy.zeros((linear_system.N, 0))
+            self.P = ObliqueProjection(linear_system, U)
+            super(DeflatedKrylovSolver, self).__init__(linear_system,
+                                                       *args, **kwargs)
+
+        def _solve(self):
+            self.MlAMr = self.P.operator_complement()*self.MlAMr
+            super(DeflatedKrylovSolver, self)._solve()
+
+        def _get_initial_residual(self, x0):
+            '''Return the projected initial residual.
+
+            Returns :math:`MPM_l(b-Ax_0)`.
+            '''
+            if x0 is None:
+                Mlr = self.linear_system.Mlb
+            else:
+                r = self.linear_system.b - self.linear_system.A*x0
+                Mlr = self.linear_system.Ml*r
+
+            PMlr = self.P.apply_complement(Mlr)
+            MPMlr = self.linear_system.M*PMlr
+            MPMlr_norm = utils.norm(PMlr, MPMlr, ip_B=self.linear_system.ip_B)
+            return MPMlr, PMlr, MPMlr_norm
+
+        def _get_xk(self, yk):
+            xk = super(DeflatedKrylovSolver, self)._get_xk(yk)
+            return self.P.correct(xk)
+
+    return DeflatedKrylovSolver
+
+
+DeflatedCg = _get_DeflatedKrylovSolver(linsys.Cg)
+
+DeflatedMinres = _get_DeflatedKrylovSolver(linsys.Minres)
+
+DeflatedGmres = _get_DeflatedKrylovSolver(linsys.Gmres)
 
 
 class Arnoldifyer(object):

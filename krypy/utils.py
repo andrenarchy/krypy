@@ -427,6 +427,7 @@ class Projection(object):
         # (results in zero operator)
         if X.shape[1] == 0:
             self.V = self.W = numpy.zeros(X.shape)
+            self.VR = self.WR = self.Q = self.R = None
             return
 
         # orthogonalize X
