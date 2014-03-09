@@ -812,7 +812,9 @@ class Arnoldi:
         self.A = get_linearoperator((N, N), A)
         self.maxiter = N if maxiter is None else maxiter
         self.ortho = ortho
-        self.M = None if M is None else get_linearoperator((N, N), M)
+        self.M = get_linearoperator((N, N), M)
+        if isinstance(self.M, IdentityLinearOperator):
+            self.M = None
         self.ip_B = ip_B
 
         self.dtype = find_common_dtype(A, v, M)
