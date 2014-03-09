@@ -12,3 +12,4 @@ harmonic Ritz pairs from a deflated Krylov subspace.
     :members:
     :undoc-members:
     :show-inheritance:
+    :private-members:
