@@ -72,15 +72,44 @@ class _DeflationMixin(object):
     def __init__(self, linear_system, U=None, *args, **kwargs):
         if U is None:
             U = numpy.zeros((linear_system.N, 0))
-        self.P = ObliqueProjection(linear_system, U)
+        P = ObliqueProjection(linear_system, U)
+        self.P = P
         '''Projection that is used for deflation.'''
+
+        if P.Q is None and self.R is None:
+            E = numpy.eye(U.shape[1])
+        else:
+            E = P.Q.dot(P.R)
+        if P.VR is not None and P.WR is not None:
+            E = P.WR.T.conj().dot(E.dot(P.VR))
+        self.E = E
+        r''':math:`E=\langle U,AU\rangle`.'''
+
+        self.C = numpy.zeros((U.shape[1], 0))
+        r''':math:`C=\langle U,AV_n\rangle`.
+
+        This attribute is updated while the Arnoldi/Lanczos method proceeds.
+        See also :py:meth:`_apply_P`.
+        '''
 
         super(_DeflationMixin, self).__init__(linear_system,
                                               *args, **kwargs)
 
     def _solve(self):
-        self.MlAMr = self.P.operator_complement()*self.MlAMr
+        N = self.linear_system.N
+        P = utils.LinearOperator((N, N), self.P.AU.dtype, self._apply_P)
+        self.MlAMr = P*self.linear_system.MlAMr
         super(_DeflationMixin, self)._solve()
+
+    def _apply_P(self, Av):
+        '''Apply the projection and store inner product.
+
+        :param v: the vector resulting from an application of :math:`M_lAM_r`
+          to the current Arnoldi vector.
+        '''
+        PAv, UAv = self.P.apply_complement(Av, return_Ya=True)
+        self.C = numpy.c_[self.C, UAv]
+        return PAv
 
     def _get_initial_residual(self, x0):
         '''Return the projected initial residual.
@@ -435,53 +464,66 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
 
 
 class Ritz(object):
-    def __init__(self, solver, P, mode='ritz', hermitian=False):
-        self.solver = solver
-        self.P = P
+    def __init__(self, deflated_solver, mode='ritz'):
+        '''Compute Ritz pairs from a deflated Krylov subspace method.
 
-        n = solver.iter
-        V = solver.V[:, :n+1]
-        N = V.shape[0]
-        H_ = solver.H[:n+1, :n]
+        :param deflated_solver: an instance of a deflated solver.
+        :param mode: (optional)
+
+          * ``ritz`` (default): compute Ritz pairs.
+          * ``harmonic``: compute harmonic Ritz pairs.
+        '''
+        self._deflated_solver = deflated_solver
+
+        linear_system = deflated_solver.linear_system
+
+        n = deflated_solver.iter
+        V = deflated_solver.V[:, :n+1]
+        H_ = deflated_solver.H[:n+1, :n]
         H = H_[:n, :]
-        if P is not None and P.U is not None:
-            if not isinstance(P, ObliqueProjection):
-                raise ValueError('P is invalid')
+        P = deflated_solver.P
+
+        if isinstance(P, ObliqueProjection):
             U = P.U
-            A = P.A
-        else:
-            U = numpy.zeros((N, 0))
+            AU = P.AU
 
-        # TODO: optimize
-        B_ = utils.inner(V, A*U, ip_B=solver.ip_B)
-        B = B_[:-1, :]
-        E = utils.inner(U, A*U, ip_B=solver.ip_B)
-        if hermitian:
-            C = B.T.conj()
-        else:
-            C = utils.inner(U, A*V[:, :-1], ip_B=solver.ip_B)
+            # TODO: optimize
+            A = linear_system.MlAMr
+            C = utils.inner(U, A*V[:, :-1], ip_B=linear_system.ip_B)
+            B_ = utils.inner(V, AU, ip_B=linear_system.ip_B)
+            B = B_[:-1, :]
+            E = utils.inner(U, AU, ip_B=linear_system.ip_B)
 
-        if mode == 'ritz':
-            # build block matrix
-            M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
-                            [C, E]])
+            if mode == 'ritz':
+                # build block matrix
+                M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
+                                [C, E]])
 
-            # solve eigenvalue problem
-            eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
-            self.values, self.coeffs = eig(M)
+                # solve eigenvalue problem
+                eig = scipy.linalg.eigh if linear_system.self_adjoint \
+                    else scipy.linalg.eig
+                self.values, self.coeffs = eig(M)
 
+            elif mode == 'harmonic':
+                # TODO
+                raise NotImplementedError('mode {0} not implemented'.format(mode))
+            else:
+                raise ValueError('mode {0} not known'.format(mode))
             # TODO: compute residual norms
 
-        elif mode == 'harmonic':
-            # TODO
-            raise NotImplementedError('mode {0} not implemented'.format(mode))
+        #elif isinstance(P, TODO):
+            #TODO
         else:
-            raise ValueError('mode {0} not known'.format(mode))
+            raise ValueError('P is invalid')
 
     def get_vectors(self, indices=None):
+        '''Compute Ritz vectors.'''
         coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
-        return numpy.c_[self.solver.V[:, :-1], self.P.U].dot(coeffs)
+        return numpy.c_[self._deflated_solver.V[:, :-1],
+                        self._deflated_solver.P.U].dot(coeffs)
 
-    def get_explicit_residual(self):
-        ritz_vecs = self.get_vectors()
-        return self.solver.A * ritz_vecs - ritz_vecs * self.values
+    def get_explicit_residual(self, indices=None):
+        '''Explicitly computes the Ritz residual.'''
+        ritz_vecs = self.get_vectors(indices)
+        return self._deflated_solver.linear_system.MlAMr * ritz_vecs \
+            - ritz_vecs * self.values
