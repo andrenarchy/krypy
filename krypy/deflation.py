@@ -19,28 +19,28 @@ class _Projection(utils.Projection):
 
 class ObliqueProjection(_Projection):
     def __init__(self, linear_system, U, **kwargs):
-        '''Oblique projection for left deflation.
-
-        '''
-        # check and store input
-
+        '''Oblique projection for left deflation.'''
+        # preprocess and store input
         self.linear_system = linear_system
         (N, d) = U.shape
         U, _ = utils.qr(U, ip_B=linear_system.ip_B)
 
         self.U = U
-        '''Orthonormal basis of deflation space.
-
-        An orthonormalized basis of ``U`` with respect to provided inner
-        product.'''
+        '''An orthonormalized basis of the deflation space ``U`` with respect
+        to provided inner product.'''
 
         # apply operator to U
         self.AU = linear_system.MlAMr*U
+        '''Result of application of operator to deflation space, i.e.,
+        :math:`M_lAM_rU`.'''
 
         # call Projection constructor
         super(_Projection, self).__init__(self.AU, self.U, **kwargs)
 
     def correct(self, z):
+        '''Correct the given approximate solution ``z`` with respect to the
+        linear system ``linear_system`` and the deflation space defined by
+        ``U``.'''
         c = self.linear_system.Ml*(
             self.linear_system.b - self.linear_system.A*z)
         c = utils.inner(self.W, c, ip_B=self.ip_B)
