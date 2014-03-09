@@ -4,6 +4,11 @@ import scipy.linalg
 from . import utils, linsys
 
 
+__all__ = ['DeflatedCg', 'DeflatedMinres', 'DeflatedGmres', '_DeflationMixin',
+           'ObliqueProjection', '_Projection', 'Ritz', 'Arnoldifyer',
+           'bound_pseudo']
+
+
 class _Projection(utils.Projection):
     def __init__(self, linear_system, U, **kwargs):
         '''Abstract base class of a projection for deflation.
