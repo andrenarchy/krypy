@@ -71,51 +71,78 @@ class ObliqueProjection(_Projection):
             pre.Ml*(pre.b - pre.A*pre.x0))
 
 
-def _get_DeflatedKrylovSolver(Solver):
-    '''Construct a deflated Krylov subspace method as a class.
+class _DeflationMixin(object):
+    '''Mixin class for deflation in Krylov subspace methods.
 
-    :param Solver: a solver from :py:module:`~krypy.linsys`.
+    Can be used to add deflation functionality to any solver from
+    :py:mod:`~krypy.linsys`.
+
+    :param linear_system: the :py:class:`~krypy.linsys.LinearSystem` that
+      should be solved.
+    :param U: a basis of the deflation space with ``U.shape == (N, k)``.
+
+    All other parameters are passed through to the underlying solver from
+    :py:mod:`~krypy.linsys`.
     '''
-    class DeflatedKrylovSolver(Solver):
-        def __init__(self, linear_system, U=None, *args, **kwargs):
-            if U is None:
-                U = numpy.zeros((linear_system.N, 0))
-            self.P = ObliqueProjection(linear_system, U)
-            super(DeflatedKrylovSolver, self).__init__(linear_system,
-                                                       *args, **kwargs)
+    def __init__(self, linear_system, U=None, *args, **kwargs):
+        if U is None:
+            U = numpy.zeros((linear_system.N, 0))
+        self.P = ObliqueProjection(linear_system, U)
+        '''Projection that is used for deflation.'''
 
-        def _solve(self):
-            self.MlAMr = self.P.operator_complement()*self.MlAMr
-            super(DeflatedKrylovSolver, self)._solve()
+        super(_DeflationMixin, self).__init__(linear_system,
+                                              *args, **kwargs)
 
-        def _get_initial_residual(self, x0):
-            '''Return the projected initial residual.
+    def _solve(self):
+        self.MlAMr = self.P.operator_complement()*self.MlAMr
+        super(_DeflationMixin, self)._solve()
 
-            Returns :math:`MPM_l(b-Ax_0)`.
-            '''
-            if x0 is None:
-                Mlr = self.linear_system.Mlb
-            else:
-                r = self.linear_system.b - self.linear_system.A*x0
-                Mlr = self.linear_system.Ml*r
+    def _get_initial_residual(self, x0):
+        '''Return the projected initial residual.
 
-            PMlr = self.P.apply_complement(Mlr)
-            MPMlr = self.linear_system.M*PMlr
-            MPMlr_norm = utils.norm(PMlr, MPMlr, ip_B=self.linear_system.ip_B)
-            return MPMlr, PMlr, MPMlr_norm
+        Returns :math:`MPM_l(b-Ax_0)`.
+        '''
+        if x0 is None:
+            Mlr = self.linear_system.Mlb
+        else:
+            r = self.linear_system.b - self.linear_system.A*x0
+            Mlr = self.linear_system.Ml*r
 
-        def _get_xk(self, yk):
-            xk = super(DeflatedKrylovSolver, self)._get_xk(yk)
-            return self.P.correct(xk)
+        PMlr = self.P.apply_complement(Mlr)
+        MPMlr = self.linear_system.M*PMlr
+        MPMlr_norm = utils.norm(PMlr, MPMlr, ip_B=self.linear_system.ip_B)
+        return MPMlr, PMlr, MPMlr_norm
 
-    return DeflatedKrylovSolver
+    def _get_xk(self, yk):
+        xk = super(_DeflationMixin, self)._get_xk(yk)
+        return self.P.correct(xk)
 
 
-DeflatedCg = _get_DeflatedKrylovSolver(linsys.Cg)
+class DeflatedCg(_DeflationMixin, linsys.Cg):
+    '''Deflated CG method.
 
-DeflatedMinres = _get_DeflatedKrylovSolver(linsys.Minres)
+    See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Cg` for
+    the documentation of the available parameters.
+    '''
+    pass
 
-DeflatedGmres = _get_DeflatedKrylovSolver(linsys.Gmres)
+
+class DeflatedMinres(_DeflationMixin, linsys.Minres):
+    '''Deflated MINRES method.
+
+    See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Minres` for
+    the documentation of the available parameters.
+    '''
+    pass
+
+
+class DeflatedGmres(_DeflationMixin, linsys.Gmres):
+    '''Deflated GMRES method.
+
+    See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Gmres` for
+    the documentation of the available parameters.
+    '''
+    pass
 
 
 class Arnoldifyer(object):
