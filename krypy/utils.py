@@ -441,15 +441,37 @@ class Projection(object):
             M = inner(self.W, self.V, ip_B=ip_B)
             self.Q, self.R = scipy.linalg.qr(M)
 
-    def _apply(self, a):
-        '''Single application of the projection.'''
+    def _apply(self, a, return_Ya=False):
+        r'''Single application of the projection.
+
+        :param a: array with ``a.shape==(N,m)``.
+        :param return_inner: (optional) should the inner product
+          :math:`\langle Y,a\rangle` be returned?
+        :return:
+
+          * :math:`P_{\mathcal{X},\mathcal{Y}^\perp} a =
+            X \langle Y,X\rangle^{-1} \langle Y, a\rangle`.
+          * :math:`\langle Y,a\rangle` if ``return_inner==True``.
+        '''
         # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return numpy.zeros(a.shape)
+            Pa = numpy.zeros(a.shape)
+            if return_Ya:
+                return Pa, numpy.zeros((0, a.shape[1]))
+            return Pa
         c = inner(self.W, a, ip_B=self.ip_B)
+
+        if return_Ya:
+            Ya = c.copy()
+            if self.WR is not None:
+                Ya = self.WR.T.conj().dot(Ya)
+
         if self.Q is not None and self.R is not None:
             c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
-        return self.V.dot(c)
+        Pa = self.V.dot(c)
+        if return_Ya:
+            return Pa, Ya
+        return Pa
 
     def _apply_adj(self, a):
         # is projection the zero operator?
@@ -462,26 +484,31 @@ class Projection(object):
                                                          lower=True))
         return self.W.dot(c)
 
-    def apply(self, a):
-        """Apply the projection to an array.
+    def apply(self, a, return_Ya=False):
+        r"""Apply the projection to an array.
 
         The computation is carried out without explicitly forming the
         matrix corresponding to the projection (which would be an array with
         ``shape==(N,N)``).
 
-        :param z: array with ``shape==(N,m)``.
-
-        :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
-            X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
+        See also :py:meth:`_apply`.
         """
         # is projection the zero operator?
         if self.V.shape[1] == 0:
-            return numpy.zeros(a.shape)
-        x = self._apply(a)
+            Pa = numpy.zeros(a.shape)
+            if return_Ya:
+                return Pa, numpy.zeros((0, a.shape[1]))
+            return Pa
+        if return_Ya:
+            x, Ya = self._apply(a, return_Ya=return_Ya)
+        else:
+            x = self._apply(a)
         for i in range(self.iterations-1):
             z = a - x
             w = self._apply(z)
             x = x + w
+        if return_Ya:
+            return x, Ya
         return x
 
     def apply_adj(self, a):
@@ -495,7 +522,7 @@ class Projection(object):
             x = x + w
         return x
 
-    def apply_complement(self, a):
+    def apply_complement(self, a, return_Ya=False):
         """Apply the complementary projection to an array.
 
         :param z: array with ``shape==(N,m)``.
@@ -505,12 +532,19 @@ class Projection(object):
         """
         # is projection the zero operator? --> complement is identity
         if self.V.shape[1] == 0:
+            if return_Ya:
+                return a.copy(), numpy.zeros((0, a.shape[1]))
             return a.copy()
-        x = self._apply(a)
+        if return_Ya:
+            x, Ya = self._apply(a, return_Ya=True)
+        else:
+            x = self._apply(a)
         z = a - x
         for i in range(self.iterations-1):
             w = self._apply(z)
             z = z - w
+        if return_Ya:
+            return z, Ya
         return z
 
     def apply_complement_adj(self, a):
