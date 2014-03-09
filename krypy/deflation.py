@@ -76,7 +76,7 @@ class _DeflationMixin(object):
         self.P = P
         '''Projection that is used for deflation.'''
 
-        if P.Q is None and self.R is None:
+        if P.Q is None and P.R is None:
             E = numpy.eye(U.shape[1])
         else:
             E = P.Q.dot(P.R)
@@ -138,7 +138,9 @@ class DeflatedCg(_DeflationMixin, linsys.Cg):
     See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Cg` for
     the documentation of the available parameters.
     '''
-    pass
+    # TODO
+    #def _apply_P(self, Av):
+    #    pass
 
 
 class DeflatedMinres(_DeflationMixin, linsys.Minres):
