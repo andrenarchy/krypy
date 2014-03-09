@@ -500,6 +500,11 @@ class Cg(_KrylovSolver):
         if self.xk is None:
             self.xk = self._get_xk(yk)
 
+        # trim Lanczos relation
+        if self.store_arnoldi:
+            self.V = self.V[:, :self.iter+1]
+            self.H = self.H[:self.iter+1, :self.iter]
+
     @staticmethod
     def operations(nsteps):
         '''Returns the number of operations needed for nsteps of CG'''
