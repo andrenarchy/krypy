@@ -1,29 +1,22 @@
 # -*- coding: utf8 -*-
 import numpy
-import scipy.linalg
-from .. import utils, linsys, deflation
+from .. import utils, deflation
+
 
 
 class _RecyclingSolver(object):
     '''Base class for recycling solvers.'''
-    def __init__(self, Solver,
-                 Projection=deflation.ObliqueProjection,
-                 projection_kwargs=None
-                 ):
+    def __init__(self, DeflatedSolver):
         '''Initialize recycling solver base.
 
-        :param ip_B: (optional) defines the inner product, see
-          :py:meth:`~krypy.utils.inner`.
+        :param DeflatedSolver: a deflated solver from
+          :py:mod:`~krypy.deflation`.
 
-        After a run of the provided ``Solver``, the resulting ``Solver``
-        instance is available in the attribute ``last_solver``.
+        After a run of the provided ``DeflatedSolver`` via :py:meth:`solve`,
+        the resulting instance of the ``DeflatedSolver`` is available in the
+        attribute ``last_solver``.
         '''
-        self._Solver = Solver
-        if not issubclass(Projection, deflation._Projection):
-            raise ValueError('Projection invalid')
-        self._Projection = Projection
-        self._projection_kwargs = {} if projection_kwargs is None \
-            else projection_kwargs
+        self._DeflatedSolver = DeflatedSolver
 
         self.last_timings = None
         '''Timings from last run of :py:meth:`solve`.
@@ -33,95 +26,43 @@ class _RecyclingSolver(object):
         ``Ml``, ``Mr``, ``ip``, ``axpy``.'''
 
         self.last_solver = None
-        '''``Solver`` instance from last run of :py:meth:`solve`.
+        '''``DeflatedSolver`` instance from last run of :py:meth:`solve`.
 
         Instance of ``Solver`` that resulted from the last call to
         :py:meth:`solve`. Initialized with ``None`` before the first run.'''
 
-        self.last_P = None
-        '''Projection instance from last run of :py:meth:`solve`.
-
-        Instance of :py:class:`~krypy.deflation.ObliqueProjection` (if
-        ``projection=='oblique'``) that was used in the last call to
-        :py:meth:`solve`. Initialized with ``None`` before the first run.'''
-
-    def _get_deflation_basis(self, defl_extra_vecs, strategy_kwargs):
-        if strategy_kwargs is None:
-            strategy_kwargs = {}
-
-        # deflation basis
-        U = None
-
-        # examine last run and store proposed deflation space in U
-        if self.last_solver is not None and self.last_P is not None:
-            # TODO
-            pass
-
-        # include extra vectors
-        if defl_extra_vecs is not None:
-            if U is None:
-                U = defl_extra_vecs
-            else:
-                # TODO: check if defl_extra_vecs are in U and only add new ones
-                U = numpy.c_[U, defl_extra_vecs]
-
-        # check if U is a N-by-zero matrix
-        if U is not None and U.shape[1] == 0:
-            U = None
-
-        return U
-
-    def solve(self, A, b,
+    def solve(self, linear_system,
               deflation_vector_factory=None,
-              **kwargs):
+              *args, **kwargs):
         '''Solve the given linear system with recycling.
 
         The deflation vectors and the Krylov subspace of the last solve() call
         are examined and considered for deflation according to the provided
-        ``strategy`` in the constructor of :py:class:`_RecyclingSolver`.
-        Additionally, the vectors in ``defl_extra_vecs`` are included in the
-        deflation subspace.
+        ``deflation_vector_factory``.
 
-        :param A: the linear operator (has to be compatible with
-          :py:meth:`~krypy.utils.get_linearoperator`).
-        :param b: the right hand side with length ``N``.
+        :param linear_system: the :py:class:`~krypy.linsys.LinearSystem` that
+          is about to be solved.
         :param deflation_vector_factory: (optional) An instance of a subclass
           of :py:class:`krypy.recycling.factories._DeflationVectorFactory`.
 
-        All remaining keyword arguments are passed to the solver.
+        All remaining arguments are passed to the ``DeflatedSolver``.
 
-        :returns: the solver instance which was used to obtain the approximate
-          solution. The approximate solution is available under the attribute
-          ``xk``.
+        :returns: instance of ``DeflatedSolver`` which was used to obtain the
+          approximate solution. The approximate solution is available under the
+          attribute ``xk``.
         '''
-        # check and process parameters
-        pre = linsys._KrylovSolver(A, b, **kwargs)
-
         # get deflation vectors
         if self.last_solver is None or deflation_vector_factory is None:
-            U = numpy.zeros((b.shape[0], 0))
+            U = numpy.zeros((linear_system.N, 0))
         else:
             U = deflation_vector_factory(self.last_solver, self.last_P)
 
-        # initialize projection for deflation
-        P = self._Projection(pre.Ml*pre.A*pre.Mr, U,
-                             ip_B=pre.ip_B)
-
-        # set up deflation via right preconditioner and adapted initial guess
-        solver_kwargs = dict(kwargs)
-        solver_kwargs['Mr'] = pre.Mr * P.operator_complement()
-        solver_kwargs['x0'] = P.get_x0(pre)
-        solver_kwargs['store_arnoldi'] = True
-
         # solve deflated linear system
-        solver = self.Solver(A, b, **solver_kwargs)
-
-        # store solver and projection instance for later use
-        self.last_solver = solver
-        self.last_P = P
+        self.last_solver = self._DeflatedSolver(linear_system, U,
+                                                *args, **kwargs)
 
         # return solver instance
-        return solver
+        return self.last_solver
 
     def _estimate_time(self, nsteps, d):
         '''Estimate time needed to run nsteps iterations with deflation
@@ -151,18 +92,33 @@ class _RecyclingSolver(object):
 
 
 class RecyclingCg(_RecyclingSolver):
-    '''Recycling preconditioned CG method.'''
+    '''Recycling preconditioned CG method.
+
+    See :py:class:`~krypy.recycling.linsys._RecyclingSolver` for the
+    documentation of the available parameters.
+    '''
     def __init__(self, *args, **kwargs):
-        super(RecyclingCg, self).__init__(linsys.Cg, *args, **kwargs)
+        super(RecyclingCg, self).__init__(deflation.DeflatedCg,
+                                          *args, **kwargs)
 
 
 class RecyclingMinres(_RecyclingSolver):
-    '''Recycling preconditioned MINRES method.'''
+    '''Recycling preconditioned MINRES method.
+
+    See :py:class:`~krypy.recycling.linsys._RecyclingSolver` for the
+    documentation of the available parameters.
+    '''
     def __init__(self, *args, **kwargs):
-        super(RecyclingMinres, self).__init__(linsys.Minres, *args, **kwargs)
+        super(RecyclingMinres, self).__init__(deflation.DeflatedMinres,
+                                              *args, **kwargs)
 
 
 class RecyclingGmres(_RecyclingSolver):
-    '''Recycling preconditioned GMRES method.'''
+    '''Recycling preconditioned GMRES method.
+
+    See :py:class:`~krypy.recycling.linsys._RecyclingSolver` for the
+    documentation of the available parameters.
+    '''
     def __init__(self, *args, **kwargs):
-        super(RecyclingGmres, self).__init__(linsys.Gmres, *args, **kwargs)
+        super(RecyclingGmres, self).__init__(deflation.DeflatedGmres,
+                                             *args, **kwargs)
