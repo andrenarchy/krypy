@@ -104,7 +104,7 @@ class _DeflationMixin(object):
 
 
 class DeflatedCg(_DeflationMixin, linsys.Cg):
-    '''Deflated CG method.
+    '''Deflated preconditioned CG method.
 
     See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Cg` for
     the documentation of the available parameters.
@@ -113,7 +113,7 @@ class DeflatedCg(_DeflationMixin, linsys.Cg):
 
 
 class DeflatedMinres(_DeflationMixin, linsys.Minres):
-    '''Deflated MINRES method.
+    '''Deflated preconditioned MINRES method.
 
     See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Minres` for
     the documentation of the available parameters.
@@ -122,7 +122,7 @@ class DeflatedMinres(_DeflationMixin, linsys.Minres):
 
 
 class DeflatedGmres(_DeflationMixin, linsys.Gmres):
-    '''Deflated GMRES method.
+    '''Deflated preconditioned GMRES method.
 
     See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Gmres` for
     the documentation of the available parameters.

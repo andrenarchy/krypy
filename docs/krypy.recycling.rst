@@ -20,4 +20,3 @@ strategys are available.
 
 .. autoclass:: krypy.recycling.linsys._RecyclingSolver
     :members:
-    :private-members:
