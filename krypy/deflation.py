@@ -40,13 +40,6 @@ class ObliqueProjection(_Projection):
         # call Projection constructor
         super(_Projection, self).__init__(self.AU, self.U, **kwargs)
 
-    def _correction(self, z):
-        c = utils.inner(self.U, z, ip_B=self.ip_B)
-        c = scipy.linalg.solve_triangular(self.WR.T.conj(), c, lower=True)
-        if self.Q is not None and self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
-        return self.V.dot(c)
-
     def correct(self, z):
         c = self.linear_system.Ml*(
             self.linear_system.b - self.linear_system.A*z)
@@ -56,19 +49,6 @@ class ObliqueProjection(_Projection):
         if self.WR is not self.VR:
             c = self.WR.dot(scipy.linalg.solve_triangular(self.VR, c))
         return z + self.W.dot(c)
-
-    def get_x0(self, pre):
-        '''Get corrected initial guess for deflation.
-
-        :param b: the right hand side. If a left preconditioner ``Ml`` is used,
-          then it has to be applied to ``b`` before passing it to this
-          function. This does not apply to the left preconditioner ``M`` due
-          to the implicitly changed inner product.
-        :param x0: (optional) the initial guess. Defaults to ``None`` which
-          is treated as the zero initial guess.
-        '''
-        return pre.x0 + pre.Mr * self._correction(
-            pre.Ml*(pre.b - pre.A*pre.x0))
 
 
 class _DeflationMixin(object):
