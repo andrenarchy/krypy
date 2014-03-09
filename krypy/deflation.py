@@ -479,22 +479,25 @@ class Ritz(object):
 
         linear_system = deflated_solver.linear_system
 
-        n = deflated_solver.iter
-        V = deflated_solver.V[:, :n+1]
-        H_ = deflated_solver.H[:n+1, :n]
-        H = H_[:n, :]
+        V = deflated_solver.V
+        H_ = deflated_solver.H
+        (n_, n) = H_.shape
+        H = H_[:n, :n]
         P = deflated_solver.P
 
         if isinstance(P, ObliqueProjection):
-            U = P.U
-            AU = P.AU
-
-            # TODO: optimize
-            A = linear_system.MlAMr
-            C = utils.inner(U, A*V[:, :-1], ip_B=linear_system.ip_B)
-            B_ = utils.inner(V, AU, ip_B=linear_system.ip_B)
-            B = B_[:-1, :]
-            E = utils.inner(U, AU, ip_B=linear_system.ip_B)
+            C = deflated_solver.C
+            # compute B
+            if linear_system.self_adjoint:
+                B = C.T.conj()
+                B_ = B
+                if n_ > n:
+                    B_ = numpy.r_[B, utils.inner(V[:, [-1]], P.AU,
+                                                 ip_B=linear_system.ip_B)]
+            else:
+                B_ = utils.inner(V, P.AU, ip_B=linear_system.ip_B)
+                B = B_[:-1, :]
+            E = deflated_solver.E
 
             if mode == 'ritz':
                 # build block matrix
