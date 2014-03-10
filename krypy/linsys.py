@@ -253,6 +253,7 @@ class _KrylovSolver(object):
                 ip_B=self.linear_system.ip_B))
 
         self._solve()
+        self._finalize()
 
     def _get_initial_guess(self, x0):
         '''Get initial guess.
@@ -313,6 +314,7 @@ class _KrylovSolver(object):
                 # no convergence in last iteration -> raise exception
                 # (approximate solution can be obtained from exception)
                 if self.iter+1 == self.maxiter:
+                    self._finalize()
                     raise utils.ConvergenceError(
                         'No convergence in last iteration.', self)
                 # updated residual was below but explicit is not: warn
@@ -327,6 +329,9 @@ class _KrylovSolver(object):
             self.resnorms.append(resnorm/self.linear_system.MMlb_norm)
 
         return rkn
+
+    def _finalize(self):
+        pass
 
     @staticmethod
     def operations(nsteps):
@@ -502,6 +507,8 @@ class Cg(_KrylovSolver):
         if self.xk is None:
             self.xk = self._get_xk(yk)
 
+    def _finalize(self):
+        super(Cg, self)._finalize()
         # trim Lanczos relation
         if self.store_arnoldi:
             self.V = self.V[:, :self.iter+1]
@@ -637,6 +644,8 @@ class Minres(_KrylovSolver):
         if self.xk is None:
             self.xk = self._get_xk(yk)
 
+    def _finalize(self):
+        super(Minres, self)._finalize()
         # store arnoldi?
         if self.store_arnoldi:
             if not isinstance(self.linear_system.M,
@@ -719,7 +728,6 @@ class Gmres(_KrylovSolver):
                                      Mv_norm=self.MMlr0_norm,
                                      ip_B=self.linear_system.ip_B
                                      )
-
         # Givens rotations:
         G = []
         # QR decomposition of Hessenberg matrix via Givens and R
@@ -755,6 +763,8 @@ class Gmres(_KrylovSolver):
         if self.xk is None:
             self.xk = self._get_xk(y[:self.arnoldi.iter])
 
+    def _finalize(self):
+        super(Gmres, self)._finalize()
         # store arnoldi?
         if self.store_arnoldi:
             if not isinstance(self.linear_system.M,

@@ -92,6 +92,8 @@ class _DeflationMixin(object):
         See also :py:meth:`_apply_P`.
         '''
 
+        self._B_ = None
+
         super(_DeflationMixin, self).__init__(linear_system,
                                               *args, **kwargs)
 
@@ -122,7 +124,7 @@ class _DeflationMixin(object):
             r = self.linear_system.b - self.linear_system.A*x0
             Mlr = self.linear_system.Ml*r
 
-        PMlr = self.P.apply_complement(Mlr)
+        PMlr, self.UMlr = self.P.apply_complement(Mlr, return_Ya=True)
         MPMlr = self.linear_system.M*PMlr
         MPMlr_norm = utils.norm(PMlr, MPMlr, ip_B=self.linear_system.ip_B)
         return MPMlr, PMlr, MPMlr_norm
@@ -130,6 +132,22 @@ class _DeflationMixin(object):
     def _get_xk(self, yk):
         xk = super(_DeflationMixin, self)._get_xk(yk)
         return self.P.correct(xk)
+
+    @property
+    def B_(self):
+        (n_, n) = self.H.shape
+        ls = self.linear_system
+        if self._B_ is None or self._B_.shape[1] < n_:
+            # compute B_
+            if ls.self_adjoint:
+                self._B_ = self.C.T.conj()
+                if n_ > n:
+                    self._B_ = numpy.r_[self._B_,
+                                        utils.inner(self.V[:, [-1]], self.P.AU,
+                                                    ip_B=ls.ip_B)]
+            else:
+                self._B_ = utils.inner(self.V, self.P.AU, ip_B=ls.ip_B)
+        return self._B_
 
 
 class DeflatedCg(_DeflationMixin, linsys.Cg):
@@ -162,34 +180,24 @@ class DeflatedGmres(_DeflationMixin, linsys.Gmres):
 
 
 class Arnoldifyer(object):
-    def __init__(self, V, U, AU, H, B_, C, E, Pv_norm, U_v):
+    def __init__(self, deflated_solver):
         r'''Obtain Arnoldi relations for approximate deflated Krylov subspaces.
 
-        :param H: Hessenberg matrix :math:`\underline{H}_n`
-          (``H.shape==(n+1,n)``) or :math:`H_n` (``H.shape==(n,n)``; invariant
-          case) of already generated Krylov subspace.
-        :param B_: :math:`\langle V_{n+1},AU\rangle` (``B_.shape==(n+1,d)``) or
-          :math:`\langle V_n,AU\rangle` (``B_.shape==(n,d)``; invariant case).
-        :param C: :math:`\langle U,AV_n\rangle` with ``C.shape==(d,n)``.
-        :param E: :math:`\langle U,AU\rangle` with ``E.shape==(d,d)``.
-        :param V: basis :math:`V_{n+1}` (``V.shape==(N,n+1)``) or
-          :math:`V_n` (``V.shape==(N,n)``; invariant case).
-        :param U: basis :math:`U` with ``U.shape==(N,d)``.
+        :param deflated_solver: an instance of a deflated solver.
         '''
+        self._deflated_solver = deflated_solver
+        H = deflated_solver.H
+        B_ = deflated_solver.B_
+        C = deflated_solver.C
+        E = deflated_solver.E
+
+        V = deflated_solver.V
+        U = deflated_solver.P.U
+        AU = deflated_solver.P.AU
+
         # get dimensions
         n_, n = self.n_, self.n = H.shape
-        d = self.d = U.shape[1]
-
-        # store arguments
-        self.V = V
-        self.U = U
-        self.AU = AU
-        self.H = H
-        self.B_ = B_
-        self.C = C
-        self.E = E
-        self.Pv_norm = Pv_norm
-        self.U_v = U_v
+        d = self.d = deflated_solver.P.U.shape[1]
 
         # store a few matrices for later use
         EinvC = numpy.linalg.solve(E, C) if d > 0 else numpy.zeros((0, n))
@@ -221,7 +229,7 @@ class Arnoldifyer(object):
                 numpy.bmat([[numpy.zeros((d+n_-n, n)),
                              numpy.eye(d+n_-n)]]))
         else:
-            Q1 = numpy.zeros((self.U.shape[0], 0))
+            Q1 = numpy.zeros((U.shape[0], 0))
             self.R12 = numpy.zeros((0, 0))
             self.N = numpy.bmat([[numpy.zeros((n_-n, n)),
                                   numpy.eye(n_-n, n_-n)]])
@@ -266,14 +274,17 @@ class Arnoldifyer(object):
         else:
             Wto = numpy.eye(Wt.shape[0])
 
+        deflated_solver = self._deflated_solver
+
         Pt = utils.Projection(self.L.dot(Wt), self.J.T.conj().dot(Wt)) \
             .operator_complement()
         if d > 0:
-            qt = Pt*(numpy.r_[[[self.Pv_norm]],
+            qt = Pt*(numpy.r_[[[deflated_solver.MMlr0_norm]],
                               numpy.zeros((self.n_-1, 1)),
-                              numpy.linalg.solve(self.E, self.U_v)])
+                              numpy.linalg.solve(deflated_solver.E,
+                                                 deflated_solver.UMlr)])
         else:
-            qt = Pt*(numpy.r_[[[self.Pv_norm]],
+            qt = Pt*(numpy.r_[[[deflated_solver.MMlr0_norm]],
                               numpy.zeros((self.n_-1, 1))])
         q = Wto.T.conj().dot(self.J.dot(qt))
 
@@ -302,8 +313,8 @@ class Arnoldifyer(object):
         # compute norm of projection P_{W^\perp,AW}
         if k > 0:
             # compute coefficients of orthonormalized AW in the basis [V,Z]
-            Y = numpy.bmat([[numpy.eye(n_), self.B_],
-                            [numpy.zeros((d, n_)), self.E],
+            Y = numpy.bmat([[numpy.eye(n_), deflated_solver.B_],
+                            [numpy.zeros((d, n_)), deflated_solver.E],
                             [numpy.zeros((self.R12.shape[0], n_)), self.R12]])
             YL_Q, _ = scipy.linalg.qr(Y.dot(self.L.dot(Wt)), mode='economic')
 
@@ -315,7 +326,8 @@ class Arnoldifyer(object):
             PWAW_norm = 1.
 
         if full:
-            Vh = numpy.c_[self.V[:, :n], self.U].dot(Wto.dot(QT))
+            Vh = numpy.c_[deflated_solver.V[:, :n],
+                          deflated_solver.P.U].dot(Wto.dot(QT))
             F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
             return Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F
@@ -484,7 +496,6 @@ class Ritz(object):
         self.coeffs = None
         '''Coefficients for Ritz vectors in the basis :math:`[V_n,U]`.'''
 
-        V = deflated_solver.V
         H_ = deflated_solver.H
         (n_, n) = H_.shape
         H = H_[:n, :n]
@@ -496,21 +507,15 @@ class Ritz(object):
         if isinstance(P, ObliqueProjection):
             E = deflated_solver.E
             C = deflated_solver.C
-            EinvC = numpy.linalg.solve(E, C)
-            # compute B
-            if linear_system.self_adjoint:
-                B = C.T.conj()
-                B_ = B
-                if n_ > n:
-                    B_ = numpy.r_[B, utils.inner(V[:, [-1]], P.AU,
-                                                 ip_B=linear_system.ip_B)]
+            if m > 0:
+                EinvC = numpy.linalg.solve(E, C)
             else:
-                B_ = utils.inner(V, P.AU, ip_B=linear_system.ip_B)
-                B = B_[:n, :]
-            E = deflated_solver.E
+                EinvC = C
+            B_ = deflated_solver.B_
+            B = B_[:n, :]
 
             # build block matrices
-            M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
+            M = numpy.bmat([[H + B.dot(EinvC), B],
                             [C, E]])
             F = utils.inner(P.AU, P.AU, ip_B=linear_system.ip_B)
             S = numpy.bmat([[I(n_), B_, O((n_, m))],
