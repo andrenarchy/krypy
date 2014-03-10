@@ -768,7 +768,7 @@ def hegedus(A, b, x0, M=None, Ml=None, ip_B=None):
     return gamma*x0
 
 
-class Arnoldi:
+class Arnoldi(object):
     def __init__(self, A, v,
                  maxiter=None,
                  ortho='mgs',
