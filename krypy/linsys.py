@@ -249,7 +249,7 @@ class _KrylovSolver(object):
             '''Error norms.'''
 
             self.errnorms.append(utils.norm(
-                self.linear_system.exact_solution - self.x0,
+                self.linear_system.exact_solution - self._get_xk(None),
                 ip_B=self.linear_system.ip_B))
 
         self._solve()
@@ -273,7 +273,9 @@ class _KrylovSolver(object):
     def _get_xk(self, yk):
         '''Compute approximate solution from initial guess and approximate
         solution of the preconditioned linear system.'''
-        return self.x0 + self.linear_system.Mr * yk
+        if yk is not None:
+            return self.x0 + self.linear_system.Mr * yk
+        return self.x0
 
     def _finalize_iteration(self, yk, resnorm):
         '''Compute solution, error norm and residual norm if required.
@@ -697,6 +699,8 @@ class Gmres(_KrylovSolver):
         super(Gmres, self).__init__(linear_system, **kwargs)
 
     def _get_xk(self, y):
+        if y is None:
+            return self.x0
         k = self.arnoldi.iter
         if k > 0:
             yy = scipy.linalg.solve_triangular(self.R[:k, :k], y)
