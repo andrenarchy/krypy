@@ -1,10 +1,28 @@
 import krypy
 import krypy.tests.test_utils as test_utils
+import krypy.tests.test_linsys as test_linsys
 import numpy
 import scipy.linalg
 import itertools
 from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
     assert_array_equal, assert_equal
+
+
+def test_deflation_solver():
+    for case in test_linsys.cases:
+        for ls in test_linsys.linear_systems_generator(**case):
+            solvers = [krypy.deflation.DeflatedGmres]
+            if ls.self_adjoint:
+                solvers.append(krypy.deflation.DeflatedMinres)
+            if ls.positive_definite:
+                solvers.append(krypy.deflation.DeflatedCg)
+            for U in [None, numpy.eye(ls.N, 1)]:
+                for solver in solvers:
+                    yield test_linsys.run_solver, solver, ls, {
+                        'U': U,
+                        'x0': None,
+                        'tol': 1e-6,
+                        'maxiter': 15}
 
 
 def test_Arnoldifyer():

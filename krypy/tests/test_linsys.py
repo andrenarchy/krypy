@@ -88,27 +88,29 @@ def solver_params_generator(solver, ls):
         yield params
 
 
+cases = [
+    # spd
+    {'A': test_utils.get_matrix_spd(),
+     'normal': True, 'self_adjoint': True, 'positive_definite': True},
+    # hpd
+    {'A': test_utils.get_matrix_hpd(),
+     'normal': True, 'self_adjoint': True, 'positive_definite': True},
+    # symmetric indefinite
+    {'A': test_utils.get_matrix_symm_indef(),
+     'normal': True, 'self_adjoint': True},
+    # hermitian indefinite
+    {'A': test_utils.get_matrix_herm_indef(),
+     'normal': True, 'self_adjoint': True},
+    # nonsymm
+    {'A': test_utils.get_matrix_nonsymm()},
+    # nonsymm
+    {'A': test_utils.get_matrix_comp_nonsymm()},
+    ]
+
+
 def test_solver():
-    cases_params = [
-        # spd
-        {'A': test_utils.get_matrix_spd(),
-         'normal': True, 'self_adjoint': True, 'positive_definite': True},
-        # hpd
-        {'A': test_utils.get_matrix_hpd(),
-         'normal': True, 'self_adjoint': True, 'positive_definite': True},
-        # symmetric indefinite
-        {'A': test_utils.get_matrix_symm_indef(),
-         'normal': True, 'self_adjoint': True},
-        # hermitian indefinite
-        {'A': test_utils.get_matrix_herm_indef(),
-         'normal': True, 'self_adjoint': True},
-        # nonsymm
-        {'A': test_utils.get_matrix_nonsymm()},
-        # nonsymm
-        {'A': test_utils.get_matrix_comp_nonsymm()},
-        ]
-    for case_params in cases_params:
-        for ls in linear_systems_generator(**case_params):
+    for case in cases:
+        for ls in linear_systems_generator(**case):
             solvers = [krypy.linsys.Gmres, krypy.linsys.RestartedGmres]
             if ls.self_adjoint:
                 solvers.append(krypy.linsys.Minres)
