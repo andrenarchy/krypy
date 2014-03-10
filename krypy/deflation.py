@@ -484,9 +484,14 @@ class Ritz(object):
         (n_, n) = H_.shape
         H = H_[:n, :n]
         P = deflated_solver.P
+        m = P.U.shape[1]
+        I = numpy.eye
+        O = numpy.zeros
 
         if isinstance(P, ObliqueProjection):
+            E = deflated_solver.E
             C = deflated_solver.C
+            EinvC = numpy.linalg.solve(E, C)
             # compute B
             if linear_system.self_adjoint:
                 B = C.T.conj()
@@ -496,25 +501,49 @@ class Ritz(object):
                                                  ip_B=linear_system.ip_B)]
             else:
                 B_ = utils.inner(V, P.AU, ip_B=linear_system.ip_B)
-                B = B_[:-1, :]
+                B = B_[:n, :]
             E = deflated_solver.E
 
+            # build block matrices
+            M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
+                            [C, E]])
+            F = utils.inner(P.AU, P.AU, ip_B=linear_system.ip_B)
+            S = numpy.bmat([[I(n_), B_, O((n_, m))],
+                            [B_.T.conj(), F, E],
+                            [O((m, n_)), E.T.conj(), I(m)]])
+
+            # use eigh for self-adjoint problems
+            eig = scipy.linalg.eigh if linear_system.self_adjoint \
+                else scipy.linalg.eig
+
+            # solve eigenvalue problem
             if mode == 'ritz':
-                # build block matrix
-                M = numpy.bmat([[H + B.dot(numpy.linalg.solve(E, C)), B],
-                                [C, E]])
-
-                # solve eigenvalue problem
-                eig = scipy.linalg.eigh if linear_system.self_adjoint \
-                    else scipy.linalg.eig
                 self.values, self.coeffs = eig(M)
-
             elif mode == 'harmonic':
-                # TODO
-                raise NotImplementedError('mode {0} not implemented'.format(mode))
+                L = numpy.bmat([[H_, O((n_, m))],
+                                [EinvC, I(m)]])
+                K = numpy.bmat([[I(n_), B_],
+                                [B_.T.conj(), F]])
+                sigmas, self.coeffs = eig(M.T.conj(),
+                                          L.T.conj().dot(K.dot(L)))
+                self.values = numpy.zeros(m+n, dtype=sigmas.dtype)
+                zero = numpy.abs(sigmas) < numpy.finfo(float).eps
+                self.values[~zero] = 1./sigmas[~zero]
+                self.values[zero] = numpy.Inf
             else:
                 raise ValueError('mode {0} not known'.format(mode))
-            # TODO: compute residual norms
+
+            # compute residual norms
+            self.resnorms = numpy.zeros(m+n)
+            for i in range(n+m):
+                mu = self.values[i]
+                y = self.coeffs[:, [i]]
+                G = numpy.bmat([[H_ - mu*I(n_, n), O((n_, m))],
+                                [EinvC, I(m)],
+                                [O((m, n)), -mu*I(m)]])
+                Gy = G.dot(y)
+                resnorm2 = Gy.T.conj().dot(S.dot(Gy))
+                self.resnorms[i] = numpy.sqrt(numpy.abs(resnorm2))
 
         #elif isinstance(P, TODO):
             #TODO
@@ -532,3 +561,18 @@ class Ritz(object):
         ritz_vecs = self.get_vectors(indices)
         return self._deflated_solver.linear_system.MlAMr * ritz_vecs \
             - ritz_vecs * self.values
+
+    def get_explicit_resnorms(self, indices=None):
+        '''Explicitly computes the Ritz residual norms.'''
+        res = self.get_explicit_residual(indices)
+
+        # apply preconditioner
+        linear_system = self._deflated_solver.linear_system
+        Mres = linear_system.M * res
+
+        # compute norms
+        resnorms = numpy.zeros(res.shape[1])
+        for i in range(resnorms.shape[0]):
+            resnorms[i] = utils.norm(res[:, [i]], Mres[:, [i]],
+                                     ip_B=linear_system.ip_B)
+        return resnorms
