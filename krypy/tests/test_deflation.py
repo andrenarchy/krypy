@@ -30,6 +30,7 @@ def test_Arnoldifyer():
           numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
           ]
     for matrix in test_utils.get_matrices():
+        A_norm = numpy.linalg.norm(matrix, 2)
         numpy.random.seed(0)
         evals, evecs = scipy.linalg.eig(matrix)
         sort = numpy.argsort(numpy.abs(evals))
@@ -39,72 +40,63 @@ def test_Arnoldifyer():
               evecs[:, -2:] + 1e-5*numpy.random.rand(10, 2)
               ]
         Wt_sels = ['none', 'smallest', 'largest']
-        for A, v, U, Wt_sel in \
+        for A, v, U in \
                 itertools.product(test_utils.get_operators(matrix),
-                                  vs, Us, Wt_sels):
-            yield run_Arnoldifyer, A, v, U, 5, Wt_sel
+                                  vs, Us,):
+            ls = krypy.linsys.LinearSystem(A, v)
+            for Wt_sel in Wt_sels:
+                yield run_Arnoldifyer, ls, U, A_norm, Wt_sel
 
 
-def run_Arnoldifyer(A, v, U, maxiter, Wt_sel):
-    N, d = U.shape
-    # orthonormalize if U is not zero-dim
-    if d > 0:
-        U, _ = numpy.linalg.qr(U)
-
-    # build projection
-    AU = A.dot(U)
-    P = krypy.utils.Projection(AU, U).operator_complement()
-
-    # run Arnoldi
-    V, H = krypy.utils.arnoldi(P*krypy.utils.get_linearoperator((N, N), A),
-                               P*v, maxiter=maxiter, ortho='house')
-    n = H.shape[1]
-
-    # build matrices used in Arnoldifyer
-    B_ = V.T.conj().dot(AU)
-    C = U.T.conj().dot(A.dot(V[:, :n]))
-    E = U.T.conj().dot(AU)
-
-    VU = numpy.c_[V[:, :n], U]
-    M = VU.T.conj().dot(A.dot(VU))
-    rvals, rvecs = scipy.linalg.eig(M)
-    sort = numpy.argsort(numpy.abs(rvals))
-    rvecs = rvecs[sort]
+def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
+    try:
+        deflated_solver = krypy.deflation.DeflatedGmres(ls, U=U,
+                                                        store_arnoldi=True,
+                                                        maxiter=5)
+    except krypy.utils.ConvergenceError as e:
+        deflated_solver = e.solver
+    ritz = krypy.deflation.Ritz(deflated_solver)
+    sort = numpy.argsort(numpy.abs(ritz.values))
+    coeffs = ritz.coeffs[:, sort]
     if Wt_sel == 'none':
-        Wt = numpy.zeros((n+d, 0))
+        Wt = numpy.zeros((coeffs.shape[0], 0))
     elif Wt_sel == 'smallest':
-        Wt = rvecs[:, :2]
+        Wt = coeffs[:, :2]
     elif Wt_sel == 'largest':
-        Wt = rvecs[:, -2:]
+        Wt = coeffs[:, -2:]
 
     k = Wt.shape[1]
     if k > 0:
         Wt, _ = scipy.linalg.qr(Wt, mode='economic')
 
     # get Arnoldifyer instance
-    arnoldifyer = krypy.deflation.Arnoldifyer(V, U, AU, H, B_, C, E,
-                                              numpy.linalg.norm(P*v, 2),
-                                              U.T.conj().dot(v))
+    arnoldifyer = krypy.deflation.Arnoldifyer(deflated_solver)
+
     # arnoldify given Wt
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F = \
         arnoldifyer.get(Wt, full=True)
 
     # perform checks
+    (n_, n) = deflated_solver.H.shape
+    ls = deflated_solver.linear_system
+    N = ls.N
+    d = deflated_solver.P.U.shape[1]
+
+    VU = numpy.c_[deflated_solver.V[:, :n], deflated_solver.P.U]
     W = VU.dot(Wt)
-    PW = krypy.utils.Projection(A.dot(W), W).operator_complement()
-    A = krypy.utils.get_linearoperator((N, N), A)
-    At = PW*A
+    PW = krypy.utils.Projection(ls.MlAMr*W, W).operator_complement()
+    At = PW*ls.MlAMr
     Fop = krypy.utils.get_linearoperator((N, N), F)
 
     # check arnoldi relation
     assert_almost_equal(numpy.linalg.norm((At+Fop).dot(Vh) - Vh.dot(Hh), 2)
-                        / numpy.linalg.norm(M, 2),
+                        / A_norm,
                         0, 7)
 
     # check projection
     assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot((At+Fop).dot(Vh))
                                           - Hh, 2)
-                        / numpy.linalg.norm(M, 2),
+                        / A_norm,
                         0, 7)
 
     # check orthonormality
