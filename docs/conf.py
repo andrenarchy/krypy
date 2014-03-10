@@ -191,6 +191,11 @@ latex_elements = {
 
 # Additional stuff for the LaTeX preamble.
 #'preamble': '',
+    'papersize': 'a4paper',
+    'preamble': r'''
+        \usepackage{amsmath}
+        \usepackage{amssymb}
+        '''
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
