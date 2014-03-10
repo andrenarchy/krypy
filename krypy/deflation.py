@@ -476,8 +476,13 @@ class Ritz(object):
           * ``harmonic``: compute harmonic Ritz pairs.
         '''
         self._deflated_solver = deflated_solver
-
         linear_system = deflated_solver.linear_system
+
+        self.values = None
+        '''Ritz values.'''
+
+        self.coeffs = None
+        '''Coefficients for Ritz vectors in the basis :math:`[V_n,U]`.'''
 
         V = deflated_solver.V
         H_ = deflated_solver.H
@@ -533,8 +538,9 @@ class Ritz(object):
             else:
                 raise ValueError('mode {0} not known'.format(mode))
 
-            # compute residual norms
             self.resnorms = numpy.zeros(m+n)
+            '''Residual norms of Ritz pairs.'''
+
             for i in range(n+m):
                 mu = self.values[i]
                 y = self.coeffs[:, [i]]
