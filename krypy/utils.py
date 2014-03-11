@@ -22,13 +22,15 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
-__all__ = ['AssumptionError', 'BoundCG', 'BoundMinres', 'ConvergenceError',
-           'Givens', 'House', 'IdentityLinearOperator', 'LinearOperator',
-           'MatrixLinearOperator', 'Projection', 'Timer', 'angles', 'arnoldi',
-           'arnoldi_res', 'arnoldi_projected', 'bound_perturbed_gmres', 'gap',
-           'get_linearoperator', 'hegedus', 'ip_euclid', 'norm', 'norm_MMlr',
-           'norm_squared', 'orthonormality', 'qr', 'ritz', 'shape_vec',
-           'shape_vecs', 'strakos']
+__all__ = ['AssumptionError', 'Arnoldi', 'BoundCG', 'BoundMinres',
+           'ConvergenceError', 'Givens', 'House', 'IdentityLinearOperator',
+           'LinearOperator', 'MatrixLinearOperator',
+           'NormalizedRootsPolynomial', 'Projection', 'Timer', 'angles',
+           'arnoldi', 'arnoldi_res', 'arnoldi_projected',
+           'bound_perturbed_gmres', 'gap', 'get_linearoperator', 'hegedus',
+           'inner', 'ip_euclid', 'norm', 'norm_MMlr', 'norm_squared',
+           'orthonormality', 'qr', 'ritz', 'shape_vec', 'shape_vecs',
+           'strakos']
 
 
 def find_common_dtype(*args):
@@ -308,6 +310,29 @@ class House:
         return numpy.eye(n, n) - self.beta * numpy.dot(self.v, self.v.T.conj())
 
 
+def hessenberg(A):
+    '''Hessenberg decomposition via Householder transformations.
+
+    The function ``scipy.linalg.hessenberg`` suffers from a bug, see
+    https://github.com/scipy/scipy/issues/3364.
+
+    This function implements algorithm 7.4.2 in [GolV13]_.
+
+    :returns: ``H`` and ``Q`` such that ``A = Q H Q^*``
+    '''
+    n = A.shape[0]
+    if A.shape[1] != n:
+        raise ValueError('matrix must be square')
+    H = A.copy()
+    Q = numpy.eye(n, dtype=H.dtype)
+    for k in range(n-2):
+        house = House(H[k+1:, [k]])
+        H[k+1:, k:] = house.apply(H[k+1:, k:])
+        H[:, k+1:] = house.apply(H[:, k+1:].T.conj()).T.conj()
+        Q[k+1:, :] = house.apply(Q[k+1:, :])
+    return H, Q.T.conj()
+
+
 class Givens:
     def __init__(self, x):
         """Compute Givens rotation for provided vector x.
@@ -342,10 +367,10 @@ class Givens:
         return numpy.dot(self.G, x)
 
 
-class Projection:
+class Projection(object):
     def __init__(self, X,
                  Y=None,
-                 B=None,
+                 ip_B=None,
                  iterations=2
                  ):
         """Generic projection.
@@ -372,9 +397,9 @@ class Projection:
         :param Y: (optional) ``None`` or array with ``shape==(N,k)`` and
             :math:`\\operatorname{rank}(X)=k`. If Y is ``None`` then Y is
             set to X which means that the resulting projection is orthogonal.
-        :param B: (optional) ``None`` (default) or positive definite
-            ``LinearOperator`` that defines the inner product by
-            :math:`\\langle x,y\\rangle_B=\\langle x,By\\rangle`.
+        :param ip_B: (optional) inner product, see :py:meth:`inner`. ``None``,
+            a ``numpy.array`` or a ``LinearOperator`` is preferred due to the
+            applicability of the proposed algorithms in [Ste11]_, see below.
         :param iterations: (optional) number of applications of the projection.
             It was suggested in [Ste11]_ to use 2 iterations (default) in order
             to achieve high accuracy ("twice is enough" as in the orthogonal
@@ -382,11 +407,15 @@ class Projection:
 
         This projection class makes use of the round-off error analysis of
         oblique projections in the work of Stewart [Ste11]_ and implements the
-        algorithms that are considered as the most stable ones.
+        algorithms that are considered as the most stable ones (e.g., the XQRY
+        representation in [Ste11]_).
         """
+        # check and store input
+        self.ip_B = ip_B
         if iterations < 1:
             raise ValueError('iterations < 1 not allowed')
         self.iterations = iterations
+
         Y = X if Y is None else Y   # default: orthogonal projection
 
         if len(X.shape) != 2:
@@ -394,52 +423,106 @@ class Projection:
         if X.shape != Y.shape:
             raise ValueError('X and Y have different shapes')
 
-        (N, k) = X.shape
-        # special case of orthogonal projection in Euclidean inner product
-        # (the case of non-Euclidean inner products is handled in the general
-        # case below)
-        if Y is X and B is None:
-            self.U = scipy.linalg.orth(X)
-            self.V_H = self.U.T.conj()
-            self.R = None
-        # general case
-        else:
-            self.U = scipy.linalg.orth(X)
-            if B is not None:
-                B = get_linearoperator((N, N), B)
-                Y = B*Y
-            V = scipy.linalg.orth(Y)
-            M = numpy.dot(V.T.conj(), self.U)
-            Q, self.R = scipy.linalg.qr(M)
-            self.V_H = V.dot(Q).T.conj()
+        # set N-by-zero vectors if input is N-by-zero
+        # (results in zero operator)
+        if X.shape[1] == 0:
+            self.V = self.W = numpy.zeros(X.shape)
+            self.VR = self.WR = self.Q = self.R = None
+            return
 
-    def _apply(self, a):
-        '''Single application of the projection.'''
-        c = self.V_H.dot(a)
-        if self.R is not None:
-            c = scipy.linalg.solve_triangular(self.R, c)
-        return numpy.dot(self.U, c)
+        # orthogonalize X
+        self.V, self.VR = qr(X, ip_B=ip_B)
 
-    def apply(self, a):
-        """Apply the projection to an array.
+        if Y is X:  # orthogonal projection
+            self.W, self.WR = self.V, self.VR
+            self.Q, self.R = None, None
+        else:  # general case
+            self.W, self.WR = qr(Y, ip_B=ip_B)
+            M = inner(self.W, self.V, ip_B=ip_B)
+            self.Q, self.R = scipy.linalg.qr(M)
+
+    def _apply(self, a, return_Ya=False):
+        r'''Single application of the projection.
+
+        :param a: array with ``a.shape==(N,m)``.
+        :param return_inner: (optional) should the inner product
+          :math:`\langle Y,a\rangle` be returned?
+        :return:
+
+          * :math:`P_{\mathcal{X},\mathcal{Y}^\perp} a =
+            X \langle Y,X\rangle^{-1} \langle Y, a\rangle`.
+          * :math:`\langle Y,a\rangle` if ``return_inner==True``.
+        '''
+        # is projection the zero operator?
+        if self.V.shape[1] == 0:
+            Pa = numpy.zeros(a.shape)
+            if return_Ya:
+                return Pa, numpy.zeros((0, a.shape[1]))
+            return Pa
+        c = inner(self.W, a, ip_B=self.ip_B)
+
+        if return_Ya:
+            Ya = c.copy()
+            if self.WR is not None:
+                Ya = self.WR.T.conj().dot(Ya)
+
+        if self.Q is not None and self.R is not None:
+            c = scipy.linalg.solve_triangular(self.R, self.Q.T.conj().dot(c))
+        Pa = self.V.dot(c)
+        if return_Ya:
+            return Pa, Ya
+        return Pa
+
+    def _apply_adj(self, a):
+        # is projection the zero operator?
+        if self.V.shape[1] == 0:
+            return numpy.zeros(a.shape)
+        '''Single application of the adjoint projection.'''
+        c = inner(self.V, a, ip_B=self.ip_B)
+        if self.Q is not None and self.R is not None:
+            c = self.Q.dot(scipy.linalg.solve_triangular(self.R.T.conj(), c,
+                                                         lower=True))
+        return self.W.dot(c)
+
+    def apply(self, a, return_Ya=False):
+        r"""Apply the projection to an array.
 
         The computation is carried out without explicitly forming the
         matrix corresponding to the projection (which would be an array with
         ``shape==(N,N)``).
 
-        :param z: array with ``shape==(N,m)``.
-
-        :return: :math:`P_{\\mathcal{X},\\mathcal{Y}^\\perp} z =
-            X \\langle Y,X\\rangle^{-1} \\langle Y, z\\rangle`.
+        See also :py:meth:`_apply`.
         """
-        x = self._apply(a)
+        # is projection the zero operator?
+        if self.V.shape[1] == 0:
+            Pa = numpy.zeros(a.shape)
+            if return_Ya:
+                return Pa, numpy.zeros((0, a.shape[1]))
+            return Pa
+        if return_Ya:
+            x, Ya = self._apply(a, return_Ya=return_Ya)
+        else:
+            x = self._apply(a)
         for i in range(self.iterations-1):
             z = a - x
             w = self._apply(z)
             x = x + w
+        if return_Ya:
+            return x, Ya
         return x
 
-    def apply_complement(self, a):
+    def apply_adj(self, a):
+        # is projection the zero operator?
+        if self.V.shape[1] == 0:
+            return numpy.zeros(a.shape)
+        x = self._apply_adj(a)
+        for i in range(self.iterations-1):
+            z = a - x
+            w = self._apply_adj(z)
+            x = x + w
+        return x
+
+    def apply_complement(self, a, return_Ya=False):
         """Apply the complementary projection to an array.
 
         :param z: array with ``shape==(N,m)``.
@@ -447,31 +530,61 @@ class Projection:
         :return: :math:`P_{\\mathcal{Y}^\\perp,\\mathcal{X}}z =
             z - P_{\\mathcal{X},\\mathcal{Y}^\\perp} z`.
         """
-        x = self._apply(a)
+        # is projection the zero operator? --> complement is identity
+        if self.V.shape[1] == 0:
+            if return_Ya:
+                return a.copy(), numpy.zeros((0, a.shape[1]))
+            return a.copy()
+        if return_Ya:
+            x, Ya = self._apply(a, return_Ya=True)
+        else:
+            x = self._apply(a)
         z = a - x
         for i in range(self.iterations-1):
             w = self._apply(z)
             z = z - w
+        if return_Ya:
+            return z, Ya
         return z
 
-    def _get_operator(self, fun):
-        N = self.U.shape[0]
-        t = numpy.find_common_type([self.U.dtype, self.U.dtype], [])
-        return LinearOperator((N, N), t, fun)
+    def apply_complement_adj(self, a):
+        # is projection the zero operator? --> complement is identity
+        if self.V.shape[1] == 0:
+            return a.copy()
+        x = self._apply_adj(a)
+        z = a - x
+        for i in range(self.iterations-1):
+            w = self._apply_adj(z)
+            z = z - w
+        return z
+
+    def _get_operator(self, fun, fun_adj):
+        N = self.V.shape[0]
+        t = numpy.find_common_type([self.V.dtype, self.W.dtype], [])
+        return LinearOperator((N, N), t, fun, fun_adj)
 
     def operator(self):
         """Get a ``LinearOperator`` corresponding to apply().
 
         :return: a LinearOperator that calls apply().
         """
-        return self._get_operator(self.apply)
+        # is projection the zero operator?
+        if self.V.shape[1] == 0:
+            N = self.V.shape[0]
+            return ZeroLinearOperator((N, N))
+        return self._get_operator(self.apply, self.apply_adj)
 
     def operator_complement(self):
         """Get a ``LinearOperator`` corresponding to apply_complement().
 
         :return: a LinearOperator that calls apply_complement().
         """
-        return self._get_operator(self.apply_complement)
+        # is projection the zero operator? --> complement is identity
+        if self.V.shape[1] == 0:
+            N = self.V.shape[0]
+            return IdentityLinearOperator((N, N))
+        return self._get_operator(self.apply_complement,
+                                  self.apply_complement_adj)
 
     def matrix(self):
         """Builds matrix representation of projection.
@@ -483,7 +596,7 @@ class Projection:
         should not be used in production codes for high dimensions since
         the resulting matrix is dense.
         """
-        return self.apply(numpy.eye(self.U.shape[0]))
+        return self.apply(numpy.eye(self.V.shape[0]))
 
 
 def qr(X, ip_B=None, reorthos=1):
@@ -655,11 +768,13 @@ def hegedus(A, b, x0, M=None, Ml=None, ip_B=None):
     return gamma*x0
 
 
-class Arnoldi:
+class Arnoldi(object):
     def __init__(self, A, v,
                  maxiter=None,
                  ortho='mgs',
                  M=None,
+                 Mv=None,
+                 Mv_norm=None,
                  ip_B=None
                  ):
         """Arnoldi algorithm.
@@ -689,7 +804,7 @@ class Arnoldi:
           ``ip_B`` has to be ``None`` if ``ortho=='house'``. It's unclear to me
           (andrenarchy), how a variant of the Householder QR algorithm can be
           used with a non-Euclidean inner product. Compare
-            http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
+          http://math.stackexchange.com/questions/433644/is-householder-orthogonalization-qr-practicable-for-non-euclidean-inner-products
         """
         N = v.shape[0]
 
@@ -697,7 +812,9 @@ class Arnoldi:
         self.A = get_linearoperator((N, N), A)
         self.maxiter = N if maxiter is None else maxiter
         self.ortho = ortho
-        self.M = None if M is None else get_linearoperator((N, N), M)
+        self.M = get_linearoperator((N, N), M)
+        if isinstance(self.M, IdentityLinearOperator):
+            self.M = None
         self.ip_B = ip_B
 
         self.dtype = find_common_dtype(A, v, M)
@@ -728,15 +845,24 @@ class Arnoldi:
                 self.reorthos = 1
             if self.M is not None:
                 p = v
-                v = self.M*p
-                self.vnorm = norm(p, v, ip_B=ip_B)
-                if self.vnorm > 1e-15:
+                if Mv is None:
+                    v = self.M*p
+                else:
+                    v = Mv
+                if Mv_norm is None:
+                    self.vnorm = norm(p, v, ip_B=ip_B)
+                else:
+                    self.vnorm = Mv_norm
+                if self.vnorm > 0:
                     self.P[:, [0]] = p / self.vnorm
             else:
-                self.vnorm = norm(v, ip_B=ip_B)
+                if Mv_norm is None:
+                    self.vnorm = norm(v, ip_B=ip_B)
+                else:
+                    self.vnorm = Mv_norm
         else:
             raise ValueError('Unknown orthogonalization method "%s"' % ortho)
-        if self.vnorm > 1e-15:
+        if self.vnorm > 0:
             self.V[:, [0]] = v / self.vnorm
         else:
             self.invariant = True
@@ -1168,6 +1294,8 @@ class LinearOperator(object):
         try:
             if isinstance(X, IdentityLinearOperator):
                 return self
+            elif isinstance(self, IdentityLinearOperator):
+                return X
             elif isinstance(X, LinearOperator):
                 return _ProductLinearOperator(self, X)
             elif numpy.isscalar(X):
@@ -1199,7 +1327,6 @@ class LinearOperator(object):
         try:
             return _ScaledLinearOperator(self, -1)
         except ValueError as e:
-            print(e)
             return NotImplemented
 
     def __sub__(self, X):
@@ -1211,7 +1338,9 @@ class LinearOperator(object):
             % (m, n, self.__class__.__name__, str(self.dtype))
 
 
-def _get_dtype(operators, dtypes=[]):
+def _get_dtype(operators, dtypes=None):
+    if dtypes is None:
+        dtypes = []
     for obj in operators:
         if obj is not None and hasattr(obj, 'dtype'):
             dtypes.append(obj.dtype)
@@ -1317,6 +1446,18 @@ class IdentityLinearOperator(LinearOperator):
 
     def _dot_adj(self, X):
         return X
+
+
+class ZeroLinearOperator(LinearOperator):
+    def __init__(self, shape):
+        super(ZeroLinearOperator, self).__init__(shape, numpy.dtype(None),
+                                                 self._dot, self._dot_adj)
+
+    def _dot(self, X):
+        return numpy.zeros(X.shape)
+
+    def _dot_adj(self, X):
+        return numpy.zeros(X.shape)
 
 
 class MatrixLinearOperator(LinearOperator):
@@ -1720,3 +1861,68 @@ def bound_perturbed_gmres(pseudo, p, epsilon, deltas):
                      * paths.length()/(2*numpy.pi*delta)
                      * supremum)
     return bound
+
+
+class NormalizedRootsPolynomial(object):
+    def __init__(self, roots):
+        r'''A polynomial with specified roots and p(0)=1.
+
+        Represents the polynomial
+
+        .. math::
+
+            p(\lambda) = \prod_{i=1}^n \left(1-\frac{\lambda}{\theta_i}\right).
+
+        :param roots: array with roots :math:`\theta_1,\dots,\theta_n` of the
+          polynomial and ``roots.shape==(n,)``.
+        '''
+        # check input
+        roots = numpy.asarray(roots)
+        if len(roots.shape) != 1:
+            raise ValueError('one-dimensional array of roots expected.')
+        self.roots = roots
+
+    def minmax_candidates(self):
+        '''Get points where derivative is zero.
+
+        Useful for computing the extrema of the polynomial over an interval if
+        the polynomial has real roots. In this case, the maximum is attained
+        for one of the interval endpoints or a point from the result of this
+        function that is contained in the interval.
+        '''
+        from numpy.polynomial import Polynomial as P
+        p = P.fromroots(self.roots)
+        return p.deriv(1).roots()
+
+    def __call__(self, points):
+        '''Evaluate polyonmial at given points.
+
+        :param points: a point :math:`x` or array of points
+          :math:`x_1,\dots,x_m` with ``points.shape==(m,)``.
+        :returns: :math:`p(x)` or array of shape ``(m,)`` with
+          :math:`p(x_1),\dots,p(x_m)`.
+        '''
+        # check input
+        p = numpy.asarray(points)
+        if len(p.shape) > 1:
+            raise ValueError('scalar or one-dimensional array of points '
+                             'expected.')
+        n = self.roots.shape[0]
+        vals = 1 - p/self.roots.reshape(n, 1)
+
+        # prevent under/overflow by multiplying interlaced large and small
+        # values
+        for j in range(vals.shape[1]):
+            sort_tmp = numpy.argsort(numpy.abs(vals[:, j]))
+            sort = numpy.zeros((n,), dtype=numpy.int)
+            mid = numpy.ceil(float(n)/2)
+            sort[::2] = sort_tmp[:mid]
+            sort[1::2] = sort_tmp[mid:][::-1]
+            vals[:, j] = vals[sort, j]
+
+        # form product of each column
+        vals = numpy.prod(vals, axis=0)
+
+        if numpy.isscalar(points):
+            return numpy.asscalar(vals)
+        return vals

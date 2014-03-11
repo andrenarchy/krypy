@@ -9,9 +9,11 @@ def read(fname):
     return codecs.open(os.path.join(os.path.dirname(__file__), fname),
                        encoding='utf-8').read()
 
+from krypy import __version__
+
 setup(name='krypy',
-      packages=['krypy'],
-      version='1.0.1',
+      packages=['krypy', 'krypy.recycling'],
+      version=__version__,
       description='Krylov subspace methods for linear algebraic systems',
       long_description=read('README.md'),
       author='André Gaul',

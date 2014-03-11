@@ -4,7 +4,7 @@ import itertools
 from scipy.sparse import csr_matrix
 import scipy.linalg
 from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
-    assert_array_equal
+    assert_array_equal, assert_equal
 
 
 def get_matrix_spd():
@@ -54,10 +54,32 @@ def get_matrix_comp_nonsymm():
     return A
 
 
+def get_matrices(spd=True,
+                 hpd=True,
+                 symm_indef=True,
+                 herm_indef=True,
+                 nonsymm=True,
+                 comp_nonsymm=True):
+    matrices = []
+    if spd:
+        matrices.append(get_matrix_spd())
+    if hpd:
+        matrices.append(get_matrix_hpd())
+    if symm_indef:
+        matrices.append(get_matrix_symm_indef())
+    if herm_indef:
+        matrices.append(get_matrix_herm_indef())
+    if nonsymm:
+        matrices.append(get_matrix_nonsymm())
+    if comp_nonsymm:
+        matrices.append(get_matrix_comp_nonsymm())
+    return matrices
+
+
 def get_ip_Bs():
     B = numpy.diag(numpy.linspace(1, 5, 10))
     return [None,
-            krypy.utils.ip_euclid,
+            krypy.utils.MatrixLinearOperator(B),
             lambda x, y: numpy.dot(x.T.conj(), numpy.dot(B, y))
             ]
 
@@ -126,46 +148,55 @@ def run_givens(x):
 
 
 def test_projection():
-    Xs = [numpy.eye(10, 1), numpy.eye(10, 5), numpy.eye(10)]
-    Bs = [None, numpy.eye(10), numpy.diag(numpy.linspace(1, 5, 10))]
+    Xs = [numpy.eye(10, 1),
+          numpy.eye(10, 5),
+          numpy.eye(10),
+          numpy.zeros((10, 0))
+          ]
+    ip_Bs = get_ip_Bs()
     its = [1, 2, 3]
-    for (X, B, iterations) in itertools.product(Xs, Bs, its):
+    for (X, ip_B, iterations) in itertools.product(Xs, ip_Bs, its):
         Ys = [None, X, X + numpy.ones((10, X.shape[1]))]
         for Y in Ys:
-            yield run_projection, X, Y, B, iterations
+            yield run_projection, X, Y, ip_B, iterations
 
 
-def run_projection(X, Y, B, iterations):
-    P = krypy.utils.Projection(X, Y, B=B, iterations=iterations)
+def run_projection(X, Y, ip_B, iterations):
+    P = krypy.utils.Projection(X, Y, ip_B=ip_B, iterations=iterations)
 
     (N, k) = X.shape
     I = numpy.eye(N)
     z = numpy.ones((10, 1))
     z /= numpy.linalg.norm(z, 2)
-    if B is None:
-        inner_product = lambda x, y: x.T.conj().dot(y)
-    else:
-        inner_product = lambda x, y: x.T.conj().dot(B.dot(y))
 
     # check that it's a projection, i.e. P^2=P
     assert_almost_equal(
         numpy.linalg.norm(P.apply(I - P.apply(I)), 2), 0, 14)
-    # check that the range is X, i.e. the kernel of I-P is X
-    assert_almost_equal(numpy.linalg.norm(X - P.apply(X), 2), 0, 14)
-    # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal to Y
-    assert_almost_equal(
-        numpy.linalg.norm(inner_product(X if Y is None else Y,
-                          I - P.apply(I)), 2),
-        0, 13)
+    if k > 0:
+        # check that the range is X, i.e. the kernel of I-P is X
+        assert_almost_equal(numpy.linalg.norm(X - P.apply(X), 2), 0, 14)
+
+        # check that the kernel is Y^perp, i.e. the range of I-P is orthogonal
+        # to Y
+        assert_almost_equal(
+            numpy.linalg.norm(krypy.utils.inner(X if Y is None else Y,
+                                                I - P.apply(I), ip_B=ip_B), 2),
+            0, 13)
+    else:
+        assert_equal(numpy.linalg.norm(P.apply(I)), 0)
+
     # check that the complementary projection is correct
     assert_almost_equal(
         numpy.linalg.norm(I-P.apply(I) - P.apply_complement(I), 2),
         0, 14)
+
     # check that operator()*z executes apply(z)
     assert(numpy.linalg.norm(P.operator()*z - P.apply(z)) == 0)
+
     # check that operator_complement()*z executes apply_complement(z)
     assert(numpy.linalg.norm(P.operator_complement()*z - P.apply_complement(z))
            == 0)
+
     # check that the matrix representation is correct
     assert_almost_equal(numpy.linalg.norm(P.matrix() - P.apply(I), 2),
                         0, 14)
@@ -588,6 +619,36 @@ def test_BoundMinres():
         [krypy.utils.Interval(-2, -1), krypy.utils.Interval(2)]))
     assert_almost_equal(b.eval_step(8), 0.0017331035544401801)
     assert(b.get_step(2e-3) == 8)
+
+
+def test_NormalizedRootsPolynomial():
+    rs = [[1, 2],
+          [1, 1j],
+          [1, 2, 1e8],
+          [1, 2, 1e8, 1e8+1e-3]
+          ]
+    for roots in rs:
+        yield run_NormalizedRootsPolynomial, roots
+
+
+def run_NormalizedRootsPolynomial(roots):
+    p = krypy.utils.NormalizedRootsPolynomial(roots)
+
+    # check if roots are exactly (!) zero
+    assert_array_equal(p(roots), numpy.zeros((len(roots),)))
+
+    # check if polynomial is normalized at origin
+    assert_equal(p(0), 1)
+
+    if numpy.isrealobj(roots):
+        interval = numpy.linspace(roots[0], roots[1], 100)
+        candidates = p.minmax_candidates()
+        c = [roots[0], roots[1]]
+        for candidate in candidates:
+            if roots[0] <= candidate <= roots[1]:
+                c.append(candidate)
+        assert_almost_equal(numpy.max(numpy.abs(p(interval))),
+                            numpy.max(numpy.abs(p(c))), decimal=4)
 
 
 if __name__ == '__main__':

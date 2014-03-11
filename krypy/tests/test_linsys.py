@@ -2,6 +2,8 @@ import krypy
 import krypy.tests.test_utils as test_utils
 import numpy
 import itertools
+from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
+    assert_array_equal, assert_equal
 
 
 def dictproduct(d):
@@ -16,239 +18,123 @@ def dictproduct(d):
         yield dict(zip(d.keys(), p))
 
 
-def test_linsys_spd_zero():
-    A = test_utils.get_matrix_spd()
-    Ainv = numpy.linalg.inv(A)
-
-    # zero (!) solution
-    x = numpy.zeros((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    B = test_utils.get_matrix_spd()
-    params_adds = [
-        {'M': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.Cg,
-               krypy.linsys.Minres,
-               krypy.linsys.Gmres
-               ]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
+def dictpick(d):
+    yield {}
+    for k in d:
+        for v in d[k]:
+            yield {k: v}
 
 
-def test_linsys_spd():
-    A = test_utils.get_matrix_spd()
-    Ainv = numpy.linalg.inv(A)
+def test_LinearSystem():
+    A = numpy.diag(range(1, 11))
+    exact_solution = numpy.ones((10, 1))
+    b = A.dot(exact_solution)
+    ls = krypy.linsys.LinearSystem(A, b,
+                                   M=numpy.eye(10),
+                                   Ml=numpy.eye(10),
+                                   Mr=numpy.eye(10))
+    # check that r=b for z=0
+    Mr, r, rnorm = ls.get_residual(numpy.zeros((10, 1)), compute_norm=True)
+    assert_almost_equal(r, b)
+    assert_almost_equal(r, Mr)
+    assert_almost_equal(rnorm, numpy.linalg.norm(b, 2))
 
-    # solution
-    x = numpy.ones((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    B = test_utils.get_matrix_spd()
-    params_adds = [
-        {'M': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.Cg,
-               krypy.linsys.Minres,
-               krypy.linsys.Gmres
-               ]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
+    # check that r=0 for exact solution
+    Mr, r, rnorm = ls.get_residual(exact_solution, compute_norm=True)
+    assert_almost_equal(r, numpy.zeros((10, 1)))
+    assert_almost_equal(r, Mr)
+    assert_almost_equal(rnorm, 0)
 
 
-def test_linsys_hpd():
-    A = test_utils.get_matrix_hpd()
-    Ainv = numpy.linalg.inv(A)
+def linear_systems_generator(A, **ls_kwargs):
+    ip_Bs = [None, numpy.diag(range(1, 11))]
+    xs = [numpy.ones((10, 1)), numpy.ones((10,)), (1+1j)*numpy.ones((10, 1)),
+          numpy.zeros((10, 1))]
+    for ip_B, x in itertools.product(ip_Bs, xs):
+        if ip_B is not None and 'self_adjoint' in ls_kwargs and \
+                ls_kwargs['self_adjoint']:
+            # make A self-adjoint again if the inner product is changed
+            A_new = numpy.linalg.inv(ip_B).dot(A)
+        else:
+            A_new = A
 
-    # solution
-    x = (1.+1.j)*numpy.ones((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    params_adds = [
-        {'M': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        ]
-    solvers = [krypy.linsys.Cg,
-               krypy.linsys.Minres,
-               krypy.linsys.Gmres
-               ]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
-
-
-def test_linsys_symm_indef():
-    A = test_utils.get_matrix_symm_indef()
-    Ainv = numpy.linalg.inv(A)
-
-    # solution
-    x = numpy.ones((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    B = test_utils.get_matrix_spd()
-    params_adds = [
-        {'M': [None] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.Minres,
-               krypy.linsys.Gmres
-               ]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
+        preconditioners = {
+            'M': [None, numpy.linalg.inv(A_new)],
+            'Ml': [None, numpy.linalg.inv(A_new)],
+            'Mr': [None, numpy.linalg.inv(A_new)]
+            }
+        for exact_solution in [None, x]:
+            for preconditioner in dictpick(preconditioners):
+                kwargs = dict(ls_kwargs)
+                kwargs.update(preconditioner)
+                yield krypy.linsys.LinearSystem(A_new, A_new.dot(x), ip_B=ip_B,
+                                                exact_solution=exact_solution,
+                                                **ls_kwargs)
 
 
-def test_linsys_herm_indef():
-    A = test_utils.get_matrix_herm_indef()
-    Ainv = numpy.linalg.inv(A)
-
-    # solution
-    x = (1.+1.j)*numpy.ones((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    params_adds = [
-        {'M': [None] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)}
-        ]
-    solvers = [krypy.linsys.Minres,
-               krypy.linsys.Gmres
-               ]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
-
-
-def test_linsys_nonsymm():
-    A = test_utils.get_matrix_nonsymm()
-    Ainv = numpy.linalg.inv(A)
-
-    # solution
-    x = numpy.ones((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    B = test_utils.get_matrix_spd()
-
-    # regular
-    params_adds = [
-        {'maxiter': [10]},
-        {'M': [None] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.Gmres]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
-
-    # restarted
-    params_adds = [
-        {'maxiter': [5], 'max_restarts': [20]},
-        {'M': [None] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.RestartedGmres]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
-
-
-def test_linsys_comp_nonsymm():
-    A = test_utils.get_matrix_comp_nonsymm()
-    Ainv = numpy.linalg.inv(A)
-
-    # solution
-    x = (1.j+1)*numpy.ones((10, 1))
-
-    # preconditioner
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.
-    M, Minv = numpy.diag(m), numpy.diag(1./m)
-    B = test_utils.get_matrix_spd()
-
-    # regular
-    params_adds = [
-        {'maxiter': [10]},
-        {'M': [None] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.Gmres]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
-
-    # restarted
-    params_adds = [
-        {'maxiter': [5], 'max_restarts': [20]},
-        {'M': [None] + test_utils.get_operators(Minv)},
-        {'Ml': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'Mr': [None, Ainv] + test_utils.get_operators(Minv)},
-        {'ip_B': [None, B]}
-        ]
-    solvers = [krypy.linsys.RestartedGmres]
-    for case in produce_cases(A, x, params_adds, solvers):
-        yield case
-
-
-def produce_cases(A, x, params_adds, solvers):
-    b = numpy.dot(A, x)
-    params_base = {
-        'A': test_utils.get_operators(A),
-        'b': test_utils.get_vecs(b),
-        'x0': [None, numpy.zeros(b.shape), x]
-              + test_utils.get_vecs(numpy.ones(b.shape)),
+def solver_params_generator(solver, ls):
+    params_add = {}
+    if solver is krypy.linsys.RestartedGmres:
+        params_add = {'maxiter': [5], 'max_restarts': [20]}
+    solver_params = {
+        'x0': [None, numpy.zeros(ls.b.shape), numpy.ones(ls.b.shape)],
         'tol': [1e-13, 1e-2],
         'maxiter': [15],
-        'M': [None],
-        'Ml': [None],
-        'Mr': [None],
-        'ip_B': [None],
-        'exact_solution': [None] + test_utils.get_vecs(x)
         }
+    if ls.exact_solution is not None:
+        solver_params['x0'].append(ls.exact_solution)
+    for params in dictproduct(dict(list(solver_params.items()) +
+                              list(params_add.items()))):
+        yield params
 
-    for params_add in params_adds:
-        params = dict(list(params_base.items()) + list(params_add.items()))
-        for solver, param in itertools.product(solvers, dictproduct(params)):
-            yield run_case, solver, param
+
+cases = [
+    # spd
+    {'A': test_utils.get_matrix_spd(),
+     'normal': True, 'self_adjoint': True, 'positive_definite': True},
+    # hpd
+    {'A': test_utils.get_matrix_hpd(),
+     'normal': True, 'self_adjoint': True, 'positive_definite': True},
+    # symmetric indefinite
+    {'A': test_utils.get_matrix_symm_indef(),
+     'normal': True, 'self_adjoint': True},
+    # hermitian indefinite
+    {'A': test_utils.get_matrix_herm_indef(),
+     'normal': True, 'self_adjoint': True},
+    # nonsymm
+    {'A': test_utils.get_matrix_nonsymm()},
+    # nonsymm
+    {'A': test_utils.get_matrix_comp_nonsymm()},
+    ]
 
 
-def run_case(solver, params):
-    sol = solver(**params)
+def test_solver():
+    for case in cases:
+        for ls in linear_systems_generator(**case):
+            solvers = [krypy.linsys.Gmres, krypy.linsys.RestartedGmres]
+            if ls.self_adjoint:
+                solvers.append(krypy.linsys.Minres)
+            if ls.positive_definite:
+                solvers.append(krypy.linsys.Cg)
+            for solver in solvers:
+                for params in solver_params_generator(solver, ls):
+                    yield run_solver, solver, ls, params
 
+
+def run_solver(solver, ls, params):
+    sol = solver(ls, **params)
+    check_solver(sol, solver, ls, params)
+
+
+def check_solver(sol, solver, ls, params):
     # pick out the interesting data
-    b = krypy.utils.shape_vec(params['b'])
+    b = krypy.utils.shape_vec(ls.b)
     xk = krypy.utils.shape_vec(sol.xk)
     N = len(b)
     shape = (N, N)
-    A = krypy.utils.get_linearoperator(shape, params['A'])
-    M = krypy.utils.get_linearoperator(shape, params['M'])
-    Ml = krypy.utils.get_linearoperator(shape, params['Ml'])
+    A = krypy.utils.get_linearoperator(shape, ls.A)
+    M = krypy.utils.get_linearoperator(shape, ls.M)
+    Ml = krypy.utils.get_linearoperator(shape, ls.Ml)
 
     # maxiter respected?
     if not 'max_restarts' in params:
@@ -264,37 +150,30 @@ def run_case(solver, params):
     # final residual norm correct?
     # relresvec[-1] == ||M*Ml*(b-A*xk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}}
     # compute residual norm
-    rk = b - A * xk
-    Mlrk = Ml * rk
-    MMlrk = M * Mlrk
-    norm_MMlrk = numpy.sqrt(krypy.utils.inner(Mlrk, MMlrk,
-                                              ip_B=params['ip_B']))
-    # compute rhs norm
-    Mlb = Ml * b
-    MMlb = M * Mlb
-    norm_MMlb = numpy.sqrt(krypy.utils.inner(Mlb, MMlb,
-                                             ip_B=params['ip_B']))
+    MMlrk, Mlrk, MMlrk_norm = ls.get_residual(xk, compute_norm=True)
+
     # finally: the assertion
-    if norm_MMlb == 0:
+    if ls.MMlb_norm == 0:
         assert(abs(sol.resnorms[-1]) == 0)
     else:
-        assert(abs(sol.resnorms[-1] - norm_MMlrk/norm_MMlb) <= 1e-15)
+        assert_almost_equal(sol.resnorms[-1], MMlrk_norm/ls.MMlb_norm,
+                            decimal=14)
 
     # final error norm correct?
     # (if exact_solution was provided)
-    if params['exact_solution'] is not None:
-        assert(abs(sol.errnorms[-1] -
-                   krypy.utils.norm(
-                       krypy.utils.shape_vec(params['exact_solution'])
-                       - krypy.utils.shape_vec(sol.xk),
-                       ip_B=params['ip_B'])) <= 1e-14)
+    if ls.exact_solution is not None:
+        assert_almost_equal(sol.errnorms[-1],
+                            krypy.utils.norm(
+                                krypy.utils.shape_vec(ls.exact_solution)
+                                - krypy.utils.shape_vec(sol.xk),
+                                ip_B=ls.ip_B))
 
     # if the preconditioner is the inverse, then check if convergence
     # occured after the first iteration
     if isinstance(A, numpy.ndarray) and \
             isinstance(params['M'], numpy.ndarray) and \
             numpy.linalg.norm(numpy.eye(*A.shape)
-                              - numpy.dot(A, params['M'])) < 1e-15:
+                              - numpy.dot(A, ls.M)) < 1e-15:
         assert(len(sol.resnorms) <= 2)
 
     # 0 iterations if initial guess was good enough?
@@ -303,15 +182,15 @@ def run_case(solver, params):
         Mlr0 = Ml * r0
         MMlr0 = M * Mlr0
         norm_MMlr0 = numpy.sqrt(krypy.utils.inner(Mlr0, MMlr0,
-                                                  ip_B=params['ip_B']))
-        if norm_MMlb != 0 and norm_MMlr0/norm_MMlb < params['tol']:
+                                                  ip_B=ls.ip_B))
+        if ls.MMlb_norm != 0 and norm_MMlr0/ls.MMlb_norm < params['tol']:
             assert(len(sol.resnorms) == 1)
 
     # has gmres (without restarts) found the solution after max N iterations?
     # (cg or minres may take longer because of roundoff errors)
     if solver == krypy.linsys.Gmres and \
             ((not 'max_restarts' in params) or (params['max_restarts'] == 0)):
-        assert (len(sol.resnorms)-1 <= params['b'].shape[0])
+        assert (len(sol.resnorms)-1 <= ls.b.shape[0])
 
 if __name__ == '__main__':
     import nose

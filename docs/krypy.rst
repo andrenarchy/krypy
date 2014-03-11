@@ -7,6 +7,7 @@ krypy Package
 
     krypy.linsys
     krypy.deflation
+    krypy.recycling
     krypy.utils
 
 Subpackages

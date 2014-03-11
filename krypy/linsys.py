@@ -4,39 +4,153 @@ import warnings
 from . import utils
 import scipy.linalg
 
-__all__ = ['Cg', 'Minres', 'Gmres']
+__all__ = ['LinearSystem', 'Cg', 'Minres', 'Gmres']
 
 
-class _KrylovSolver(object):
-    '''Prototype of a Krylov subspace method for linear systems.'''
+class LinearSystem(object):
     def __init__(self, A, b,
-                 x0=None,
-                 tol=1e-5,
-                 maxiter=None,
                  M=None,
                  Ml=None,
                  Mr=None,
                  ip_B=None,
-                 explicit_residual=False,
-                 store_arnoldi=False,
+                 normal=False,
+                 self_adjoint=False,
+                 positive_definite=False,
                  exact_solution=None
                  ):
-        r'''Init standard attributes and perform checks.
+        r'''Representation of a (preconditioned) linear system.
 
-        All Krylov subspace solvers in this module are applied to a linear
-        system of the form
+        Represents a linear system
 
         .. math::
 
-          M M_l A M_r y = M M_l b,
+          Ax=b
 
-        where :math:`M` is self-adjoint positive definite with respect to a
-        given inner product (see argument ``ip_B``). The specific methods may
-        impose further restrictions on the operators
+        or a preconditioned linear system
 
-        :param A: a linear operator on :math:`\mathbb{C}^N`. Note that
-          :math:`M_l A M_r` has to be self-adjoint in the inner product.
-        :param b: a vector in :math:`\mathbb{C}^N`.
+        .. math::
+
+          M M_l A M_r y = M M_l b
+          \quad\text{with}\quad x=M_r y.
+
+        :param A: a linear operator on :math:`\mathbb{C}^N` (has to be
+          compatible with :py:meth:`~krypy.utils.get_linearoperator`).
+        :param b: the right hand side in :math:`\mathbb{C}^N`, i.e.,
+          ``b.shape == (N, 1)``.
+        :param M: (optional) a self-adjoint and positive definite
+          preconditioner, linear operator on :math:`\mathbb{C}^N` with respect
+          to the inner product defined by ``ip_B``. This preconditioner changes
+          the inner product to
+          :math:`\langle x,y\rangle_M = \langle Mx,y\rangle` where
+          :math:`\langle \cdot,\cdot\rangle` is the inner product defined by
+          the parameter ``ip_B``. Defaults to the identity.
+        :param Ml: (optional) left preconditioner, linear operator on
+          :math:`\mathbb{C}^N`. Defaults to the identity.
+        :param Mr: (optional) right preconditioner, linear operator on
+          :math:`\mathbb{C}^N`. Defaults to the identity.
+        :param ip_B: (optional) defines the inner product, see
+          :py:meth:`~krypy.utils.inner`.
+        :param normal: (bool, optional) Is :math:`M_l A M_r` normal
+          in the inner product defined by ``ip_B``? Defaults to ``False``.
+        :param self_adjoint: (bool, optional) Is :math:`M_l A M_r` self-adjoint
+          in the inner product defined by ``ip_B``? Defaults to ``False``.
+        :param positive_definite: (bool, optional) Is :math:`M_l A M_r`
+          positive (semi-)definite with respect to the inner product defined by
+          ``ip_B``? Defaults to ``False``.
+        :param exact_solution: (optional) If an exact solution :math:`x` is
+          known, it can be provided as a ``numpy.array`` with
+          ``exact_solution.shape == (N,1)``. Then error norms can be computed
+          (for debugging or research purposes). Defaults to ``None``.
+        '''
+        self.N = N = len(b)
+        '''Dimension :math:`N` of the space :math:`\mathbb{C}^N` where the
+        linear system is defined.'''
+        shape = (N, N)
+
+        # init linear operators
+        self.A = utils.get_linearoperator(shape, A)
+        self.M = utils.get_linearoperator(shape, M)
+        self.Ml = utils.get_linearoperator(shape, Ml)
+        self.Mr = utils.get_linearoperator(shape, Mr)
+        self.MlAMr = self.Ml*self.A*self.Mr
+        self.ip_B = ip_B
+
+        # process vectors
+        self.flat_vecs, (self.b, self.exact_solution) = \
+            utils.shape_vecs(b, exact_solution)
+
+        # store properties of operators
+        self.normal = normal
+        self.self_adjoint = self_adjoint
+        self.positive_definite = positive_definite
+        if self_adjoint and not normal:
+            raise ValueError('self-adjointness implies normality')
+
+        # get common dtype
+        self.dtype = utils.find_common_dtype(self.A, self.b, self.M,
+                                             self.Ml, self.Mr, self.ip_B)
+
+        # Compute M^{-1}-norm of M*Ml*b.
+        self.Mlb = self.Ml*self.b
+        self.MMlb = self.M*self.Mlb
+        self.MMlb_norm = utils.norm(self.Mlb, self.MMlb, ip_B=self.ip_B)
+        '''Norm of the right hand side.
+
+        .. math::
+
+          \|M M_l b\|_{M^{-1}}
+        '''
+
+    def get_residual(self, z, compute_norm=False):
+        r'''Compute residual.
+
+        For a given :math:`z\in\mathbb{C}^N`, the residual
+
+        .. math::
+
+          r = M M_l ( b - A z )
+
+        is computed. If ``compute_norm == True``, then also the absolute
+        residual norm
+
+        .. math::
+
+          \| M M_l (b-Az)\|_{M^{-1}}
+
+        is computed.
+
+        :param z: approximate solution with ``z.shape == (N, 1)``.
+        :param compute_norm: (bool, optional) pass ``True`` if also the norm
+          of the residual should be computed.
+        '''
+        if z is None:
+            if compute_norm:
+                return self.MMlb, self.Mlb, self.MMlb_norm
+            return self.MMlb, self.Mlb
+        r = self.b - self.A*z
+        Mlr = self.Ml*r
+        MMlr = self.M*Mlr
+        if compute_norm:
+            return MMlr, Mlr, utils.norm(Mlr, MMlr, ip_B=self.ip_B)
+        return MMlr, Mlr
+
+
+class _KrylovSolver(object):
+    '''Prototype of a Krylov subspace method for linear systems.'''
+    def __init__(self, linear_system,
+                 x0=None,
+                 tol=1e-5,
+                 maxiter=None,
+                 explicit_residual=False,
+                 store_arnoldi=False,
+                 ):
+        r'''Init standard attributes and perform checks.
+
+        All Krylov subspace solvers in this module are applied to a
+        :py:class:`LinearSystem`.  The specific methods may impose further
+        restrictions on the operators
+
+        :param linear_system: a :py:class:`LinearSystem`.
         :param x0: (optional) the initial guess to use. Defaults to zero
           vector. Unless you have a good reason to use a nonzero initial guess
           you should use the zero vector, cf. chapter 5.8.3 in *Liesen,
@@ -52,19 +166,6 @@ class _KrylovSolver(object):
              \leq \text{tol}
 
         :param maxiter: (optional) maximum number of iterations. Defaults to N.
-        :param M: (optional) a self-adjoint and positive definite
-          preconditioner, linear operator on :math:`\mathbb{C}^N` with respect
-          to the inner product defined by ``ip_B``. This preconditioner changes
-          the inner product used for orthogonalization to
-          :math:`\langle x,y\rangle_M = \langle Mx,y\rangle` where
-          :math:`\langle \cdot,\cdot\rangle` is the inner product defined by
-          the parameter ``ip_B``. Defaults to the identity.
-        :param Ml: (optional) left preconditioner, linear operator on
-          :math:`\mathbb{C}^N`. Defaults to the identity.
-        :param Mr: (optional) right preconditioner, linear operator on
-          :math:`\mathbb{C}^N`. Defaults to the identity.
-        :param ip_B: (optional) defines the inner product, see
-          :py:meth:`~krypy.utils.inner`.
         :param explicit_residual: (optional)
           if set to ``False`` (default), the updated residual norm from the
           used method is used in each iteration. If set to ``True``, the
@@ -78,12 +179,6 @@ class _KrylovSolver(object):
           Defaults to ``False``. If the method is based on the Lanczos method
           (e.g., :py:class:`Cg` or :py:class:`Minres`), then ``H`` is
           real, symmetric and tridiagonal.
-        :param exact_solution: (optional)
-          if the solution vector :math:`x` is passed then the error norm
-          :math:`\|x-x_k\|` will be computed in each iteration (with respect
-          to ``ip_B``) and a list is set as attribute ``errnorms`` on the
-          returned object. Defaults to ``None``, which means that no errors are
-          computed.
 
         Upon convergence, the instance contains the following attributes:
 
@@ -99,119 +194,144 @@ class _KrylovSolver(object):
         :py:class:`~krypy.utils.ConvergenceError` is thrown which can be used
         to examine the misconvergence.
         '''
-        N = len(b)
-        shape = (N, N)
 
-        # init operators
-        self.A = utils.get_linearoperator(shape, A)
-        self.M = utils.get_linearoperator(shape, M)
-        self.Ml = utils.get_linearoperator(shape, Ml)
-        self.Mr = utils.get_linearoperator(shape, Mr)
-        self.ip_B = ip_B
-
-        # sanitize right hand side, initial guess, exact_solution
+        # sanitize arguments
+        if not isinstance(linear_system, LinearSystem):
+            raise ValueError('linear_system is not an instance of '
+                             'LinearSystem')
+        self.linear_system = linear_system
+        N = linear_system.N
         self.maxiter = N if maxiter is None else maxiter
-        self.flat_vecs, (self.b, self.x0, self.exact_solution) = \
-            utils.shape_vecs(b, x0, exact_solution)
+        self.flat_vecs, (self.x0) = utils.shape_vecs(x0)
+        self.explicit_residual = explicit_residual
+        self.store_arnoldi = store_arnoldi
+
+        # get initial guess
+        self.x0 = self._get_initial_guess(x0)
+
+        # get initial residual
+        self.MMlr0, self.Mlr0, self.MMlr0_norm = \
+            self._get_initial_residual(self.x0)
+
+        # sanitize initial guess
         if self.x0 is None:
             self.x0 = numpy.zeros((N, 1))
         self.tol = tol
+
         self.xk = None
-        self.cdtype = utils.find_common_dtype(self.A, self.b, self.x0, self.M,
-                                              self.Ml, self.Mr, self.ip_B)
+        '''Approximate solution.'''
 
-        self.explicit_residual = explicit_residual
-        self.store_arnoldi = store_arnoldi
+        # find common dtype
+        self.dtype = numpy.find_common_type([linear_system.dtype,
+                                             self.x0.dtype], [])
+
+        # store operator (can be modified in derived classes)
+        self.MlAMr = linear_system.MlAMr
+
         # TODO: reortho
+        self.iter = 0
+        '''Iteration number.'''
 
-        # init vectors for convergence measurement
         self.resnorms = []
-        if exact_solution is not None:
-            self.errnorms = []
-
-    def _prepare(self, norm_MMlr0):
-        '''Prepare after Arnoldi/Lanczos was initialized.
-
-        :param norm_MMlr0: norm of the initial residual (as computed by
-          Arnoldi/Lanczos in the initialization).
-        '''
-        self.norm_MMlr0 = norm_MMlr0
-        N = self.b.shape[0]
-
-        # Compute M^{-1}-norm of M*Ml*b.
-        Mlb = self.Ml*self.b
-        MMlb = self.M*Mlb
-        self.norm_MMlb = utils.norm(Mlb, MMlb, ip_B=self.ip_B)
+        '''Relative residual norms as described for parameter ``tol``.'''
 
         # if rhs is exactly(!) zero, return zero solution.
-        if self.norm_MMlb == 0:
-            self.x0 = numpy.zeros((N, 1))
+        if self.linear_system.MMlb_norm == 0:
+            self.xk = self.x0 = numpy.zeros((N, 1))
             self.resnorms.append(0.)
         else:
             # initial relative residual norm
-            self.resnorms.append(norm_MMlr0 / self.norm_MMlb)
+            self.resnorms.append(self.MMlr0_norm/self.linear_system.MMlb_norm)
 
         # compute error?
-        if self.exact_solution is not None:
-            self.errnorms.append(utils.norm(self.exact_solution - self.x0,
-                                            ip_B=self.ip_B))
+        if self.linear_system.exact_solution is not None:
+            self.errnorms = []
+            '''Error norms.'''
 
-    def _compute_xk(self, yk):
-        return self.x0 + self.Mr * yk
+            self.errnorms.append(utils.norm(
+                self.linear_system.exact_solution - self._get_xk(None),
+                ip_B=self.linear_system.ip_B))
 
-    def _compute_rkn(self, xk):
-        rk = self.b - self.A*xk
-        self.Mlrk = self.Ml*rk
-        self.MMlrk = self.M*self.Mlrk
-        return utils.norm(self.Mlrk, self.MMlrk, ip_B=self.ip_B)
+        self._solve()
+        self._finalize()
 
-    def _compute_norms(self, yk, resnorm):
+    def _get_initial_guess(self, x0):
+        '''Get initial guess.
+
+        Can be overridden by derived classes in order to preprocess the
+        initial guess.
+        '''
+        return x0
+
+    def _get_initial_residual(self, x0):
+        '''Compute the residual and its norm.
+
+        See :py:meth:`krypy.linsys.LinearSystem.get_residual` for return
+        values.
+        '''
+        return self.linear_system.get_residual(x0, compute_norm=True)
+
+    def _get_xk(self, yk):
+        '''Compute approximate solution from initial guess and approximate
+        solution of the preconditioned linear system.'''
+        if yk is not None:
+            return self.x0 + self.linear_system.Mr * yk
+        return self.x0
+
+    def _finalize_iteration(self, yk, resnorm):
         '''Compute solution, error norm and residual norm if required.
 
         :return: the residual norm or ``None``.
         '''
         self.xk = None
         # compute error norm if asked for
-        if self.exact_solution is not None:
-            self.xk = self._compute_xk(yk)
-            self.errnorms.append(utils.norm(self.exact_solution - self.xk,
-                                            ip_B=self.ip_B))
+        if self.linear_system.exact_solution is not None:
+            self.xk = self._get_xk(yk)
+            self.errnorms.append(utils.norm(
+                self.linear_system.exact_solution - self.xk,
+                ip_B=self.linear_system.ip_B))
 
         rkn = None
 
         # compute explicit residual if asked for or if the updated residual
         # is below the tolerance or if this is the last iteration
-        if self.explicit_residual or resnorm/self.norm_MMlb <= self.tol \
+        if self.explicit_residual or \
+            resnorm/self.linear_system.MMlb_norm <= self.tol \
                 or self.iter+1 == self.maxiter:
             # compute xk if not yet done
             if self.xk is None:
-                self.xk = self._compute_xk(yk)
+                self.xk = self._get_xk(yk)
 
             # compute residual norm
-            rkn = self._compute_rkn(self.xk)
+            _, _, rkn = self.linear_system.get_residual(self.xk,
+                                                        compute_norm=True)
 
             # store relative residual norm
-            self.resnorms.append(rkn/self.norm_MMlb)
+            self.resnorms.append(rkn/self.linear_system.MMlb_norm)
 
             # no convergence?
             if self.resnorms[-1] > self.tol:
                 # no convergence in last iteration -> raise exception
                 # (approximate solution can be obtained from exception)
                 if self.iter+1 == self.maxiter:
+                    self._finalize()
                     raise utils.ConvergenceError(
                         'No convergence in last iteration.', self)
                 # updated residual was below but explicit is not: warn
                 elif not self.explicit_residual \
-                        and resnorm/self.norm_MMlb <= self.tol:
+                        and resnorm/self.linear_system.MMlb_norm <= self.tol:
                     warnings.warn(
                         'updated residual is below tolerance, explicit '
                         'residual is NOT! (upd={0} <= tol={1} < exp={2})'
                         .format(resnorm, self.tol, self.resnorms[-1]))
         else:
             # only store updated residual
-            self.resnorms.append(resnorm/self.norm_MMlb)
+            self.resnorms.append(resnorm/self.linear_system.MMlb_norm)
 
         return rkn
+
+    def _finalize(self):
+        pass
 
     @staticmethod
     def operations(nsteps):
@@ -224,6 +344,12 @@ class _KrylovSolver(object):
           ``nsteps`` iterations of the method.
         '''
         raise NotImplementedError('operations() has to be overridden by '
+                                  'the derived solver class.')
+
+    def _solve(self):
+        '''Abstract method that solves the linear system.
+        '''
+        raise NotImplementedError('_solve has to be overridden by '
                                   'the derived solver class.')
 
 
@@ -267,49 +393,45 @@ class Cg(_KrylovSolver):
     errors, cf. chapter 5.9 in [LieS13]_.
 
     '''
-    def __init__(self, A, b, **kwargs):
+    def __init__(self, linear_system, **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
         above.
         '''
-        super(Cg, self).__init__(A, b, **kwargs)
-        self._solve()
+        if not linear_system.self_adjoint or \
+                not linear_system.positive_definite:
+            warnings.warn('Cg applied to a non-self-adjoint or non-definite '
+                          'linear system. Consider using Minres or Gmres.')
+        super(Cg, self).__init__(linear_system, **kwargs)
 
     def _solve(self):
-        N = self.b.shape[0]
-
-        # compute norm of r0
-        r0 = self.b - self.A * self.x0
-        Mlr0 = self.Ml * r0
-        MMlr0 = self.M * Mlr0
-        norm_MMlr0 = utils.norm(Mlr0, MMlr0, ip_B=self.ip_B)
-
-        # prepare
-        self._prepare(norm_MMlr0)
+        N = self.linear_system.N
 
         # resulting approximation is xk = x0 + Mr*yk
-        yk = numpy.zeros((N, 1), dtype=self.cdtype)
+        yk = numpy.zeros((N, 1), dtype=self.dtype)
 
         # square of the old residual norm
-        rho_old = norm_MMlr0**2
+        self.rhos = rhos = [self.MMlr0_norm**2]
 
         # will be updated by _compute_rkn if explicit_residual is True
-        self.Mlrk = Mlr0.copy()
-        self.MMlrk = MMlr0.copy()
+        self.Mlrk = self.Mlr0.copy()
+        self.MMlrk = self.MMlr0.copy()
 
         # search direction
         p = self.MMlrk.copy()
         self.iter = 0
-        rho_new = 0  # will be set at end of iteration
 
         # store Lanczos vectors + matrix?
         if self.store_arnoldi:
-            self.V = numpy.zeros((N, self.maxiter+1), dtype=self.cdtype)
-            self.V[:, [0]] = MMlr0/norm_MMlr0
-            if self.M is not None:
-                self.P = numpy.zeros((N, self.maxiter+1), dtype=self.cdtype)
-                self.P[:, [0]] = Mlr0/norm_MMlr0
+            self.V = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
+            if self.MMlr0_norm > 0:
+                self.V[:, [0]] = self.MMlr0/self.MMlr0_norm
+            if not isinstance(self.linear_system.M,
+                              utils.IdentityLinearOperator):
+                self.P = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
+                if self.MMlr0_norm > 0:
+                    self.P[:, [0]] = self.Mlr0/self.MMlr0_norm
             self.H = numpy.zeros((self.maxiter+1, self.maxiter))  # real
             alpha_old = 0  # will be set at end of iteration
 
@@ -318,15 +440,15 @@ class Cg(_KrylovSolver):
             k = self.iter
             if k > 0:
                 # update the search direction
-                p = self.MMlrk + rho_new/rho_old * p
+                p = self.MMlrk + rhos[-1]/rhos[-2] * p
                 if self.store_arnoldi:
-                    omega = rho_new/rho_old
-                rho_old = rho_new
+                    omega = rhos[-1]/rhos[-2]
             # apply operators
-            Ap = (self.Ml * (self.A * (self.Mr * p)))
+            Ap = self.MlAMr*p
 
             # compute inner product
-            alpha = rho_old / utils.inner(p, Ap, ip_B=self.ip_B)
+            alpha = rhos[-1] / utils.inner(p, Ap,
+                                           ip_B=self.linear_system.ip_B)[0, 0]
 
             # check if alpha is real
             if abs(alpha.imag) > 1e-12:
@@ -353,35 +475,44 @@ class Cg(_KrylovSolver):
             self.Mlrk -= alpha * Ap
 
             # apply preconditioner
-            self.MMlrk = self.M * self.Mlrk
+            self.MMlrk = self.linear_system.M * self.Mlrk
 
             # compute norm and rho_new
-            norm_MMlrk = utils.norm(self.Mlrk, self.MMlrk, ip_B=self.ip_B)
-            rho_new = norm_MMlrk**2
+            MMlrk_norm = utils.norm(self.Mlrk, self.MMlrk,
+                                    ip_B=self.linear_system.ip_B)
+            rhos.append(MMlrk_norm**2)
 
             # compute Lanczos vector + new subdiagonal element
             if self.store_arnoldi:
-                self.V[:, [k+1]] = (-1)**(k+1) * self.MMlrk / norm_MMlrk
-                if self.M is not None:
-                    self.P[:, [k+1]] = (-1)**(k+1) * self.Mlrk / norm_MMlrk
-                self.H[k+1, k] = numpy.sqrt(rho_new/rho_old) / alpha
+                self.V[:, [k+1]] = (-1)**(k+1) * self.MMlrk / MMlrk_norm
+                if not isinstance(self.linear_system.M,
+                                  utils.IdentityLinearOperator):
+                    self.P[:, [k+1]] = (-1)**(k+1) * self.Mlrk / MMlrk_norm
+                self.H[k+1, k] = numpy.sqrt(rhos[-1]/rhos[-2]) / alpha
                 alpha_old = alpha
 
             # compute norms
             # if explicit_residual: compute Mlrk and MMlrk here
             # (with preconditioner application)
-            rkn = self._compute_norms(yk, norm_MMlrk)
+            rkn = self._finalize_iteration(yk, MMlrk_norm)
 
             # update rho_new if it was updated in _compute_norms
             if rkn is not None:
                 # new rho
-                rho_new = rkn**2
+                rhos[-1] = rkn**2
 
             self.iter += 1
 
         # compute solution if not yet done
         if self.xk is None:
-            self.xk = self._compute_xk(yk)
+            self.xk = self._get_xk(yk)
+
+    def _finalize(self):
+        super(Cg, self)._finalize()
+        # trim Lanczos relation
+        if self.store_arnoldi:
+            self.V = self.V[:, :self.iter+1]
+            self.H = self.H[:self.iter+1, :self.iter]
 
     @staticmethod
     def operations(nsteps):
@@ -440,39 +571,41 @@ class Minres(_KrylovSolver):
 
     * ``lanczos``: the Lanczos relation (an instance of :py:class:`Arnoldi`).
     '''
-    def __init__(self, A, b, ortho='lanczos', **kwargs):
+    def __init__(self, linear_system, ortho='lanczos', **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         Note the restrictions on ``M``, ``Ml``, ``A``, ``Mr`` and ``ip_B``
         above.
         '''
-        super(Minres, self).__init__(A, b, **kwargs)
-        self._solve(ortho=ortho)
+        if not linear_system.self_adjoint:
+            warnings.warn('Minres applied to a non-self-adjoint '
+                          'linear system. Consider using Gmres.')
+        self.ortho = ortho
+        super(Minres, self).__init__(linear_system, **kwargs)
 
-    def _solve(self, ortho):
-        N = self.b.shape[0]
+    def _solve(self):
+        N = self.linear_system.N
 
         # initialize Lanczos
-        self.lanczos = utils.Arnoldi(self.Ml*self.A*self.Mr,
-                                     self.Ml*(self.b - self.A*self.x0),
+        self.lanczos = utils.Arnoldi(self.MlAMr,
+                                     self.Mlr0,
                                      maxiter=self.maxiter,
-                                     ortho=ortho,
-                                     M=self.M,
-                                     ip_B=self.ip_B
+                                     ortho=self.ortho,
+                                     M=self.linear_system.M,
+                                     Mv=self.MMlr0,
+                                     Mv_norm=self.MMlr0_norm,
+                                     ip_B=self.linear_system.ip_B
                                      )
 
-        # prepare
-        self._prepare(self.lanczos.vnorm)
-
         # Necessary for efficient update of yk:
-        W = numpy.c_[numpy.zeros(N, dtype=self.cdtype), numpy.zeros(N)]
+        W = numpy.c_[numpy.zeros(N, dtype=self.dtype), numpy.zeros(N)]
         # some small helpers
-        y = [self.norm_MMlr0, 0]  # first entry is (updated) residual
+        y = [self.MMlr0_norm, 0]  # first entry is (updated) residual
         G2 = None                 # old givens rotation
         G1 = None                 # even older givens rotation ;)
 
         # resulting approximation is xk = x0 + Mr*yk
-        yk = numpy.zeros((N, 1), dtype=self.cdtype)
+        yk = numpy.zeros((N, 1), dtype=self.dtype)
 
         # iterate Lanczos
         while self.resnorms[-1] > self.tol \
@@ -505,15 +638,18 @@ class Minres(_KrylovSolver):
             yk = yk + y[0] * z
             y = [y[1], 0]
 
-            self._compute_norms(yk, numpy.abs(y[0]))
+            self._finalize_iteration(yk, numpy.abs(y[0]))
 
         # compute solution if not yet done
         if self.xk is None:
-            self.xk = self._compute_xk(yk)
+            self.xk = self._get_xk(yk)
 
+    def _finalize(self):
+        super(Minres, self)._finalize()
         # store arnoldi?
         if self.store_arnoldi:
-            if self.M:
+            if not isinstance(self.linear_system.M,
+                              utils.IdentityLinearOperator):
                 self.V, self.H, self.P = self.lanczos.get()
             else:
                 self.V, self.H = self.lanczos.get()
@@ -564,41 +700,42 @@ class Gmres(_KrylovSolver):
     If the operator :math:`M_l A M_r` is self-adjoint then consider using
     the MINRES method :py:class:`Minres`.
     '''
-    def __init__(self, A, b, ortho='mgs', **kwargs):
+    def __init__(self, linear_system, ortho='mgs', **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         '''
-        super(Gmres, self).__init__(A, b, **kwargs)
-        self._solve(ortho=ortho)
+        self.ortho = ortho
+        super(Gmres, self).__init__(linear_system, **kwargs)
 
-    def _compute_xk(self, y):
+    def _get_xk(self, y):
+        if y is None:
+            return self.x0
         k = self.arnoldi.iter
         if k > 0:
             yy = scipy.linalg.solve_triangular(self.R[:k, :k], y)
-            return self.x0 + self.Mr * self.V[:, :k].dot(yy)
+            yk = self.V[:, :k].dot(yy)
+            return self.x0 + self.linear_system.Mr * yk
         return self.x0
 
-    def _solve(self, ortho):
+    def _solve(self):
         # initialize Arnoldi
-        self.arnoldi = utils.Arnoldi(self.Ml*self.A*self.Mr,
-                                     self.Ml*(self.b - self.A*self.x0),
+        self.arnoldi = utils.Arnoldi(self.MlAMr,
+                                     self.Mlr0,
                                      maxiter=self.maxiter,
-                                     ortho=ortho,
-                                     M=self.M,
-                                     ip_B=self.ip_B
+                                     ortho=self.ortho,
+                                     M=self.linear_system.M,
+                                     Mv=self.MMlr0,
+                                     Mv_norm=self.MMlr0_norm,
+                                     ip_B=self.linear_system.ip_B
                                      )
-
-        # prepare
-        self._prepare(self.arnoldi.vnorm)
-
         # Givens rotations:
         G = []
         # QR decomposition of Hessenberg matrix via Givens and R
         self.R = numpy.zeros([self.maxiter+1, self.maxiter],
-                             dtype=numpy.complex)
-        y = numpy.zeros((self.maxiter+1, 1), dtype=numpy.complex)
+                             dtype=self.dtype)
+        y = numpy.zeros((self.maxiter+1, 1), dtype=self.dtype)
         # Right hand side of projected system:
-        y[0] = self.norm_MMlr0
+        y[0] = self.MMlr0_norm
 
         # iterate Arnoldi
         while self.resnorms[-1] > self.tol \
@@ -620,15 +757,18 @@ class Gmres(_KrylovSolver):
             self.R[k:k+2, k] = G[k].apply(self.R[k:k+2, k])
             y[k:k+2] = G[k].apply(y[k:k+2])
 
-            self._compute_norms(y[:k+1], abs(y[k+1, 0]))
+            self._finalize_iteration(y[:k+1], abs(y[k+1, 0]))
 
         # compute solution if not yet done
         if self.xk is None:
-            self.xk = self._compute_xk(y[:self.arnoldi.iter])
+            self.xk = self._get_xk(y[:self.arnoldi.iter])
 
+    def _finalize(self):
+        super(Gmres, self)._finalize()
         # store arnoldi?
         if self.store_arnoldi:
-            if self.M:
+            if not isinstance(self.linear_system.M,
+                              utils.IdentityLinearOperator):
                 self.V, self.H, self.P = self.arnoldi.get()
             else:
                 self.V, self.H = self.arnoldi.get()
@@ -645,56 +785,52 @@ class Gmres(_KrylovSolver):
                 }
 
 
-class _RestartedSolver(_KrylovSolver):
+class _RestartedSolver(object):
     '''Base class for restarted solvers.'''
-    def __init__(self, Solver, A, b, max_restarts=0, **kwargs):
+    def __init__(self, Solver, linear_system, max_restarts=0, **kwargs):
         '''
         :param max_restarts: the maximum number of restarts. The maximum
           number of iterations is ``(max_restarts+1)*maxiter``.
         '''
-        super(_RestartedSolver, self).__init__(A, b, **kwargs)
-
-        if self.store_arnoldi:
-            raise ValueError(
-                'store_arnoldi=True is not allowed for a restarted solver'
-                'since there are multiple Arnoldi relations.')
-
-        # start with initial guess
-        self.xk = self.x0
+        # initial approximation will be set by first run of Solver
+        self.xk = None
 
         # work on own copy of args in order to include proper initial guesses
         kwargs = dict(kwargs)
 
         # append dummy values for first run
-        self.resnorms.append(numpy.Inf)
-        if self.exact_solution is not None:
-            self.errnorms.append(numpy.Inf)
+        self.resnorms = [numpy.Inf]
+        if linear_system.exact_solution is not None:
+            self.errnorms = [numpy.Inf]
 
         restart = 0
-        while self.resnorms[-1] > self.tol and restart <= max_restarts:
+        while restart == 0 or \
+                self.resnorms[-1] > tol and restart <= max_restarts:
             try:
-                # use last approximate solution as initial guess
-                kwargs.update({'x0': self.xk})
+                if self.xk is not None:
+                    # use last approximate solution as initial guess
+                    kwargs.update({'x0': self.xk})
 
                 # try to solve
-                sol = Solver(A, b, **kwargs)
+                sol = Solver(linear_system, **kwargs)
             except utils.ConvergenceError as e:
                 # use solver of exception
                 sol = e.solver
 
             # set last approximate solution
             self.xk = sol.xk
+            tol = sol.tol
 
             # concat resnorms / errnorms
             del self.resnorms[-1]
             self.resnorms += sol.resnorms
-            if self.exact_solution is not None:
+            if linear_system.exact_solution is not None:
                 del self.errnorms[-1]
                 self.errnorms += sol.errnorms
 
             restart += 1
 
-        if self.resnorms[-1] > self.tol:
+        if self.resnorms[-1] > tol:
             raise utils.ConvergenceError(
                 'No convergence after {0} restarts.'.format(max_restarts),
                 self)
@@ -704,5 +840,5 @@ class RestartedGmres(_RestartedSolver):
     '''Restarted GMRES method.
 
     See :py:class:`_RestartedSolver`.'''
-    def __init__(self, A, b, **kwargs):
-        super(RestartedGmres, self).__init__(Gmres, A, b, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(RestartedGmres, self).__init__(Gmres, *args, **kwargs)

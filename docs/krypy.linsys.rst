@@ -10,3 +10,4 @@ systems.
     :show-inheritance:
 
 .. autoclass:: krypy.linsys._KrylovSolver
+    :members:
