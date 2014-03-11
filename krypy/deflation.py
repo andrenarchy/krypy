@@ -83,10 +83,10 @@ class _DeflationMixin(object):
         if projection.VR is not None and projection.WR is not None:
             E = projection.WR.T.conj().dot(E.dot(projection.VR))
         self.E = E
-        r''':math:`E=\langle U,AU\rangle`.'''
+        r''':math:`E=\langle U,M_lAM_rU\rangle`.'''
 
         self.C = numpy.zeros((U.shape[1], 0))
-        r''':math:`C=\langle U,AV_n\rangle`.
+        r''':math:`C=\langle U,M_lAM_rV_n\rangle`.
 
         This attribute is updated while the Arnoldi/Lanczos method proceeds.
         See also :py:meth:`_apply_projection`.
@@ -108,7 +108,7 @@ class _DeflationMixin(object):
         '''Apply the projection and store inner product.
 
         :param v: the vector resulting from an application of :math:`M_lAM_r`
-          to the current Arnoldi vector.
+          to the current Arnoldi vector. (CG needs special treatment, here).
         '''
         PAv, UAv = self.projection.apply_complement(Av, return_Ya=True)
         self.C = numpy.c_[self.C, UAv]
@@ -136,6 +136,11 @@ class _DeflationMixin(object):
 
     @property
     def B_(self):
+        r''':math:`\underline{B}=\langle V_{n+1},M_lAM_rU\rangle`.
+
+        This property is obtained from :math:`C` if the operator is
+        self-adjoint. Otherwise, the inner products have to be formed
+        explicitly.'''
         (n_, n) = self.H.shape
         ls = self.linear_system
         if self._B_ is None or self._B_.shape[1] < n_:
