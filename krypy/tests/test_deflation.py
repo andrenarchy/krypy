@@ -16,7 +16,8 @@ def test_deflation_solver():
                 solvers.append(krypy.deflation.DeflatedMinres)
             if ls.positive_definite:
                 solvers.append(krypy.deflation.DeflatedCg)
-            for U in [None, numpy.eye(ls.N, 1)]:
+            for U, store_arnoldi in itertools.product(
+                    [None, numpy.eye(ls.N, 1)], [False, True]):
                 for solver in solvers:
                     yield run_deflation_solver, solver, ls, {
                         'U': U,
@@ -35,6 +36,10 @@ def run_deflation_solver(Solver, ls, params):
         assert_array_almost_equal(
             sol.C,
             krypy.utils.inner(sol.projection.U, ls.MlAMr*sol.V[:, :n],
+                              ip_B=ls.ip_B))
+        assert_array_almost_equal(
+            sol.B_,
+            krypy.utils.inner(sol.V, sol.projection.AU,
                               ip_B=ls.ip_B))
 
 
