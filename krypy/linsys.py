@@ -412,7 +412,7 @@ class Cg(_KrylovSolver):
         yk = numpy.zeros((N, 1), dtype=self.dtype)
 
         # square of the old residual norm
-        rho_old = self.MMlr0_norm**2
+        self.rhos = rhos = [self.MMlr0_norm**2]
 
         # will be updated by _compute_rkn if explicit_residual is True
         self.Mlrk = self.Mlr0.copy()
@@ -421,7 +421,6 @@ class Cg(_KrylovSolver):
         # search direction
         p = self.MMlrk.copy()
         self.iter = 0
-        rho_new = 0  # will be set at end of iteration
 
         # store Lanczos vectors + matrix?
         if self.store_arnoldi:
@@ -439,16 +438,15 @@ class Cg(_KrylovSolver):
             k = self.iter
             if k > 0:
                 # update the search direction
-                p = self.MMlrk + rho_new/rho_old * p
+                p = self.MMlrk + rhos[-1]/rhos[-2] * p
                 if self.store_arnoldi:
-                    omega = rho_new/rho_old
-                rho_old = rho_new
+                    omega = rhos[-1]/rhos[-2]
             # apply operators
             Ap = self.MlAMr*p
 
             # compute inner product
-            alpha = rho_old / utils.inner(p, Ap,
-                                          ip_B=self.linear_system.ip_B)[0, 0]
+            alpha = rhos[-1] / utils.inner(p, Ap,
+                                           ip_B=self.linear_system.ip_B)[0, 0]
 
             # check if alpha is real
             if abs(alpha.imag) > 1e-12:
@@ -480,7 +478,7 @@ class Cg(_KrylovSolver):
             # compute norm and rho_new
             MMlrk_norm = utils.norm(self.Mlrk, self.MMlrk,
                                     ip_B=self.linear_system.ip_B)
-            rho_new = MMlrk_norm**2
+            rhos.append(MMlrk_norm**2)
 
             # compute Lanczos vector + new subdiagonal element
             if self.store_arnoldi:
@@ -488,7 +486,7 @@ class Cg(_KrylovSolver):
                 if not isinstance(self.linear_system.M,
                                   utils.IdentityLinearOperator):
                     self.P[:, [k+1]] = (-1)**(k+1) * self.Mlrk / MMlrk_norm
-                self.H[k+1, k] = numpy.sqrt(rho_new/rho_old) / alpha
+                self.H[k+1, k] = numpy.sqrt(rhos[-1]/rhos[-2]) / alpha
                 alpha_old = alpha
 
             # compute norms
@@ -499,7 +497,7 @@ class Cg(_KrylovSolver):
             # update rho_new if it was updated in _compute_norms
             if rkn is not None:
                 # new rho
-                rho_new = rkn**2
+                rhos[-1] = rkn**2
 
             self.iter += 1
 
