@@ -18,16 +18,24 @@ def test_deflation_solver():
                 solvers.append(krypy.deflation.DeflatedCg)
             for U in [None, numpy.eye(ls.N, 1)]:
                 for solver in solvers:
-                    yield test_linsys.run_solver, solver, ls, {
+                    yield run_deflation_solver, solver, ls, {
                         'U': U,
                         'x0': None,
                         'tol': 1e-6,
-                        'maxiter': 15}
+                        'maxiter': 15,
+                        'store_arnoldi': True}
 
 
-def run_deflation_solver(solver, ls, params):
-    sol = solver(ls, **params)
-    test_linsys.check_solver(sol, solver, ls, params)
+def run_deflation_solver(Solver, ls, params):
+    sol = Solver(ls, **params)
+    test_linsys.check_solver(sol, Solver, ls, params)
+
+    if params['store_arnoldi']:
+        (n_, n) = sol.H.shape
+        assert_array_almost_equal(
+            sol.C,
+            krypy.utils.inner(sol.projection.U, ls.MlAMr*sol.V[:, :n],
+                              ip_B=ls.ip_B))
 
 
 def test_Arnoldifyer():
