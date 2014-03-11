@@ -425,11 +425,13 @@ class Cg(_KrylovSolver):
         # store Lanczos vectors + matrix?
         if self.store_arnoldi:
             self.V = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
-            self.V[:, [0]] = self.MMlr0/self.MMlr0_norm
+            if self.MMlr0_norm > 0:
+                self.V[:, [0]] = self.MMlr0/self.MMlr0_norm
             if not isinstance(self.linear_system.M,
                               utils.IdentityLinearOperator):
                 self.P = numpy.zeros((N, self.maxiter+1), dtype=self.dtype)
-                self.P[:, [0]] = self.Mlr0/self.MMlr0_norm
+                if self.MMlr0_norm > 0:
+                    self.P[:, [0]] = self.Mlr0/self.MMlr0_norm
             self.H = numpy.zeros((self.maxiter+1, self.maxiter))  # real
             alpha_old = 0  # will be set at end of iteration
 
