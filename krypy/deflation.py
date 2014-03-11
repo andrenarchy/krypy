@@ -72,16 +72,16 @@ class _DeflationMixin(object):
     def __init__(self, linear_system, U=None, *args, **kwargs):
         if U is None:
             U = numpy.zeros((linear_system.N, 0))
-        P = ObliqueProjection(linear_system, U)
-        self.P = P
+        projection = ObliqueProjection(linear_system, U)
+        self.projection = projection
         '''Projection that is used for deflation.'''
 
-        if P.Q is None and P.R is None:
+        if projection.Q is None and projection.R is None:
             E = numpy.eye(U.shape[1])
         else:
-            E = P.Q.dot(P.R)
-        if P.VR is not None and P.WR is not None:
-            E = P.WR.T.conj().dot(E.dot(P.VR))
+            E = projection.Q.dot(projection.R)
+        if projection.VR is not None and projection.WR is not None:
+            E = projection.WR.T.conj().dot(E.dot(projection.VR))
         self.E = E
         r''':math:`E=\langle U,AU\rangle`.'''
 
@@ -89,7 +89,7 @@ class _DeflationMixin(object):
         r''':math:`C=\langle U,AV_n\rangle`.
 
         This attribute is updated while the Arnoldi/Lanczos method proceeds.
-        See also :py:meth:`_apply_P`.
+        See also :py:meth:`_apply_projection`.
         '''
 
         self._B_ = None
@@ -99,17 +99,18 @@ class _DeflationMixin(object):
 
     def _solve(self):
         N = self.linear_system.N
-        P = utils.LinearOperator((N, N), self.P.AU.dtype, self._apply_P)
+        P = utils.LinearOperator((N, N), self.projection.AU.dtype,
+                                 self._apply_projection)
         self.MlAMr = P*self.linear_system.MlAMr
         super(_DeflationMixin, self)._solve()
 
-    def _apply_P(self, Av):
+    def _apply_projection(self, Av):
         '''Apply the projection and store inner product.
 
         :param v: the vector resulting from an application of :math:`M_lAM_r`
           to the current Arnoldi vector.
         '''
-        PAv, UAv = self.P.apply_complement(Av, return_Ya=True)
+        PAv, UAv = self.projection.apply_complement(Av, return_Ya=True)
         self.C = numpy.c_[self.C, UAv]
         return PAv
 
@@ -124,14 +125,14 @@ class _DeflationMixin(object):
             r = self.linear_system.b - self.linear_system.A*x0
             Mlr = self.linear_system.Ml*r
 
-        PMlr, self.UMlr = self.P.apply_complement(Mlr, return_Ya=True)
+        PMlr, self.UMlr = self.projection.apply_complement(Mlr, return_Ya=True)
         MPMlr = self.linear_system.M*PMlr
         MPMlr_norm = utils.norm(PMlr, MPMlr, ip_B=self.linear_system.ip_B)
         return MPMlr, PMlr, MPMlr_norm
 
     def _get_xk(self, yk):
         xk = super(_DeflationMixin, self)._get_xk(yk)
-        return self.P.correct(xk)
+        return self.projection.correct(xk)
 
     @property
     def B_(self):
@@ -143,10 +144,12 @@ class _DeflationMixin(object):
                 self._B_ = self.C.T.conj()
                 if n_ > n:
                     self._B_ = numpy.r_[self._B_,
-                                        utils.inner(self.V[:, [-1]], self.P.AU,
+                                        utils.inner(self.V[:, [-1]],
+                                                    self.projection.AU,
                                                     ip_B=ls.ip_B)]
             else:
-                self._B_ = utils.inner(self.V, self.P.AU, ip_B=ls.ip_B)
+                self._B_ = utils.inner(self.V, self.projection.AU,
+                                       ip_B=ls.ip_B)
         return self._B_
 
 
@@ -156,9 +159,24 @@ class DeflatedCg(_DeflationMixin, linsys.Cg):
     See :py:class:`_DeflationMixin` and :py:class:`~krypy.linsys.Cg` for
     the documentation of the available parameters.
     '''
-    # TODO
-    #def _apply_P(self, Av):
-    #    pass
+    def __init__(self, *args, **kwargs):
+        self._UAps = []
+        super(DeflatedCg, self).__init__(*args, **kwargs)
+
+    def _apply_projection(self, Av):
+        PAv, UAp = self.projection.apply_complement(Av, return_Ya=True)
+        self._UAps.append(UAp)
+        c = UAp.copy()
+        rhos = self.rhos
+        if self.iter > 0:
+            c -= (1 + rhos[-1]/rhos[-2])*self._UAps[-2]
+        if self.iter > 1:
+            c += rhos[-2]/rhos[-3]*self._UAps[-3]
+        c *= ((-1)**self.iter) / numpy.sqrt(rhos[-1])
+        if self.iter > 0:
+            c -= numpy.sqrt(rhos[-2]/rhos[-1]) * self.C[:, [-1]]
+        self.C = numpy.c_[self.C, c]
+        return PAv
 
 
 class DeflatedMinres(_DeflationMixin, linsys.Minres):
@@ -192,12 +210,12 @@ class Arnoldifyer(object):
         E = deflated_solver.E
 
         V = deflated_solver.V
-        U = deflated_solver.P.U
-        AU = deflated_solver.P.AU
+        U = deflated_solver.projection.U
+        AU = deflated_solver.projection.AU
 
         # get dimensions
         n_, n = self.n_, self.n = H.shape
-        d = self.d = deflated_solver.P.U.shape[1]
+        d = self.d = deflated_solver.projection.U.shape[1]
 
         # store a few matrices for later use
         EinvC = numpy.linalg.solve(E, C) if d > 0 else numpy.zeros((0, n))
@@ -327,7 +345,7 @@ class Arnoldifyer(object):
 
         if full:
             Vh = numpy.c_[deflated_solver.V[:, :n],
-                          deflated_solver.P.U].dot(Wto.dot(QT))
+                          deflated_solver.projection.U].dot(Wto.dot(QT))
             F = - self.Z.dot(Rh.dot(Vh.T.conj()))
             F = F + F.T.conj()
             return Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F
@@ -499,12 +517,12 @@ class Ritz(object):
         H_ = deflated_solver.H
         (n_, n) = H_.shape
         H = H_[:n, :n]
-        P = deflated_solver.P
-        m = P.U.shape[1]
+        projection = deflated_solver.projection
+        m = projection.U.shape[1]
         I = numpy.eye
         O = numpy.zeros
 
-        if isinstance(P, ObliqueProjection):
+        if isinstance(projection, ObliqueProjection):
             E = deflated_solver.E
             C = deflated_solver.C
             if m > 0:
@@ -517,7 +535,8 @@ class Ritz(object):
             # build block matrices
             M = numpy.bmat([[H + B.dot(EinvC), B],
                             [C, E]])
-            F = utils.inner(P.AU, P.AU, ip_B=linear_system.ip_B)
+            F = utils.inner(projection.AU, projection.AU,
+                            ip_B=linear_system.ip_B)
             S = numpy.bmat([[I(n_), B_, O((n_, m))],
                             [B_.T.conj(), F, E],
                             [O((m, n_)), E.T.conj(), I(m)]])
@@ -559,13 +578,13 @@ class Ritz(object):
         #elif isinstance(P, TODO):
             #TODO
         else:
-            raise ValueError('P is invalid')
+            raise ValueError('projection is invalid')
 
     def get_vectors(self, indices=None):
         '''Compute Ritz vectors.'''
         coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
         return numpy.c_[self._deflated_solver.V[:, :-1],
-                        self._deflated_solver.P.U].dot(coeffs)
+                        self._deflated_solver.projection.U].dot(coeffs)
 
     def get_explicit_residual(self, indices=None):
         '''Explicitly computes the Ritz residual.'''
