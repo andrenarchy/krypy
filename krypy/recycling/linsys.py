@@ -28,11 +28,11 @@ class _RecyclingSolver(object):
         self.last_solver = None
         '''``DeflatedSolver`` instance from last run of :py:meth:`solve`.
 
-        Instance of ``Solver`` that resulted from the last call to
+        Instance of ``DeflatedSolver`` that resulted from the last call to
         :py:meth:`solve`. Initialized with ``None`` before the first run.'''
 
     def solve(self, linear_system,
-              deflation_vector_factory=None,
+              vector_factory=None,
               *args, **kwargs):
         '''Solve the given linear system with recycling.
 
@@ -42,7 +42,7 @@ class _RecyclingSolver(object):
 
         :param linear_system: the :py:class:`~krypy.linsys.LinearSystem` that
           is about to be solved.
-        :param deflation_vector_factory: (optional) An instance of a subclass
+        :param vector_factory: (optional) An instance of a subclass
           of :py:class:`krypy.recycling.factories._DeflationVectorFactory`.
 
         All remaining arguments are passed to the ``DeflatedSolver``.
@@ -52,10 +52,14 @@ class _RecyclingSolver(object):
           attribute ``xk``.
         '''
         # get deflation vectors
-        if self.last_solver is None or deflation_vector_factory is None:
+        if self.last_solver is None or vector_factory is None:
             U = numpy.zeros((linear_system.N, 0))
         else:
-            U = deflation_vector_factory(self.last_solver, self.last_P)
+            U = vector_factory.get(self.last_solver)
+
+        # add store_arnoldi=True to solver's arguments
+        kwargs = dict(kwargs)
+        kwargs['store_arnoldi'] = True
 
         # solve deflated linear system
         self.last_solver = self._DeflatedSolver(linear_system, U,
