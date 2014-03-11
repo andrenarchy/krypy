@@ -164,6 +164,8 @@ class DeflatedCg(_DeflationMixin, linsys.Cg):
         super(DeflatedCg, self).__init__(*args, **kwargs)
 
     def _apply_projection(self, Av):
+        r'''Computes :math:`\langle C,M_lAM_rV_n\rangle` efficiently with a
+        three-term recurrence.'''
         PAv, UAp = self.projection.apply_complement(Av, return_Ya=True)
         self._UAps.append(UAp)
         c = UAp.copy()
