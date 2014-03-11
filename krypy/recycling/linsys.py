@@ -57,12 +57,10 @@ class _RecyclingSolver(object):
         else:
             U = vector_factory.get(self.last_solver)
 
-        # add store_arnoldi=True to solver's arguments
-        kwargs = dict(kwargs)
-        kwargs['store_arnoldi'] = True
-
         # solve deflated linear system
-        self.last_solver = self._DeflatedSolver(linear_system, U,
+        self.last_solver = self._DeflatedSolver(linear_system,
+                                                U=U,
+                                                store_arnoldi=True,
                                                 *args, **kwargs)
 
         # return solver instance
