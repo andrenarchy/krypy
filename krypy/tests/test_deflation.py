@@ -25,6 +25,11 @@ def test_deflation_solver():
                         'maxiter': 15}
 
 
+def run_deflation_solver(solver, ls, params):
+    sol = solver(ls, **params)
+    test_linsys.check_solver(sol, solver, ls, params)
+
+
 def test_Arnoldifyer():
     vs = [numpy.ones((10, 1)),
           numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]
@@ -80,9 +85,9 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
     (n_, n) = deflated_solver.H.shape
     ls = deflated_solver.linear_system
     N = ls.N
-    d = deflated_solver.P.U.shape[1]
+    d = deflated_solver.projection.U.shape[1]
 
-    VU = numpy.c_[deflated_solver.V[:, :n], deflated_solver.P.U]
+    VU = numpy.c_[deflated_solver.V[:, :n], deflated_solver.projection.U]
     W = VU.dot(Wt)
     PW = krypy.utils.Projection(ls.MlAMr*W, W).operator_complement()
     At = PW*ls.MlAMr

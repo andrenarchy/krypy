@@ -123,7 +123,10 @@ def test_solver():
 
 def run_solver(solver, ls, params):
     sol = solver(ls, **params)
+    check_solver(sol, solver, ls, params)
 
+
+def check_solver(sol, solver, ls, params):
     # pick out the interesting data
     b = krypy.utils.shape_vec(ls.b)
     xk = krypy.utils.shape_vec(sol.xk)
