@@ -3,6 +3,7 @@ import os
 from distutils.core import setup
 import codecs
 
+
 # shamelessly copied from VoroPy
 def read(fname):
     return codecs.open(os.path.join(os.path.dirname(__file__), fname),
