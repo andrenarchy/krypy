@@ -63,10 +63,21 @@ def linear_systems_generator(A, **ls_kwargs):
             'Ml': [None, numpy.linalg.inv(A_new)],
             'Mr': [None, numpy.linalg.inv(A_new)]
             }
+
+        # if A is diagonal, ip_B and all o
+        if numpy.linalg.norm(numpy.diag(numpy.diag(A_new))-A_new) == 0 \
+                and ip_B is None:
+            M = numpy.diag(numpy.linspace(1, 10, 10))
+            preconditioners['M'].append(M)
+
         for exact_solution in [None, x]:
             for preconditioner in dictpick(preconditioners):
                 kwargs = dict(ls_kwargs)
                 kwargs.update(preconditioner)
+
+                if 'M' in preconditioner and preconditioner['M'] is not None:
+                    kwargs['Minv'] = numpy.linalg.inv(preconditioner['M'])
+
                 yield krypy.linsys.LinearSystem(A_new, A_new.dot(x), ip_B=ip_B,
                                                 exact_solution=exact_solution,
                                                 **ls_kwargs)
