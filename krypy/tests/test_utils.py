@@ -150,6 +150,7 @@ def run_givens(x):
 def test_projection():
     Xs = [numpy.eye(10, 1),
           numpy.eye(10, 5),
+          numpy.eye(10, 5) + 1e-1*numpy.ones((10, 5)),
           numpy.eye(10),
           numpy.zeros((10, 0))
           ]
@@ -200,6 +201,17 @@ def run_projection(X, Y, ip_B, iterations):
     # check that the matrix representation is correct
     assert_almost_equal(numpy.linalg.norm(P.matrix() - P.apply(I), 2),
                         0, 14)
+
+    # check that <Y,a> is returned correctly with return_Ya=True
+    a = numpy.ones((N, 1))
+    _, Ya = P.apply(a, return_Ya=True)
+    assert_array_almost_equal(Ya, krypy.utils.inner(X if Y is None else Y, a,
+                                                    ip_B=ip_B))
+
+    # same check for apply_complement
+    _, Ya = P.apply_complement(a, return_Ya=True)
+    assert_array_almost_equal(Ya, krypy.utils.inner(X if Y is None else Y, a,
+                                                    ip_B=ip_B))
 
 
 def test_qr():
