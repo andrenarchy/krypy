@@ -17,7 +17,9 @@ def test_deflation_solver():
             if ls.positive_definite:
                 solvers.append(krypy.deflation.DeflatedCg)
             for U, store_arnoldi in itertools.product(
-                    [None, numpy.eye(ls.N, 1)], [False, True]):
+                    [None, numpy.eye(ls.N, 1),
+                     numpy.eye(ls.N, 1) + 1e-3*numpy.ones((ls.N, 1))],
+                    [False, True]):
                 for solver in solvers:
                     yield run_deflation_solver, solver, ls, {
                         'U': U,
@@ -33,14 +35,48 @@ def run_deflation_solver(Solver, ls, params):
 
     if params['store_arnoldi']:
         (n_, n) = sol.H.shape
+
+        # check E
+        assert_array_almost_equal(
+            sol.E,
+            krypy.utils.inner(sol.projection.U, ls.MlAMr*sol.projection.U,
+                              ip_B=ls.ip_B))
+
+        # check C
         assert_array_almost_equal(
             sol.C,
             krypy.utils.inner(sol.projection.U, ls.MlAMr*sol.V[:, :n],
                               ip_B=ls.ip_B))
+
+        # check B_
         assert_array_almost_equal(
             sol.B_,
             krypy.utils.inner(sol.V, sol.projection.AU,
                               ip_B=ls.ip_B))
+
+        # check Ritz pairs
+        check_Ritz(sol, ls)
+
+
+def check_Ritz(solver, ls):
+    (n_, n) = solver.H.shape
+    m = solver.projection.U.shape[1]
+
+    # get Ritz pairs
+    ritz = krypy.deflation.Ritz(solver, mode='ritz')
+
+    # compute Ritz pairs 'by hand'
+    Z = numpy.c_[solver.V[:, :n], solver.projection.U]
+    MMlAMrZ = ls.M * (ls.MlAMr * Z)
+
+    inner_left = krypy.utils.inner(Z, MMlAMrZ, ip_B=ls.get_ip_Minv_B())
+    inner_right = krypy.utils.inner(Z, Z, ip_B=ls.get_ip_Minv_B())
+
+    # inner_right should be identity if full orthogonalization is performed
+    if isinstance(solver, krypy.linsys.Gmres):
+        assert_array_almost_equal(inner_right, numpy.eye(n+m))
+
+    # TODO: add more tests here
 
 
 def test_Arnoldifyer():
