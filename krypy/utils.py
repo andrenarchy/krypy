@@ -926,9 +926,9 @@ class Arnoldi(object):
                     alpha = inner(self.V[:, [j]], Av, ip_B=self.ip_B)[0, 0]
                     if self.ortho == 'lanczos':
                         # check if alpha is real
-                        if abs(alpha.imag) > 1e-12:
+                        if abs(alpha.imag) > 1e-10:
                             warnings.warn(
-                                'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
+                                'Iter {0}: abs(alpha.imag) = {1} > 1e-10. '
                                 'Is your operator self-adjoint in the '
                                 'provided inner product?'
                                 .format(self.iter, abs(alpha.imag)))
