@@ -1475,6 +1475,9 @@ class MatrixLinearOperator(LinearOperator):
             self._A_adj = self._A.T.conj()
         return self._A_adj.dot(X)
 
+    def __repr__(self):
+        return self._A.__repr__()
+
 
 def strakos(n, l_min=0.1, l_max=100, rho=0.9):
     """Return the Strakoš matrix.
