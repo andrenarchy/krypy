@@ -548,7 +548,7 @@ def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
     elif type == 'harmonic':
         AVortho = scipy.linalg.orth(A*V[:, :n])
         assert(numpy.linalg.norm(krypy.utils.inner(AVortho, R, ip_B=ip_B), 2)
-               <= 5e-14*An)
+               <= 1e-12*An)
     else:
         pass
 
