@@ -156,6 +156,21 @@ class LinearSystem(object):
                 return lambda x, y: self.ip_B(x, self.Minv*y)
         return self.ip_B
 
+    def __repr__(self):
+        ret = 'LinearSystem {\n'
+
+        def add(k):
+            op = self.__dict__[k]
+            if op is not None and\
+                    not isinstance(op, utils.IdentityLinearOperator):
+                return '  ' + k + ': ' + op.__repr__() + '\n'
+            return ''
+        for k in ['A', 'b', 'M', 'Minv', 'Ml', 'Mr', 'ip_B',
+                  'normal', 'self_adjoint', 'positive_definite',
+                  'exact_solution']:
+            ret += add(k)
+        return ret+'}'
+
 
 class _KrylovSolver(object):
     '''Prototype of a Krylov subspace method for linear systems.'''
