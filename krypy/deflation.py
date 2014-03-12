@@ -28,7 +28,9 @@ class ObliqueProjection(_Projection):
         # preprocess and store input
         self.linear_system = linear_system
         (N, d) = U.shape
-        U, _ = utils.qr(U, ip_B=linear_system.ip_B)
+
+        # orthogonalize U in the Minv-inner-product
+        U, _ = utils.qr(U, ip_B=linear_system.get_ip_Minv_B())
 
         self.U = U
         '''An orthonormalized basis of the deflation space ``U`` with respect
@@ -40,7 +42,9 @@ class ObliqueProjection(_Projection):
         :math:`M_lAM_rU`.'''
 
         # call Projection constructor
-        super(_Projection, self).__init__(self.AU, self.U, **kwargs)
+        super(_Projection, self).__init__(self.AU, self.U,
+                                          ip_B=linear_system.ip_B,
+                                          **kwargs)
 
     def correct(self, z):
         '''Correct the given approximate solution ``z`` with respect to the
@@ -528,6 +532,12 @@ class Ritz(object):
         m = projection.U.shape[1]
         I = numpy.eye
         O = numpy.zeros
+
+        if n+m == 0:
+            self.values = numpy.zeros((0,))
+            self.coeffs = numpy.zeros((0,))
+            self.resnorms = numpy.zeros((0,))
+            return
 
         if isinstance(projection, ObliqueProjection):
             E = deflated_solver.E
