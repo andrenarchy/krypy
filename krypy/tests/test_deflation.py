@@ -21,12 +21,17 @@ def test_deflation_solver():
                      numpy.eye(ls.N, 1) + 1e-3*numpy.ones((ls.N, 1))],
                     [False, True]):
                 for solver in solvers:
-                    yield run_deflation_solver, solver, ls, {
+                    params = {
                         'U': U,
                         'x0': None,
                         'tol': 1e-6,
                         'maxiter': 15,
                         'store_arnoldi': True}
+
+                    #if solver is krypy.deflation.DeflatedGmres:
+                    #    params['ortho'] = 'dmgs'
+
+                    yield run_deflation_solver, solver, ls, params
 
 
 def run_deflation_solver(Solver, ls, params):
@@ -62,9 +67,6 @@ def check_Ritz(solver, ls):
     (n_, n) = solver.H.shape
     m = solver.projection.U.shape[1]
 
-    # get Ritz pairs
-    ritz = krypy.deflation.Ritz(solver, mode='ritz')
-
     # compute Ritz pairs 'by hand'
     Z = numpy.c_[solver.V[:, :n], solver.projection.U]
     MMlAMrZ = ls.M * (ls.MlAMr * Z)
@@ -72,11 +74,48 @@ def check_Ritz(solver, ls):
     inner_left = krypy.utils.inner(Z, MMlAMrZ, ip_B=ls.get_ip_Minv_B())
     inner_right = krypy.utils.inner(Z, Z, ip_B=ls.get_ip_Minv_B())
 
-    # inner_right should be identity if full orthogonalization is performed
-    if isinstance(solver, krypy.linsys.Gmres):
-        assert_array_almost_equal(inner_right, numpy.eye(n+m))
+    if ls.self_adjoint:
+        assert_array_almost_equal(inner_left, inner_left.T.conj())
 
-    # TODO: add more tests here
+    # inner_right should be identity if full orthogonalization is performed
+    if isinstance(solver, krypy.linsys.Gmres) and 0 < n+m <= ls.N:
+        assert_array_almost_equal(inner_right, numpy.eye(n+m), decimal=4)
+
+    if 0 < n+m <= ls.N:
+        if numpy.linalg.norm(inner_right - numpy.eye(n+m), 2) < 1e-8:
+            # use eigh for self-adjoint problems
+            eig = scipy.linalg.eigh if ls.self_adjoint else scipy.linalg.eig
+            eig = scipy.linalg.eig
+
+            cmp_values, cmp_coeffs = eig(inner_left, inner_right)
+            cmp_sort = numpy.argsort(numpy.abs(cmp_values))
+            cmp_values = cmp_values[cmp_sort]
+            cmp_coeffs = cmp_coeffs[:, cmp_sort]
+            # normalize coeffs
+            for i in range(n+m):
+                cmp_coeffs[:, [i]] /= numpy.linalg.norm(cmp_coeffs[:, [i]], 2)
+            cmp_vectors = Z.dot(cmp_coeffs)
+            cmp_res = ls.M*(ls.MlAMr*cmp_vectors) - cmp_vectors*cmp_values
+            cmp_resnorms = [krypy.utils.norm(cmp_res[:, [i]],
+                                             ip_B=ls.get_ip_Minv_B())
+                            for i in range(n+m)]
+
+            # get Ritz pairs via Ritz()
+            ritz = krypy.deflation.Ritz(solver, mode='ritz')
+            sort = numpy.argsort(numpy.abs(ritz.values))
+
+            # check values
+            assert_array_almost_equal(ritz.values[sort], cmp_values)
+
+            # check vectors via inner products
+            assert_array_almost_equal(numpy.diag(numpy.abs(
+                krypy.utils.inner(ritz.get_vectors()[:, sort], cmp_vectors,
+                                  ip_B=ls.get_ip_Minv_B()))),
+                numpy.ones(m+n))
+
+            # check resnorms
+            #assert_array_almost_equal(ritz.resnorms[sort],
+            #                          cmp_resnorms, decimal=4)
 
 
 def test_Arnoldifyer():
