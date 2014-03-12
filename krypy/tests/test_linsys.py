@@ -59,10 +59,13 @@ def linear_systems_generator(A, **ls_kwargs):
             A_new = A
 
         preconditioners = {
-            'M': [None, numpy.linalg.inv(A_new)],
+            'M': [None],
             'Ml': [None, numpy.linalg.inv(A_new)],
             'Mr': [None, numpy.linalg.inv(A_new)]
             }
+
+        if 'positive_definite' in ls_kwargs and ls_kwargs['positive_definite']:
+            preconditioners['M'].append(numpy.linalg.inv(A_new))
 
         # if A is diagonal, ip_B and all o
         if numpy.linalg.norm(numpy.diag(numpy.diag(A_new))-A_new) == 0 \
@@ -86,7 +89,7 @@ def linear_systems_generator(A, **ls_kwargs):
 def solver_params_generator(solver, ls):
     params_add = {}
     if solver is krypy.linsys.RestartedGmres:
-        params_add = {'maxiter': [5], 'max_restarts': [20]}
+        params_add = {'maxiter': [7], 'max_restarts': [20]}
     solver_params = {
         'x0': [None, numpy.zeros(ls.b.shape), numpy.ones(ls.b.shape)],
         'tol': [1e-13, 1e-2],
