@@ -552,6 +552,8 @@ class Ritz(object):
             # build block matrices
             M = numpy.bmat([[H + B.dot(EinvC), B],
                             [C, E]])
+            # TODO: has M to be applied in the next line on one side?
+            # Andre: I think so! :)
             F = utils.inner(projection.AU, projection.AU,
                             ip_B=linear_system.ip_B)
             S = numpy.bmat([[I(n_), B_, O((n_, m))],
@@ -579,6 +581,11 @@ class Ritz(object):
             else:
                 raise ValueError('mode {0} not known'.format(mode))
 
+            # normalize Ritz vectors
+            for i in range(n+m):
+                self.coeffs[:, [i]] /= numpy.linalg.norm(self.coeffs[:, [i]],
+                                                         2)
+
             self.resnorms = numpy.zeros(m+n)
             '''Residual norms of Ritz pairs.'''
 
@@ -599,8 +606,10 @@ class Ritz(object):
 
     def get_vectors(self, indices=None):
         '''Compute Ritz vectors.'''
+        H_ = self._deflated_solver.H
+        (n_, n) = H_.shape
         coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
-        return numpy.c_[self._deflated_solver.V[:, :-1],
+        return numpy.c_[self._deflated_solver.V[:, :n],
                         self._deflated_solver.projection.U].dot(coeffs)
 
     def get_explicit_residual(self, indices=None):
