@@ -10,6 +10,7 @@ __all__ = ['LinearSystem', 'Cg', 'Minres', 'Gmres']
 class LinearSystem(object):
     def __init__(self, A, b,
                  M=None,
+                 Minv=None,
                  Ml=None,
                  Mr=None,
                  ip_B=None,
@@ -44,6 +45,9 @@ class LinearSystem(object):
           :math:`\langle x,y\rangle_M = \langle Mx,y\rangle` where
           :math:`\langle \cdot,\cdot\rangle` is the inner product defined by
           the parameter ``ip_B``. Defaults to the identity.
+        :param Minv: (optional) the inverse of the preconditioner provided by
+          ``M``. This operator is needed, e.g., for orthonormalizing vectors
+          for the computation of Ritz vectors in deflated methods.
         :param Ml: (optional) left preconditioner, linear operator on
           :math:`\mathbb{C}^N`. Defaults to the identity.
         :param Mr: (optional) right preconditioner, linear operator on
@@ -70,10 +74,14 @@ class LinearSystem(object):
         # init linear operators
         self.A = utils.get_linearoperator(shape, A)
         self.M = utils.get_linearoperator(shape, M)
+        self.Minv = utils.get_linearoperator(shape, Minv)
         self.Ml = utils.get_linearoperator(shape, Ml)
         self.Mr = utils.get_linearoperator(shape, Mr)
         self.MlAMr = self.Ml*self.A*self.Mr
-        self.ip_B = ip_B
+        try:
+            self.ip_B = utils.get_linearoperator(shape, ip_B)
+        except TypeError:
+            self.ip_B = ip_B
 
         # process vectors
         self.flat_vecs, (self.b, self.exact_solution) = \
@@ -133,6 +141,20 @@ class LinearSystem(object):
         if compute_norm:
             return MMlr, Mlr, utils.norm(Mlr, MMlr, ip_B=self.ip_B)
         return MMlr, Mlr
+
+    def get_ip_Minv_B(self):
+        '''Returns the inner product that is implicitly used with the positive
+        definite preconditioner ``M``.'''
+        if not isinstance(self.M, utils.IdentityLinearOperator):
+            if isinstance(self.Minv, utils.IdentityLinearOperator):
+                raise ValueError('Minv has to be provided for the evaluation '
+                                 'of the inner product that is implicitly '
+                                 'defined by M.')
+            if isinstance(self.ip_B, utils.LinearOperator):
+                return self.Minv*self.ip_B
+            else:
+                return lambda x, y: self.ip_B(x, self.Minv*y)
+        return self.ip_B
 
 
 class _KrylovSolver(object):
