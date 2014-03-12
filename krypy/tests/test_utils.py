@@ -8,49 +8,49 @@ from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
 
 
 def get_matrix_spd():
-    a = numpy.array(range(1, 11))
-    a[-1] = 1.e2
+    a = numpy.linspace(1, 2, 10)
+    a[-1] = 1e-2
     return numpy.diag(a)
 
 
 def get_matrix_hpd():
-    a = numpy.array(range(1, 11), dtype=numpy.complex)
-    a[0] = 1.01e2
-    a[-1] = 1.e2
+    a = numpy.array(numpy.linspace(1, 2, 10), dtype=numpy.complex)
+    a[0] = 5
+    a[-1] = 1e-1
     A = numpy.diag(a)
-    A[-1, 0] = 100.j
-    A[0, -1] = -100.j
+    A[-1, 0] = 1e-1j
+    A[0, -1] = -1e-1j
     return A
 
 
 def get_matrix_symm_indef():
-    a = numpy.array(range(1, 11))
-    a[-1] = -1.e2
+    a = numpy.linspace(1, 2, 10)
+    a[-1] = -1
     return numpy.diag(a)
 
 
 def get_matrix_herm_indef():
-    a = numpy.array(range(1, 11), dtype=numpy.complex)
-    a[-1] = -1.e2
+    a = numpy.array(numpy.linspace(1, 2, 10), dtype=numpy.complex)
+    a[-1] = 1e-3
     A = numpy.diag(a)
-    A[-1, 0] = 100.j
-    A[0, -1] = -100.j
+    A[-1, 0] = 10j
+    A[0, -1] = -10j
     return A
 
 
 def get_matrix_nonsymm():
     a = numpy.array(range(1, 11), dtype=numpy.float)
-    a[-1] = -1e2
+    a[-1] = -1e1
     A = numpy.diag(a)
-    A[0, -1] = 1e2
+    A[0, -1] = 1e1
     return A
 
 
 def get_matrix_comp_nonsymm():
     a = numpy.array(range(1, 11), dtype=numpy.complex)
-    a[-1] = -1e2
+    a[-1] = -1e1
     A = numpy.diag(a)
-    A[0, -1] = 1.e2j
+    A[0, -1] = 1.e1j
     return A
 
 
