@@ -14,7 +14,7 @@ class LinearSystem(object):
                  Ml=None,
                  Mr=None,
                  ip_B=None,
-                 normal=False,
+                 normal=None,
                  self_adjoint=False,
                  positive_definite=False,
                  exact_solution=None
@@ -57,7 +57,8 @@ class LinearSystem(object):
         :param normal: (bool, optional) Is :math:`M_l A M_r` normal
           in the inner product defined by ``ip_B``? Defaults to ``False``.
         :param self_adjoint: (bool, optional) Is :math:`M_l A M_r` self-adjoint
-          in the inner product defined by ``ip_B``? Defaults to ``False``.
+          in the inner product defined by ``ip_B``? ``self_adjoint=True``
+          also sets ``normal=True``. Defaults to ``False``.
         :param positive_definite: (bool, optional) Is :math:`M_l A M_r`
           positive (semi-)definite with respect to the inner product defined by
           ``ip_B``? Defaults to ``False``.
@@ -88,8 +89,18 @@ class LinearSystem(object):
             utils.shape_vecs(b, exact_solution)
 
         # store properties of operators
-        self.normal = normal
         self.self_adjoint = self_adjoint
+
+        # automatically set normal=True if self_adjoint==True
+        if self_adjoint:
+            if normal is not None and not normal:
+                warnings.warn('Setting normal=True because '
+                              'self_adjoint=True is provided.')
+            normal = True
+        if normal is None:
+            normal = False
+        self.normal = normal
+
         self.positive_definite = positive_definite
         if self_adjoint and not normal:
             raise utils.ArgumentError('self-adjointness implies normality')
