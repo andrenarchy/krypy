@@ -206,6 +206,7 @@ def norm(x, y=None, ip_B=None):
 def get_linearoperator(shape, A):
     """Enhances aslinearoperator if A is None."""
     ret = None
+    import scipy.sparse.linalg as scipylinalg
     if isinstance(A, LinearOperator):
         ret = A
     elif A is None:
@@ -214,6 +215,11 @@ def get_linearoperator(shape, A):
         ret = MatrixLinearOperator(A)
     elif isinstance(A, numpy.matrix):
         ret = MatrixLinearOperator(numpy.atleast_2d(numpy.asarray(A)))
+    elif isinstance(A, scipylinalg.LinearOperator):
+        if not hasattr(A, 'dtype'):
+            raise ArgumentError('scipy LinearOperator has no dtype.')
+        ret = LinearOperator(A.shape, dot=A.matvec, dot_adj=A.rmatvec,
+                             dtype=A.dtype)
     else:
         raise TypeError('type not understood')
     if shape != ret.shape:
