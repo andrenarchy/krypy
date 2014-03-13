@@ -16,7 +16,7 @@ def test_RitzFactorySimple():
     Solvers = [krypy.recycling.RecyclingCg,
                krypy.recycling.RecyclingMinres,
                krypy.recycling.RecyclingGmres]
-    whichs = ['smallest_abs', 'largest_abs', 'smallest_res']
+    whichs = ['lm', 'sm', 'lr', 'sr', 'li', 'si', 'smallest_res']
     for Solver, which in itertools.product(Solvers, whichs):
         yield run_RitzFactorySimple, Solver, ls, which
 

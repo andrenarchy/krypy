@@ -94,6 +94,6 @@ class RitzFactorySimple(_DeflationVectorFactory):
             indices = numpy.argsort(ritz.resnorms)[:n_vectors]
         else:
             raise utils.ArgumentError(
-                r'Invvalid value \'{0}\' for \'which\'.'.format(which)
+                'Invalid value \'{0}\' for \'which\'. '.format(which)
                 + 'Valid are lm, sm, lr, sr, li, si and smallest_res.')
         return ritz.get_vectors(indices)
