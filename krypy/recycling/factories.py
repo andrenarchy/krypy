@@ -55,10 +55,15 @@ class RitzFactorySimple(_DeflationVectorFactory):
         :param n_vectors: number of vectors that are chosen. Actual number of
           deflation vectors may be lower if the number of Ritz pairs is less
           than ``n_vectors``.
-        :param which: the ``n_vectors`` Ritz vectors are chosen with:
+        :param which: the ``n_vectors`` Ritz vectors are chosen such that the
+          corresponding Ritz values are the ones with
 
-          * ``smallest_abs``: smallest magnitude of corresponding Ritz values.
-          * ``largest_abs``: largest magnitude of corresponding Ritz values.
+          * ``lm``: largest magnitude.
+          * ``sm``: smallest magnitude.
+          * ``lr``: largest real part.
+          * ``sr``: smallest real part.
+          * ``li``: largest imaginary part.
+          * ``si``: smallest imaginary part.
           * ``smallest_res``: smallest Ritz residual norms.
         '''
         self.mode = mode
@@ -68,14 +73,27 @@ class RitzFactorySimple(_DeflationVectorFactory):
     def get(self, solver):
         ritz = deflation.Ritz(solver, mode=self.mode)
 
+        values = ritz.values
+        which = self.which
+        n_vectors = self.n_vectors
+
         # get indices according to criterion
-        if self.which == 'smallest_abs':
-            indices = numpy.argsort(numpy.abs(ritz.values))[:self.n_vectors]
-        elif self.which == 'largest_abs':
-            indices = numpy.argsort(numpy.abs(ritz.values))[-self.n_vectors:]
-        elif self.which == 'smallest_res':
-            indices = numpy.argsort(ritz.resnorms)[:self.n_vectors]
+        if which == 'lm':
+            indices = numpy.argsort(numpy.abs(values))[-n_vectors:]
+        elif which == 'sm':
+            indices = numpy.argsort(numpy.abs(values))[:n_vectors]
+        elif which == 'lr':
+            indices = numpy.argsort(numpy.real(values))[-n_vectors:]
+        elif which == 'sr':
+            indices = numpy.argsort(numpy.real(values))[:n_vectors]
+        elif which == 'li':
+            indices = numpy.argsort(numpy.imag(values))[-n_vectors:]
+        elif which == 'si':
+            indices = numpy.argsort(numpy.imag(values))[:n_vectors]
+        elif which == 'smallest_res':
+            indices = numpy.argsort(ritz.resnorms)[:n_vectors]
         else:
-            raise utils.ArgumentError(r'value \'{0}\' of which is unknown'
-                                      .format(self.which))
+            raise utils.ArgumentError(
+                r'Invvalid value \'{0}\' for \'which\'.'.format(which)
+                + 'Valid are lm, sm, lr, sr, li, si and smallest_res.')
         return ritz.get_vectors(indices)
