@@ -33,6 +33,27 @@ __all__ = ['AssumptionError', 'Arnoldi', 'BoundCG', 'BoundMinres',
            'strakos']
 
 
+class AssumptionError(RuntimeError):
+    '''Raised when an assumption is not satisfied.'''
+    pass
+
+
+class ConvergenceError(RuntimeError):
+    '''Convergence error.
+
+    The ``ConvergenceError`` holds a message describing the error and
+    the attribute ``solver`` through which the last approximation and other
+    relevant information can be retrieved.
+    '''
+    def __init__(self, msg, solver):
+        super(ConvergenceError, self).__init__(msg)
+        self.solver = solver
+
+
+class LinearOperatorError(RuntimeError):
+    '''Raised when a :py:class:`LinearOperator` cannot be applied.'''
+
+
 def find_common_dtype(*args):
     '''Returns common dtype of numpy and scipy objects.
 
@@ -1260,11 +1281,12 @@ class LinearOperator(object):
     def __init__(self, shape, dtype, dot=None, dot_adj=None):
         if len(shape) != 2 or not isintlike(shape[0]) \
                 or not isintlike(shape[1]):
-            raise ValueError('shape must be (m,n) with m and n integer')
+            raise LinearOperatorError('shape must be (m,n) with m and n '
+                                      'integer')
         self.shape = shape
         self.dtype = numpy.dtype(dtype)  # defaults to float64
         if dot is None and dot_adj is None:
-            raise ValueError('dot or dot_adj have to be defined')
+            raise LinearOperatorError('dot or dot_adj have to be defined')
         self._dot = dot
         self._dot_adj = dot_adj
 
@@ -1272,18 +1294,18 @@ class LinearOperator(object):
         X = numpy.asanyarray(X)
         m, n = self.shape
         if X.shape[0] != n:
-            raise ValueError('dimension mismatch')
+            raise LinearOperatorError('dimension mismatch')
         if self._dot is None:
-            raise ValueError('dot undefined')
+            raise LinearOperatorError('dot undefined')
         return self._dot(X)
 
     def dot_adj(self, X):
         X = numpy.asanyarray(X)
         m, n = self.shape
         if X.shape[0] != m:
-            raise ValueError('dimension mismatch')
+            raise LinearOperatorError('dimension mismatch')
         if self._dot_adj is None:
-            raise ValueError('dot_adj undefined')
+            raise LinearOperatorError('dot_adj undefined')
         return self._dot_adj(X)
 
     @property
@@ -1302,31 +1324,31 @@ class LinearOperator(object):
                 return _ScaledLinearOperator(self, X)
             else:
                 return self.dot(X)
-        except ValueError:
+        except LinearOperatorError:
             return NotImplemented
 
     def __rmul__(self, X):
         try:
             return _ScaledLinearOperator(self, X)
-        except ValueError:
+        except LinearOperatorError:
             return NotImplemented
 
     def __pow__(self, X):
         try:
             return _PowerLinearOperator(self, X)
-        except ValueError:
+        except LinearOperatorError:
             return NotImplemented
 
     def __add__(self, X):
         try:
             return _SumLinearOperator(self, X)
-        except ValueError:
+        except LinearOperatorError:
             return NotImplemented
 
     def __neg__(self):
         try:
             return _ScaledLinearOperator(self, -1)
-        except ValueError as e:
+        except LinearOperatorError as e:
             return NotImplemented
 
     def __sub__(self, X):
@@ -1351,9 +1373,10 @@ class _SumLinearOperator(LinearOperator):
     def __init__(self, A, B):
         if not isinstance(A, LinearOperator) or \
                 not isinstance(B, LinearOperator):
-            raise ValueError('both operands have to be a LinearOperator')
+            raise LinearOperatorError('both operands have to be a '
+                                      'LinearOperator')
         if A.shape != B.shape:
-            raise ValueError('shape mismatch')
+            raise LinearOperatorError('shape mismatch')
         self.args = (A, B)
         super(_SumLinearOperator, self).__init__(A.shape, _get_dtype([A, B]),
                                                  self._dot, self._dot_adj)
@@ -1369,9 +1392,10 @@ class _ProductLinearOperator(LinearOperator):
     def __init__(self, A, B):
         if not isinstance(A, LinearOperator) or \
                 not isinstance(B, LinearOperator):
-            raise ValueError('both operands have to be a LinearOperator')
+            raise LinearOperatorError('both operands have to be a '
+                                      'LinearOperator')
         if A.shape[1] != B.shape[0]:
-            raise ValueError('shape mismatch')
+            raise LinearOperatorError('shape mismatch')
         self.args = (A, B)
         super(_ProductLinearOperator, self).__init__((A.shape[0], B.shape[1]),
                                                      _get_dtype([A, B]),
@@ -1387,9 +1411,9 @@ class _ProductLinearOperator(LinearOperator):
 class _ScaledLinearOperator(LinearOperator):
     def __init__(self, A, alpha):
         if not isinstance(A, LinearOperator):
-            raise ValueError('LinearOperator expected as A')
+            raise LinearOperatorError('LinearOperator expected as A')
         if not numpy.isscalar(alpha):
-            raise ValueError('scalar expected as alpha')
+            raise LinearOperatorError('scalar expected as alpha')
         self.args = (A, alpha)
         super(_ScaledLinearOperator, self).__init__(
             A.shape, _get_dtype([A], [type(alpha)]), self._dot, self._dot_adj)
@@ -1404,11 +1428,11 @@ class _ScaledLinearOperator(LinearOperator):
 class _PowerLinearOperator(LinearOperator):
     def __init__(self, A, p):
         if not isinstance(A, LinearOperator):
-            raise ValueError('LinearOperator expected as A')
+            raise LinearOperatorError('LinearOperator expected as A')
         if A.shape[0] != A.shape[1]:
-            raise ValueError('square LinearOperator expected as A')
+            raise LinearOperatorError('square LinearOperator expected as A')
         if not isintlike(p):
-            raise ValueError('integer expected as p')
+            raise LinearOperatorError('integer expected as p')
         self.args = (A, p)
         super(_PowerLinearOperator, self).__init__(A.shape, A.dtype,
                                                    self._dot, self._dot_adj)
@@ -1429,7 +1453,7 @@ class _PowerLinearOperator(LinearOperator):
 class _AdjointLinearOperator(LinearOperator):
     def __init__(self, A):
         if not isinstance(A, LinearOperator):
-            raise ValueError('LinearOperator expected as A')
+            raise LinearOperatorError('LinearOperator expected as A')
         self.args = (A,)
         m, n = A.shape
         super(_AdjointLinearOperator, self).__init__((n, m), A.dtype,
@@ -1676,22 +1700,6 @@ class Intervals(object):
         if self.__len__() == 0:
             return ValueError('empty set has no maximum absolute value.')
         return numpy.max(numpy.abs([self.max(), self.min()]))
-
-
-class AssumptionError(ValueError):
-    pass
-
-
-class ConvergenceError(RuntimeError):
-    '''Convergence error.
-
-    The ``ConvergenceError`` holds a message describing the error and
-    the attribute ``solver`` through which the last approximation and other
-    relevant information can be retrieved.
-    '''
-    def __init__(self, msg, solver):
-        super(ConvergenceError, self).__init__(msg)
-        self.solver = solver
 
 
 class BoundCG(object):
