@@ -1317,6 +1317,8 @@ class LinearOperator(object):
             raise LinearOperatorError('dimension mismatch')
         if self._dot is None:
             raise LinearOperatorError('dot undefined')
+        if X.shape[1] == 0:
+            return numpy.zeros(X.shape)
         return self._dot(X)
 
     def dot_adj(self, X):
@@ -1326,6 +1328,8 @@ class LinearOperator(object):
             raise LinearOperatorError('dimension mismatch')
         if self._dot_adj is None:
             raise LinearOperatorError('dot_adj undefined')
+        if X.shape[1] == 0:
+            return numpy.zeros(X.shape)
         return self._dot_adj(X)
 
     @property
