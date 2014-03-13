@@ -22,7 +22,9 @@ try:
 except ImportError:
     import scipy.linalg.blas as blas
 
-__all__ = ['AssumptionError', 'Arnoldi', 'BoundCG', 'BoundMinres',
+__all__ = ['ArgumentError', 'AssumptionError', 'ConvergenceError',
+           'LinearOperatorError', 'InnerProductError',
+           'Arnoldi', 'BoundCG', 'BoundMinres',
            'ConvergenceError', 'Givens', 'House', 'IdentityLinearOperator',
            'LinearOperator', 'MatrixLinearOperator',
            'NormalizedRootsPolynomial', 'Projection', 'Timer', 'angles',
@@ -33,13 +35,26 @@ __all__ = ['AssumptionError', 'Arnoldi', 'BoundCG', 'BoundMinres',
            'strakos']
 
 
-class AssumptionError(RuntimeError):
-    '''Raised when an assumption is not satisfied.'''
+class ArgumentError(Exception):
+    '''Raised when an argument is invalid.
+
+    Analogue to ``ValueError`` which is not used here in order to be able
+    to distinguish between built-in errors and ``krypy`` errors.
+    '''
+
+
+class AssumptionError(Exception):
+    '''Raised when an assumption is not satisfied.
+
+    Differs from :py:class:`ArgumentError` in that all passed arguments are
+    valid but computations reveal that assumptions are not satisfied and
+    the result cannot be computed.
+    '''
     pass
 
 
-class ConvergenceError(RuntimeError):
-    '''Convergence error.
+class ConvergenceError(Exception):
+    '''Raised when a method did not converge.
 
     The ``ConvergenceError`` holds a message describing the error and
     the attribute ``solver`` through which the last approximation and other
@@ -50,8 +65,12 @@ class ConvergenceError(RuntimeError):
         self.solver = solver
 
 
-class LinearOperatorError(RuntimeError):
+class LinearOperatorError(Exception):
     '''Raised when a :py:class:`LinearOperator` cannot be applied.'''
+
+
+class InnerProductError(Exception):
+    '''Raised when the inner product is indefinite.'''
 
 
 def find_common_dtype(*args):
@@ -135,12 +154,12 @@ def inner(X, Y, ip_B=None):
     (_, n) = Y.shape
     try:
         B = get_linearoperator((N, N), ip_B)
-        if m > n:
-            return numpy.dot((B*X).T.conj(), Y)
-        else:
-            return numpy.dot(X.T.conj(), B*Y)
     except TypeError:
         return ip_B(X, Y)
+    if m > n:
+        return numpy.dot((B*X).T.conj(), Y)
+    else:
+        return numpy.dot(X.T.conj(), B*Y)
 
 
 def norm_squared(x, Mx=None, inner_product=ip_euclid):
@@ -154,8 +173,8 @@ def norm_squared(x, Mx=None, inner_product=ip_euclid):
 
     if rho.shape == (1, 1):
         if abs(rho[0, 0].imag) > abs(rho[0, 0])*1e-10 or rho[0, 0].real < 0.0:
-            raise ValueError('<x,Mx> = %g. M not positive definite?'
-                             % rho[0, 0])
+            raise InnerProductError(('<x,Mx> = %g. Is the inner product '
+                                     'indefinite?') % rho[0, 0])
 
     return numpy.linalg.norm(rho, 2)
 
@@ -179,8 +198,8 @@ def norm(x, y=None, ip_B=None):
     ip = inner(x, y, ip_B=ip_B)
     nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
     if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
-        raise ValueError('inner product defined by ip_B not positive '
-                         'definite?')
+        raise InnerProductError('inner product defined by ip_B not positive '
+                                'definite?')
     return nrm
 
 
@@ -198,7 +217,7 @@ def get_linearoperator(shape, A):
     else:
         raise TypeError('type not understood')
     if shape != ret.shape:
-        raise ValueError('shape mismatch')
+        raise LinearOperatorError('shape mismatch')
     return ret
 
 
@@ -271,7 +290,7 @@ class House:
         """
         # make sure that x is a vector ;)
         if len(x.shape) != 2 or x.shape[1] != 1:
-            raise ValueError('x is not a vector of dim (N,1)')
+            raise ArgumentError('x is not a vector of dim (N,1)')
 
         v = x.copy()
 
@@ -312,7 +331,7 @@ class House:
         """
         # make sure that x is a (N,*) matrix
         if len(x.shape) != 2:
-            raise ValueError('x is not a matrix of shape (N,*)')
+            raise ArgumentError('x is not a matrix of shape (N,*)')
         if self.beta == 0:
             return x
         return x - self.beta * self.v * numpy.dot(self.v.T.conj(), x)
@@ -343,7 +362,7 @@ def hessenberg(A):
     '''
     n = A.shape[0]
     if A.shape[1] != n:
-        raise ValueError('matrix must be square')
+        raise ArgumentError('matrix must be square')
     H = A.copy()
     Q = numpy.eye(n, dtype=H.dtype)
     for k in range(n-2):
@@ -365,7 +384,7 @@ class Givens:
         """
         # make sure that x is a vector ;)
         if x.shape != (2, 1):
-            raise ValueError('x is not a vector of shape (2,1)')
+            raise ArgumentError('x is not a vector of shape (2,1)')
 
         a = numpy.asscalar(x[0])
         b = numpy.asscalar(x[1])
@@ -434,15 +453,15 @@ class Projection(object):
         # check and store input
         self.ip_B = ip_B
         if iterations < 1:
-            raise ValueError('iterations < 1 not allowed')
+            raise ArgumentError('iterations < 1 not allowed')
         self.iterations = iterations
 
         Y = X if Y is None else Y   # default: orthogonal projection
 
         if len(X.shape) != 2:
-            raise ValueError('X does not have shape==(N,k)')
+            raise ArgumentError('X does not have shape==(N,k)')
         if X.shape != Y.shape:
-            raise ValueError('X and Y have different shapes')
+            raise ArgumentError('X and Y have different shapes')
 
         # set N-by-zero vectors if input is N-by-zero
         # (results in zero operator)
@@ -856,8 +875,8 @@ class Arnoldi(object):
                     and not isinstance(self.M, IdentityLinearOperator)) or \
                     (not isinstance(self.ip_B, IdentityLinearOperator) and
                      self.ip_B is not None):
-                raise ValueError('Only euclidean inner product allowed with '
-                                 'Householder orthogonalization')
+                raise ArgumentError('Only euclidean inner product allowed '
+                                    'with Householder orthogonalization')
             self.houses = [House(v)]
             self.vnorm = numpy.linalg.norm(v, 2)
         elif ortho in ['mgs', 'dmgs', 'lanczos']:
@@ -882,7 +901,8 @@ class Arnoldi(object):
                 else:
                     self.vnorm = Mv_norm
         else:
-            raise ValueError('Unknown orthogonalization method "%s"' % ortho)
+            raise ArgumentError('Unknown orthogonalization method "%s"'
+                                % ortho)
         if self.vnorm > 0:
             self.V[:, [0]] = v / self.vnorm
         else:
@@ -891,10 +911,10 @@ class Arnoldi(object):
     def advance(self):
         """Carry out one iteration of Arnoldi."""
         if self.iter >= self.maxiter:
-            raise ValueError('Maximum number of iterations reached.')
+            raise ArgumentError('Maximum number of iterations reached.')
         if self.invariant:
-            raise ValueError('Krylov subspace was found to be invariant '
-                             'in the previous iteration.')
+            raise ArgumentError('Krylov subspace was found to be invariant '
+                                'in the previous iteration.')
 
         N = self.V.shape[0]
         k = self.iter
@@ -1168,9 +1188,9 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
 
     n = H.shape[1]
     if V is not None and V.shape[1] != H.shape[0]:
-        raise ValueError('shape mismatch with V and H')
+        raise ArgumentError('shape mismatch with V and H')
     if not H.shape[0] in [n, n+1]:
-        raise ValueError('H not of shape (n+1,n) or (n,n)')
+        raise ArgumentError('H not of shape (n+1,n) or (n,n)')
     symmres = numpy.linalg.norm(H[:n, :] - H[:n, :].T.conj())
     if hermitian and symmres >= 5e-14:
         warnings.warn('Hessenberg matrix is not symmetric: |H-H^*|={0}'
@@ -1211,7 +1231,7 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         resnorm = numpy.array(resnorm)
         pass
     else:
-        raise ValueError('unknown Ritz type {0}'.format(type))
+        raise ArgumentError('unknown Ritz type {0}'.format(type))
 
     if V is not None:
         return theta, U, resnorm, numpy.dot(V[:, :n], U)
@@ -1547,7 +1567,7 @@ def gap(lamda, sigma, mode='individual'):
     sigma = numpy.array(sigma)
 
     if not numpy.isreal(lamda).all() or not numpy.isreal(sigma).all():
-        raise ValueError('comlex spectra not yet implemented')
+        raise ArgumentError('complex spectra not yet implemented')
 
     if mode == 'individual':
         return numpy.min(numpy.abs(numpy.reshape(lamda, (len(lamda), 1))
@@ -1575,7 +1595,7 @@ class Interval(object):
         if right is None:
             right = left
         if left > right:
-            raise ValueError('left > right not allowed.')
+            raise ArgumentError('left > right not allowed.')
         self.left = left
         self.right = right
 
@@ -1653,18 +1673,18 @@ class Intervals(object):
 
     def min(self):
         if self.__len__() == 0:
-            return ValueError('empty set has no minimum.')
+            return ArgumentError('empty set has no minimum.')
         return numpy.min(list(map(lambda i: i.left, self.intervals)))
 
     def max(self):
         if self.__len__() == 0:
-            return ValueError('empty set has no maximum.')
+            return ArgumentError('empty set has no maximum.')
         return numpy.max(list(map(lambda i: i.right, self.intervals)))
 
     def min_pos(self):
         '''Returns minimal positive value or None.'''
         if self.__len__() == 0:
-            return ValueError('empty set has no minimum positive value.')
+            return ArgumentError('empty set has no minimum positive value.')
         if self.contains(0):
             return None
         positive = [interval for interval in self.intervals
@@ -1676,7 +1696,7 @@ class Intervals(object):
     def max_neg(self):
         '''Returns maximum negative value or None.'''
         if self.__len__() == 0:
-            return ValueError('empty set has no maximum negative value.')
+            return ArgumentError('empty set has no maximum negative value.')
         if self.contains(0):
             return None
         negative = [interval for interval in self.intervals
@@ -1688,7 +1708,7 @@ class Intervals(object):
     def min_abs(self):
         '''Returns minimum absolute value.'''
         if self.__len__() == 0:
-            return ValueError('empty set has no minimum absolute value.')
+            return ArgumentError('empty set has no minimum absolute value.')
         if self.contains(0):
             return 0
         return numpy.min([numpy.abs(val)
@@ -1698,7 +1718,7 @@ class Intervals(object):
     def max_abs(self):
         '''Returns maximum absolute value.'''
         if self.__len__() == 0:
-            return ValueError('empty set has no maximum absolute value.')
+            return ArgumentError('empty set has no maximum absolute value.')
         return numpy.max(numpy.abs([self.max(), self.min()]))
 
 
@@ -1854,7 +1874,7 @@ def bound_perturbed_gmres(pseudo, p, epsilon, deltas):
     Computes the GMRES bound from [SifEM13]_.
     '''
     if not numpy.all(numpy.array(deltas) > epsilon):
-        raise ValueError('all deltas have to be greater than epsilon')
+        raise ArgumentError('all deltas have to be greater than epsilon')
 
     bound = []
     for delta in deltas:
@@ -1890,7 +1910,7 @@ class NormalizedRootsPolynomial(object):
         # check input
         roots = numpy.asarray(roots)
         if len(roots.shape) != 1:
-            raise ValueError('one-dimensional array of roots expected.')
+            raise ArgumentError('one-dimensional array of roots expected.')
         self.roots = roots
 
     def minmax_candidates(self):
@@ -1916,8 +1936,8 @@ class NormalizedRootsPolynomial(object):
         # check input
         p = numpy.asarray(points)
         if len(p.shape) > 1:
-            raise ValueError('scalar or one-dimensional array of points '
-                             'expected.')
+            raise ArgumentError('scalar or one-dimensional array of points '
+                                'expected.')
         n = self.roots.shape[0]
         vals = 1 - p/self.roots.reshape(n, 1)
 

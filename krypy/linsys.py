@@ -92,7 +92,7 @@ class LinearSystem(object):
         self.self_adjoint = self_adjoint
         self.positive_definite = positive_definite
         if self_adjoint and not normal:
-            raise ValueError('self-adjointness implies normality')
+            raise utils.ArgumentError('self-adjointness implies normality')
 
         # get common dtype
         self.dtype = utils.find_common_dtype(self.A, self.b, self.M,
@@ -147,9 +147,9 @@ class LinearSystem(object):
         definite preconditioner ``M``.'''
         if not isinstance(self.M, utils.IdentityLinearOperator):
             if isinstance(self.Minv, utils.IdentityLinearOperator):
-                raise ValueError('Minv has to be provided for the evaluation '
-                                 'of the inner product that is implicitly '
-                                 'defined by M.')
+                raise utils.ArgumentError(
+                    'Minv has to be provided for the evaluation of the inner '
+                    'product that is implicitly defined by M.')
             if isinstance(self.ip_B, utils.LinearOperator):
                 return self.Minv*self.ip_B
             else:
@@ -231,11 +231,10 @@ class _KrylovSolver(object):
         :py:class:`~krypy.utils.ConvergenceError` is thrown which can be used
         to examine the misconvergence.
         '''
-
         # sanitize arguments
         if not isinstance(linear_system, LinearSystem):
-            raise ValueError('linear_system is not an instance of '
-                             'LinearSystem')
+            raise utils.ArgumentError('linear_system is not an instance of '
+                                      'LinearSystem')
         self.linear_system = linear_system
         N = linear_system.N
         self.maxiter = N if maxiter is None else maxiter

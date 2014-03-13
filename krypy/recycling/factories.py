@@ -76,6 +76,6 @@ class RitzFactorySimple(_DeflationVectorFactory):
         elif self.which == 'smallest_res':
             indices = numpy.argsort(ritz.resnorms)[:self.n_vectors]
         else:
-            raise ValueError(r'value \'{0}\' of which is unknown'
-                             .format(self.which))
+            raise utils.ArgumentError(r'value \'{0}\' of which is unknown'
+                                      .format(self.which))
         return ritz.get_vectors(indices)

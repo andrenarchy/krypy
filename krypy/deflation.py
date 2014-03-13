@@ -452,7 +452,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
     elif method == 'gmres':
         Solver = linsys.Gmres
     else:
-        raise ValueError('unknown method: {0}'.format(method))
+        raise utils.ArgumentError('unknown method: {0}'.format(method))
     solver = Solver(Hh, numpy.eye(Hh.shape[0], 1)*b_norm,
                     tol=tol, maxiter=Hh.shape[0])
 
@@ -579,7 +579,7 @@ class Ritz(object):
                 self.values[~zero] = 1./sigmas[~zero]
                 self.values[zero] = numpy.Inf
             else:
-                raise ValueError('mode {0} not known'.format(mode))
+                raise utils.ArgumentError('mode {0} not known'.format(mode))
 
             # normalize Ritz vectors
             for i in range(n+m):
@@ -602,7 +602,7 @@ class Ritz(object):
         #elif isinstance(P, TODO):
             #TODO
         else:
-            raise ValueError('projection is invalid')
+            raise utils.ArgumentError('projection is invalid')
 
     def get_vectors(self, indices=None):
         '''Compute Ritz vectors.'''
