@@ -907,8 +907,9 @@ class Arnoldi(object):
                 else:
                     self.vnorm = Mv_norm
         else:
-            raise ArgumentError('Unknown orthogonalization method "%s"'
-                                % ortho)
+            raise ArgumentError(
+                'Invalid value \'{0}\' for argument \'ortho\'. '.format(ortho)
+                + 'Valid are house, mgs, dmgs and lanczos.')
         if self.vnorm > 0:
             self.V[:, [0]] = v / self.vnorm
         else:

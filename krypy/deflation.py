@@ -579,7 +579,9 @@ class Ritz(object):
                 self.values[~zero] = 1./sigmas[~zero]
                 self.values[zero] = numpy.Inf
             else:
-                raise utils.ArgumentError('mode {0} not known'.format(mode))
+                raise utils.ArgumentError(
+                    'Invalid value  \'{0}\' for \'mode\'. '.format(mode)
+                    + 'Valid are ritz and harmonic.')
 
             # normalize Ritz vectors
             for i in range(n+m):
@@ -602,7 +604,9 @@ class Ritz(object):
         #elif isinstance(P, TODO):
             #TODO
         else:
-            raise utils.ArgumentError('projection is invalid')
+            raise utils.ArgumentError(
+                'Invalid projection used in deflated_solver. '
+                'Valid are ObliqueProjection')
 
     def get_vectors(self, indices=None):
         '''Compute Ritz vectors.'''
