@@ -97,3 +97,17 @@ class RitzFactorySimple(_DeflationVectorFactory):
                 'Invalid value \'{0}\' for \'which\'. '.format(which)
                 + 'Valid are lm, sm, lr, sr, li, si and smallest_res.')
         return ritz.get_vectors(indices)
+
+
+class UnionFactory(_DeflationVectorFactory):
+    def __init__(self, factories):
+        '''Combine a list of factories.
+
+        :param factories: a list of factories derived from
+          :py:class:`_DeflationVectorFactory`.
+        '''
+        self._factories = factories
+
+    def get(self, solver):
+        vectors = [factory.get(solver) for factory in self._factories]
+        return numpy.asarray(numpy.bmat(vectors))
