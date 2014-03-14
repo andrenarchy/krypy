@@ -10,9 +10,9 @@ Some features of KryPy are:
 
 *  **User-defined inner products** - useful when solving a linear algebraic system whose operator is self-adjoined in a non-Euclidean inner-product. This way, CG or MINRES can be applied to self-adjoined (but non-symmetric/non-Hermitian) operators easily.
 *  **Full control of preconditioners** - the order of applying preconditioners matters. This is why you can supply two left preconditioners (one of whom implicitly changes the inner product and thus has to be positive definite) and one right preconditioner. Take a look at the arguments ```M```, ```Ml``` and ```Mr```.
-*  **Get the Arnoldi/Lanczos basis and Hessenberg matrix** - you want to extract further information from the generated vectors (e.g. recycling)? Just pass the optional argument ```return_basis=True```.
+*  **Get the Arnoldi/Lanczos basis and Hessenberg matrix** - you want to extract further information from the generated vectors (e.g. recycling)? Just pass the optional argument ```store_arnoldi=True```.
 *  **Explicitly computed residuals on demand** - if you do research on Krylov subspace methods or preconditioners, then you sometimes want to know the explicitly computed residual in each iteration (in contrast to an updated residual which can be obtained implicitly). Then you should pass the optional argument ```explicit_residual=True```.
-*  **Compute errors** - if you have (for research purposes) the exact solution at hand and want to monitor the error in each iteration instead of the residual, you can supply the optional argument ```exact_solution=x_exact```.
+*  **Compute errors** - if you have (for research purposes) the exact solution at hand and want to monitor the error in each iteration instead of the residual, you can supply the optional argument ```exact_solution=x_exact``` to the ```LinearSystem```.
 
 # Usage
 
@@ -22,6 +22,7 @@ The documentation is hosted at
 
 ### Example
 ![GMRES convergence history](example.png)
+
 The above convergence history is obtained with the following example where the
 [Gmres](http://krypy.readthedocs.org/en/latest/krypy.linsys.html#krypy.linsys.Gmres)
 method is used to solve the linear system `A*x=b` with the diagonal matrix
