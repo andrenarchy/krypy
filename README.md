@@ -59,6 +59,9 @@ from krypy.linsys import Gmres
 ```
 
 # Installing
+### pip / PyPi
+Simply run ```pip install krypy```.
+
 ### Ubuntu
 There's an [Ubuntu PPA](https://launchpad.net/~andrenarchy/+archive/python) with packages for Python 2 and Python 3.
 
