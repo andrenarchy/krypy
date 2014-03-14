@@ -14,7 +14,7 @@ from krypy import __version__
 setup(name='krypy',
       packages=['krypy', 'krypy.recycling'],
       version=__version__,
-      description='Krylov subspace methods for linear algebraic systems',
+      description='Krylov subspace methods for linear systems',
       long_description=read('README.md'),
       author='André Gaul',
       author_email='gaul@web-yard.de',
