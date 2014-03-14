@@ -17,30 +17,44 @@ Some features of KryPy are:
 # Usage
 
 ### Documentation
-The documentation is hosted at [krypy.readthedocs.org](http://krypy.readthedocs.org).
+The documentation is hosted at
+[krypy.readthedocs.org](http://krypy.readthedocs.org).
 
 ### Example
-The following example shows how to use [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres) to solve a linear system `A*x=b` with the diagonal matrix `A=diag(1,...,10)` and the right hand side `b=[1,...,1]`. The found solution is printed afterwards.
+![GMRES convergence history](example.png)
+The above convergence history is obtained with the following example where the
+[Gmres](http://krypy.readthedocs.org/en/latest/krypy.linsys.html#krypy.linsys.Gmres)
+method is used to solve the linear system `A*x=b` with the diagonal matrix
+`A=diag(1e-3,2,...,100)` and right hand side `b=[1,...,1]`.
 ```python
-from numpy import ones
-from scipy.sparse import spdiags
-from krypy.linsys import gmres
+import numpy
+from krypy.linsys import LinearSystem, Gmres
 
-N = 10
-A = spdiags(range(1,N+1), [0], N, N)
-b = ones((N,1))
+# create linear system and solve
+linear_system = LinearSystem(A=numpy.diag([1e-3]+range(2, 101)),
+                             b=numpy.ones((100, 1)))
+sol = Gmres(linear_system)
 
-sol = gmres(A, b)
-print (sol['xk'])
+# plot residuals
+from matplotlib import pyplot
+pyplot.semilogy(sol.resnorms)
+pyplot.show()
 ```
-Of course, this is just a toy example where you would not use GMRES in practice. KryPy can handle arbitrary large matrices - as long as the (hopefully sparse) matrices and the generated Krylov basis fit into your memory. ;) Furthermore, in actual applications, you definitely want to adjust [gmres](http://andrenarchy.github.io/krypy/krypy.linsys.html#krypy.linsys.gmres)'s parameters such as the residual tolerance.
+Of course, this is just a toy example where you would not use GMRES in
+practice. KryPy can handle arbitrary large matrices - as long as the (hopefully
+sparse) matrices and the generated basis of the Krylov subspace fit into your
+memory. ;)
+Furthermore, in actual applications, you definitely want to adjust
+[Gmres](http://krypy.readthedocs.org/en/latest/krypy.linsys.html#krypy.linsys.Gmres)'
+parameters such as the residual tolerance.
 
 ### Help
 
-Help can be optained via Python's builtin help system. For example, you can use the ```?``` in ```ipython```:
+Help can be optained via Python's builtin help system. For example, you can use
+the ```?``` in ```ipython```:
 ```ipython
-from krypy.linsys import gmres
-?gmres
+from krypy.linsys import Gmres
+?Gmres
 ```
 
 # Installing
