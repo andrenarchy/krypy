@@ -371,7 +371,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                  tol=1e-6,
                  pseudo_type='auto',
                  delta_n=20,
-                 delta_exp=5
+                 delta_exp=15
                  ):
     r'''Bound residual norms of next deflated system.
 
@@ -472,7 +472,6 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
             HhQ, HhR = scipy.linalg.qr(Hh[:i+1, :i], mode='economic')
             roots_inv = scipy.linalg.eigvals(HhQ[:i, :].T.conj(), HhR)
             roots = 1./roots_inv[numpy.abs(roots_inv) > 1e-14]
-            print(roots)
 
         # compute polynomial
         p = utils.NormalizedRootsPolynomial(roots)

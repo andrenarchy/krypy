@@ -130,6 +130,7 @@ class RitzApriori(object):
 
 class RitzApproxKrylov(object):
     def __init__(self,
+                 tol=1e-4,
                  pseudospectra=False):
         '''Evaluates a choice of Ritz vectors with a tailored approximate
         Krylov subspace method.
@@ -138,6 +139,7 @@ class RitzApproxKrylov(object):
           for the given problem?
         '''
         self._arnoldifyer = None
+        self.tol = tol
 
     def evaluate(self, ritz, subset):
         if self._arnoldifyer is not None and \
@@ -145,12 +147,16 @@ class RitzApproxKrylov(object):
             arnoldifyer = self._arnoldifyer
         else:
             arnoldifyer = deflation.Arnoldifyer(ritz._deflated_solver)
+            self._arnoldifyer = arnoldifyer
 
         Wt = ritz.coeffs[:, list(subset)]
         #Hh, Rh, q_norm, bdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
         bound_pseudo = deflation.bound_pseudo(
-            arnoldifyer, Wt, ritz._deflated_solver.linear_system.MMlb_norm)
-        from matplotlib import pyplot
-        print(' check')
-        pyplot.semilogy(bound_pseudo)
-        return numpy.Inf
+            arnoldifyer, Wt, ritz._deflated_solver.linear_system.MMlb_norm,
+            tol=0.1*self.tol)
+        #from matplotlib import pyplot
+        #pyplot.semilogy(bound_pseudo)
+        if (bound_pseudo > self.tol).all():
+            return numpy.Inf
+        else:
+            return (bound_pseudo > self.tol).sum() + 1
