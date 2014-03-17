@@ -1,5 +1,5 @@
 import numpy
-from .. import utils
+from .. import deflation, linsys, utils
 
 
 class _RitzSubsetEvaluator(object):
@@ -37,6 +37,10 @@ class RitzApriori(object):
         self.strategy = strategy
 
     def evaluate(self, ritz, subset):
+        if not ritz._deflated_solver.linear_system.self_adjoint:
+            from warnings import warn
+            warn('RitzApriori is designed for self-adjoint problems but '
+                 'the provided LinearSystem is not marked as self-adjoint.')
         tol = self.tol
         if tol is None:
             tol = ritz._deflated_solver.tol
@@ -122,3 +126,32 @@ class RitzApriori(object):
         return utils.Intervals(
             [utils.Interval(mu+left, mu+right)
              for mu in ritz.values[indices_remaining]])
+
+
+class RitzApproxKrylov(object):
+    def __init__(self,
+                 pseudospectra=False):
+        '''Evaluates a choice of Ritz vectors with a tailored approximate
+        Krylov subspace method.
+
+        :param pseudospectra: (optional) should pseudospectra be computed
+          for the given problem?
+        '''
+        self._arnoldifyer = None
+
+    def evaluate(self, ritz, subset):
+        if self._arnoldifyer is not None and \
+                self._arnoldifyer._deflated_solver is ritz._deflated_solver:
+            arnoldifyer = self._arnoldifyer
+        else:
+            arnoldifyer = deflation.Arnoldifyer(ritz._deflated_solver)
+
+        Wt = ritz.coeffs[:, list(subset)]
+        #Hh, Rh, q_norm, bdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
+        bound_pseudo = deflation.bound_pseudo(
+            arnoldifyer, Wt, ritz._deflated_solver.linear_system.MMlb_norm)
+        from matplotlib import pyplot
+        print(' check')
+        pyplot.semilogy(bound_pseudo)
+        pyplot.show()
+        return numpy.Inf

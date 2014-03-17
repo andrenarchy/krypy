@@ -369,7 +369,6 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                  GW_norm=0.,
                  WGW_norm=0.,
                  tol=1e-6,
-                 method='gmres',
                  pseudo_type='auto',
                  delta_n=20,
                  delta_exp=5
@@ -392,12 +391,6 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
     :param GW_norm: Norm :math:`\|G|_{\mathcal{W}}\|` of difference
       :math:`G=B-A` of operators restricted to :math:`\mathcal{W}`.
     :param WGW_norm: Norm :math:`\|\langle W,GW\rangle\|_2`.
-    :param method: type of method that is used to construct the residuals and
-      residual/error polynomial from :math:`\hat{H}`:
-
-      * ``'cg'``: for the CG method
-      * ``'minres'``: for the MINRES method
-      * ``'gmres'``: for the GMRES method
     :param pseudo_type: One of
 
       * ``'auto'``: determines if :math:`\hat{H}` is non-normal, normal or
@@ -414,14 +407,18 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
     '''
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
 
-    # smallest singular value of W^*AW
-    WAW = Wt.T.conj().dot(arnoldifyer.J.dot(arnoldifyer.L.dot(Wt)))
-    sigma_min = numpy.min(scipy.linalg.svdvals(WAW))
+    k = Wt.shape[1]
+    if k > 0:
+        # smallest singular value of W^*AW
+        WAW = Wt.T.conj().dot(arnoldifyer.J.dot(arnoldifyer.L.dot(Wt)))
+        sigma_min = numpy.min(scipy.linalg.svdvals(WAW))
 
-    if sigma_min <= WGW_norm:
-        raise utils.AssumptionError(
-            'sigma_min(W^*AW) > ||W^*GW|| not satisfied.')
-    eta = GW_norm/(sigma_min - WGW_norm)
+        if sigma_min <= WGW_norm:
+            raise utils.AssumptionError(
+                'sigma_min(W^*AW) > ||W^*GW|| not satisfied.')
+        eta = GW_norm/(sigma_min - WGW_norm)
+    else:
+        eta = 0.
     beta = PWAW_norm*(eta*(b_norm + g_norm) + g_norm) + vdiff_norm
 
     # spectrum of Hh
@@ -445,63 +442,96 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         pseudo_type = _auto()
 
     # compute residual norms of Hh*z=e_1*b_norm
-    if method == 'cg':
-        Solver = linsys.Cg
-    elif method == 'minres':
-        Solver = linsys.Minres
-    elif method == 'gmres':
-        Solver = linsys.Gmres
-    else:
-        raise utils.ArgumentError('unknown method: {0}'.format(method))
-    solver = Solver(Hh, numpy.eye(Hh.shape[0], 1)*b_norm,
-                    tol=tol, maxiter=Hh.shape[0])
+    Solver = type(arnoldifyer._deflated_solver)
+    ls_orig = arnoldifyer._deflated_solver.linear_system
+    ls_small = linsys.LinearSystem(Hh, numpy.eye(Hh.shape[0], 1)*b_norm,
+                                   normal=ls_orig.normal,
+                                   self_adjoint=ls_orig.self_adjoint,
+                                   positive_definite=ls_orig.positive_definite
+                                   )
+    solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
 
     import pseudopy
-    if pseudo_type == 'nonnormal':
+    if not ls_small.normal:
         # todo: construct bounding box!
         raise NotImplementedError('nonnormal not yet implemented')
-    elif pseudo_type == 'normal':
+    elif not ls_small.self_adjoint:
         pseudo = pseudopy.NormalEvals(evals)
-    elif pseudo_type == 'hermitian':
-        raise NotImplementedError('hermitian not yet implemented')
+    else:
+        pseudo = None
+        #raise NotImplementedError('hermitian not yet implemented')
 
     bounds = []
     for i in range(1, len(solver.resnorms)):
+        # compute roots of polynomial
+        if issubclass(Solver, linsys.Cg):
+            roots = scipy.linalg.eigvalsh(Hh[:i, :i])
+        else:
+            # TODO: more stable way of computing the roots of the MINRES
+            #       poly with exploitation of symmetry?
+            HhQ, HhR = scipy.linalg.qr(Hh[:i+1, :i], mode='economic')
+            roots_inv = scipy.linalg.eigvals(HhQ[:i, :].T.conj(), HhR)
+            roots = 1./roots_inv[numpy.abs(roots_inv) > 1e-14]
+            print(roots)
+
+        # compute polynomial
+        p = utils.NormalizedRootsPolynomial(roots)
+
+        # absolute residual
         res = solver.resnorms[i]*b_norm
+
+        # perturbation
+        # HACK until numpy.linal.svd (and thus numpy.linalg.norm) is fixed
+        from scipy.linalg import svd
+        _, Rhsvd, _ = svd(Rh[:, :i])
+        Rhnrm = numpy.max(Rhsvd)
         epsilon = PWAW_norm*(eta*(Hh_norm + G_norm) + G_norm) \
-            + numpy.linalg.norm(Rh[:, :i], 2)
+            + Rhnrm
+            #+ numpy.linalg.norm(Rh[:, :i], 2)
+        if epsilon == 0:
+            epsilon = 1e-16
+
         if pseudo_type == 'contain':
             raise NotImplementedError('contain not yet implemented')
         pseudo_terms = []
         # TODO: compute polynomial from (harmonic) Ritz values
         for delta in epsilon*numpy.logspace(0, delta_exp, delta_n)[1:]:
             # get pseudospectrum paths
-            pseudo_path = pseudo.contour_paths(delta)
+            if pseudo is None:
+                # self-adjoint
+                pseudo_left = evals - delta
+                pseudo_right = evals + delta
 
-            # compute roots of polynomial
-            if method == 'cg':
-                roots = scipy.linalg.eigvalsh(Hh[:i, :i])
+                candidates = p.minmax_candidates()
+                inside = []
+                for candidate in candidates:
+                    for i in range(len(evals)):
+                        if pseudo_left[i] < candidate < pseudo_right[i]:
+                            inside.append(candidate)
+                            break
+                all_candidates = numpy.r_[pseudo_left,
+                                          pseudo_right,
+                                          numpy.array(inside)]
+
+                polymax = numpy.max(numpy.abs(p(all_candidates)))
+                pseudolen = 2 * delta
+
             else:
-                # TODO: more stable way of computing the roots of the MINRES
-                #       poly with exploitation of symmetry?
-                HhQ, HhR = scipy.linalg.qr(Hh[:i+1, :i], mode='economic')
-                roots_inv = scipy.linalg.eigvals(HhQ[:i, :].T.conj(), HhR)
-                roots = 1./roots_inv[numpy.abs(roots_inv) > 1e-14]
+                pseudo_path = pseudo.contour_paths(delta)
 
-            # compute polynomial
-            from numpy.polynomial import Polynomial as P
-            p = P.fromroots(roots)
+                # length of boundary
+                pseudolen = pseudo_path.length()
 
-            # evaluate polynomial on points of path
-            polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
+                # evaluate polynomial on points of path
+                polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
 
             # compute THE bound
             pseudo_terms.append(
-                pseudo_path.length()/(2*numpy.pi*delta)
+                pseudolen/(2*numpy.pi*delta)
                 * (epsilon/(delta-epsilon)*(q_norm + beta) + beta)
                 * polymax
                 )
-        # append minimal vound value
+        # append minimal bound value
         bounds.append(res + numpy.min(pseudo_terms))
     return numpy.array(bounds)
 
