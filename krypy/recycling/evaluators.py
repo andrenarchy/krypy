@@ -1,3 +1,4 @@
+import numpy
 from .. import utils
 
 
@@ -10,19 +11,19 @@ class _RitzSubsetEvaluator(object):
 
 class RitzApriori(object):
     def __init__(self,
+                 Bound,
                  tol=None,
-                 Bound=None,
                  strategy='simple'
                  ):
         '''Evaluates a choice of Ritz vectors with an a-priori bound for
         self-adjoint problems.
 
+        :param Bound: the a-priori bound which is used for estimating the
+          convergence behavior.
         :param tol: (optional) the tolerance for the stopping criterion, see
             :py:class:`~krypy.linsys._KrylovSolver`. If `None` is provided
             (default), then the tolerance is retrieved from
             `ritz._deflated_solver.tol` in the call to :py:meth:`evaluate`.
-        :param Bound: (optional) the a-priori bound which is used for
-          estimating the convergence behavior.
         :param strategy: (optional) the following strategies are available
 
           * `simple`: (default) uses the Ritz values that are complementary to
@@ -31,8 +32,8 @@ class RitzApriori(object):
             considered with `simple`. The intervals incorporate possible
             changes in the operators.
         '''
-        self.tol = tol
         self.Bound = Bound
+        self.tol = tol
         self.strategy = strategy
 
     def evaluate(self, ritz, subset):
@@ -40,22 +41,84 @@ class RitzApriori(object):
         if tol is None:
             tol = ritz._deflated_solver.tol
 
-        Bound = self.Bound
-        if Bound is None:
-            # TODO: determine a bound for the used deflated_solver
-            pass
+        # indices of Ritz values that are considered for deflation
+        indices = list(subset)
 
-        # indices of the Ritz values that are _not_ considered for deflation
+        # indices of Ritz values that are _not_ considered for deflation
         indices_remaining = list(set(range(len(ritz.values)))
                                  .difference(subset))
         if self.strategy == 'simple':
             bound = self.Bound(ritz.values[indices_remaining])
-            return bound.get_steps(self.tol)
+            return bound.get_step(tol)
         elif self.strategy == 'intervals':
-            # TODO
-            pass
+            intervals = self._estimate_eval_intervals(ritz,
+                                                      indices,
+                                                      indices_remaining)
+            bound = self.Bound(intervals)
+            return bound.get_step(tol)
         else:
             raise utils.ArgumentError(
                 'Invalid value \'{0}\' for argument \'strategy\'. '
                 .format(self.strategy)
                 + 'Valid are simple and intervals.')
+
+    def _estimate_eval_intervals(self, ritz, indices, indices_remaining,
+                                 eps_min=0,
+                                 eps_max=0,
+                                 eps_res=None):
+        '''Estimate evals based on eval inclusion theorem + heuristic.
+
+        :returns: Intervals object with inclusion intervals for eigenvalues
+        '''
+        if len(indices) == 0:
+            return utils.Intervals(
+                [utils.Interval(mu-resnorm, mu+resnorm)
+                 for mu, resnorm in zip(ritz.values, ritz.resnorms)])
+        if len(ritz.values) == len(indices):
+            raise utils.AssumptionError(
+                'selection of all Ritz pairs does not allow estimation.')
+        if eps_res is None:
+            eps_res = numpy.max(numpy.abs([eps_min, eps_max]))
+
+        # compute quantities for bound
+        delta_sel = numpy.linalg.norm(ritz.resnorms[indices], 2)
+        delta_non_sel = numpy.linalg.norm(ritz.resnorms[indices_remaining], 2)
+        delta = utils.gap(ritz.values[indices],
+                          ritz.values[indices_remaining])
+        mu_ints = utils.Intervals(
+            [utils.Interval(mu+eps_min, mu+eps_max)
+             for mu in ritz.values[indices]])
+        mu_min = mu_ints.min_abs()
+
+        # check gap assumption
+        #if delta_sel + delta_non_sel + eps_max - eps_min >= delta:
+        if delta_sel + eps_max - eps_min >= delta:
+            raise utils.AssumptionError(
+                'delta_sel + delta_non_sel + eps_max - eps_min >= delta'
+                + '({0} >= {1}'.format(
+                    delta_sel + delta_non_sel + eps_max - eps_min,
+                    delta)
+                )
+
+        # check assumption on mu_min
+        if mu_min == 0:
+            raise utils.AssumptionError('mu_min == 0 not allowed')
+
+        # compute eta
+        #eta = (delta_sel+eps_res)**2 * (
+        #    1/(delta-delta_non_sel-eps_max+eps_min)
+        #    + 1/mu_min
+        #    )
+        #left = - delta_non_sel + eps_min - eta
+        #right = delta_non_sel + eps_max + eta
+        eta = (delta_sel+eps_res)**2 * (
+            1/(delta-eps_max+eps_min)
+            + 1/mu_min
+            )
+        left = eps_min - eta
+        right = eps_max + eta
+
+        # return bound
+        return utils.Intervals(
+            [utils.Interval(mu+left, mu+right)
+             for mu in ritz.values[indices_remaining]])

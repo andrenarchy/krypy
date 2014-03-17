@@ -18,8 +18,8 @@ class _DeflationVectorFactory(object):
 class RitzFactory(_DeflationVectorFactory):
     '''Select Ritz vectors.'''
     def __init__(self,
+                 subset_evaluator,
                  subsets_generator=None,
-                 subset_evaluator=None,
                  mode='ritz'
                  ):
         if subsets_generator is None:
@@ -42,7 +42,8 @@ class RitzFactory(_DeflationVectorFactory):
             try:
                 _evaluations[_subset] = \
                     self.subset_evaluator.evaluate(ritz, _subset)
-            except utils.AssumptionError:
+            except utils.AssumptionError as e:
+                #print(e)
                 # no evaluation possible -> move on
                 pass
 
@@ -70,7 +71,7 @@ class RitzFactory(_DeflationVectorFactory):
                 evaluate(eval_subset, evaluations)
 
             if len(evaluations) > 0:
-                current_subset = min(evaluations, key=evaluations.get())
+                current_subset = min(evaluations, key=evaluations.get)
             else:
                 # fallback: pick the subset with smallest residual
                 # note: only a bound is used if the subset consists of more
@@ -84,7 +85,11 @@ class RitzFactory(_DeflationVectorFactory):
 
         # if there was a successfull evaluation: pick the best one
         if len(overall_evaluations) > 0:
-            return list(min(overall_evaluations, key=evaluations.get))
+            best = list(min(overall_evaluations,
+                            key=overall_evaluations.get))
+            #print(overall_evaluations)
+            #print(best)
+            return best
 
         # otherwise: return empty list
         return []

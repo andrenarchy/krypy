@@ -1768,6 +1768,10 @@ class BoundCG(object):
                 raise AssumptionError(
                     'non-positive eigenvalues not allowed with intervals')
 
+        # empty spectrum?
+        if len(evals) == 0:
+            raise AssumptionError('empty spectrum not allowed')
+
         # all evals real?
         if not numpy.isreal(evals).all():
             raise AssumptionError('non-real eigenvalues not allowed')
@@ -1795,7 +1799,7 @@ class BoundCG(object):
 
     def get_step(self, tol):
         '''Return step at which bound falls below tolerance.'''
-        return int(numpy.ceil(numpy.log(tol/2.)/numpy.log(self.base)))
+        return numpy.log(tol/2.)/numpy.log(self.base)
 
 
 class BoundMinres(object):
@@ -1848,6 +1852,10 @@ class BoundMinres(object):
                                      evals.min_pos(), evals.max()]
                      if val is not None]
 
+        # empty spectrum?
+        if len(evals) == 0:
+            raise AssumptionError('empty spectrum not allowed')
+
         # all evals real?
         if not numpy.isreal(evals).all():
             raise AssumptionError('non-real eigenvalues not allowed')
@@ -1876,7 +1884,7 @@ class BoundMinres(object):
 
     def get_step(self, tol):
         '''Return step at which bound falls below tolerance. '''
-        return int(2 * numpy.ceil(numpy.log(tol/2.)/numpy.log(self.base)))
+        return 2 * numpy.log(tol/2.)/numpy.log(self.base)
 
 
 def bound_perturbed_gmres(pseudo, p, epsilon, deltas):
