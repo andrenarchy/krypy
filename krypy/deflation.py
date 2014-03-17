@@ -494,29 +494,26 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         if pseudo_type == 'contain':
             raise NotImplementedError('contain not yet implemented')
         pseudo_terms = []
-        # TODO: compute polynomial from (harmonic) Ritz values
         for delta in epsilon*numpy.logspace(0, delta_exp, delta_n)[1:]:
-            # get pseudospectrum paths
             if pseudo is None:
-                # self-adjoint
-                pseudo_left = evals - delta
-                pseudo_right = evals + delta
+                # pseudospectrum are intervals
+                pseudo_intervals = utils.Intervals(
+                    [utils.Interval(ev-delta, ev+delta) for ev in evals])
 
-                candidates = p.minmax_candidates()
-                inside = []
-                for candidate in candidates:
-                    for i in range(len(evals)):
-                        if pseudo_left[i] < candidate < pseudo_right[i]:
-                            inside.append(candidate)
-                            break
-                all_candidates = numpy.r_[pseudo_left,
-                                          pseudo_right,
-                                          numpy.array(inside)]
+                # add roots of first derivative of p
+                candidates = []
+                for candidate in p.minmax_candidates():
+                    if pseudo_intervals.contains(candidate):
+                        candidates.append(candidate)
+                all_candidates = numpy.r_[pseudo_intervals.get_endpoints(),
+                                          numpy.array(candidates)]
 
+                # evaluate polynomial
                 polymax = numpy.max(numpy.abs(p(all_candidates)))
                 pseudolen = 2 * delta
 
             else:
+                # get pseudospectrum paths
                 pseudo_path = pseudo.contour_paths(delta)
 
                 # length of boundary
@@ -531,8 +528,16 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                 * (epsilon/(delta-epsilon)*(q_norm + beta) + beta)
                 * polymax
                 )
-        # append minimal bound value
-        bounds.append(res + numpy.min(pseudo_terms))
+
+        # minimal bound value
+        boundval = res + numpy.min(pseudo_terms)
+
+        # if not increasing: append to bounds
+        if len(bounds) == 0 or boundval <= bounds[-1]:
+            bounds.append(boundval)
+        # otherwise: terminate
+        else:
+            break
     return numpy.array(bounds)
 
 

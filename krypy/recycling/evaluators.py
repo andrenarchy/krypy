@@ -153,5 +153,4 @@ class RitzApproxKrylov(object):
         from matplotlib import pyplot
         print(' check')
         pyplot.semilogy(bound_pseudo)
-        pyplot.show()
         return numpy.Inf

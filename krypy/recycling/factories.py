@@ -81,6 +81,8 @@ class RitzFactory(_DeflationVectorFactory):
                 subset = subsets[numpy.argmin(resnorms)]
                 current_subset = current_subset.union(subset)
 
+            from matplotlib import pyplot
+            pyplot.show()
             overall_evaluations.update(evaluations)
 
         # if there was a successfull evaluation: pick the best one
