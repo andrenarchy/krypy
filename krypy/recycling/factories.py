@@ -1,5 +1,6 @@
 import numpy
 from .. import utils, deflation
+from . import generators, evaluators
 
 #__all__ = ['_DeflationVectorFactory', 'RitzFactory']
 
@@ -16,32 +17,76 @@ class _DeflationVectorFactory(object):
 
 class RitzFactory(_DeflationVectorFactory):
     '''Select Ritz vectors.'''
-    def __init__(self, candidate_generator, candidate_evaluator,
-                 mode='ritz'):
-        self.candidate_generator = candidate_generator
-        self.candidate_evaluator = candidate_evaluator
+    def __init__(self,
+                 subsets_generator=None,
+                 subset_evaluator=None,
+                 mode='ritz'
+                 ):
+        if subsets_generator is None:
+            subsets_generator = generators.RitzExtremal()
+        self.subsets_generator = subsets_generator
+        self.subset_evaluator = subset_evaluator
         self.mode = mode
 
-    def get(self, solver):
-        ritz = deflation.Ritz(solver, mode=self.mode)
-        return ritz.get_vectors(self._get_best_candidate(solver, ritz))
+    def get(self, deflated_solver):
+        ritz = deflation.Ritz(deflated_solver, mode=self.mode)
+        return ritz.get_vectors(self._get_best_subset(ritz))
 
-    def _get_best_candidate(self, solver, ritz):
-        '''Return candidate set with least goal functional.'''
-        evaluations = {}
+    def _get_best_subset(self, ritz):
+        '''Return candidate set with smallest goal functional.'''
 
-        # evaluate candidate
-        for candidate in self.candidate_generator.generate(solver, ritz):
+        # (c,\omega(c)) for all considered subsets c
+        overall_evaluations = {}
+
+        def evaluate(_subset, _evaluations):
             try:
-                evaluations[frozenset(candidate)] = \
-                    self.candidate_evaluator.evaluate(solver, ritz,
-                                                      candidate)
+                _evaluations[_subset] = \
+                    self.subset_evaluator.evaluate(ritz, _subset)
             except utils.AssumptionError:
                 # no evaluation possible -> move on
                 pass
 
-        if evaluations:
-            return list(min(evaluations, key=evaluations.get))
+        # I in algo
+        current_subset = frozenset()
+
+        # evaluate empty set
+        evaluate(current_subset, overall_evaluations)
+
+        while True:
+            # get a list of subset candidates for inclusion in current_subset
+            # (S in algo)
+            remaining_subset = set(range(len(ritz.values))) \
+                .difference(current_subset)
+            subsets = self.subsets_generator.generate(ritz, remaining_subset)
+
+            # no more candidates to check?
+            if len(subsets) == 0:
+                break
+
+            # evaluate candidates
+            evaluations = {}
+            for subset in subsets:
+                eval_subset = current_subset.union(subset)
+                evaluate(eval_subset, evaluations)
+
+            if len(evaluations) > 0:
+                current_subset = min(evaluations, key=evaluations.get())
+            else:
+                # fallback: pick the subset with smallest residual
+                # note: only a bound is used if the subset consists of more
+                #       than one index.
+                resnorms = [numpy.sum(ritz.resnorms[list(subset)])
+                            for subset in subsets]
+                subset = subsets[numpy.argmin(resnorms)]
+                current_subset = current_subset.union(subset)
+
+            overall_evaluations.update(evaluations)
+
+        # if there was a successfull evaluation: pick the best one
+        if len(overall_evaluations) > 0:
+            return list(min(overall_evaluations, key=evaluations.get))
+
+        # otherwise: return empty list
         return []
 
 
