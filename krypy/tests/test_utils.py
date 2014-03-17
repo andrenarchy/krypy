@@ -612,25 +612,27 @@ def test_Interval():
 
 
 def test_BoundCG():
+    from math import ceil
     b = krypy.utils.BoundCG([1, 2])
     assert_almost_equal(b.eval_step(8), 1.5018239652065932e-06)
-    assert(b.get_step(1e-6) == 9)
+    assert(ceil(b.get_step(1e-6)) == 9)
 
     b = krypy.utils.BoundCG(krypy.utils.Intervals(
         [krypy.utils.Interval(1, 1.2), krypy.utils.Interval(2)]))
     assert_almost_equal(b.eval_step(8), 1.5018239652065932e-06)
-    assert(b.get_step(1e-6) == 9)
+    assert(ceil(b.get_step(1e-6)) == 9)
 
 
 def test_BoundMinres():
+    from math import ceil
     b = krypy.utils.BoundMinres([-1, 1, 2])
     assert_almost_equal(b.eval_step(8), 0.0017331035544401801)
-    assert(b.get_step(2e-3) == 8)
+    assert(ceil(b.get_step(2e-3)) == 8)
 
     b = krypy.utils.BoundMinres(krypy.utils.Intervals(
         [krypy.utils.Interval(-2, -1), krypy.utils.Interval(2)]))
     assert_almost_equal(b.eval_step(8), 0.0017331035544401801)
-    assert(b.get_step(2e-3) == 8)
+    assert(ceil(b.get_step(2e-3)) == 8)
 
 
 def test_NormalizedRootsPolynomial():
