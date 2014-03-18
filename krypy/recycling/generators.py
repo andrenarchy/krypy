@@ -9,7 +9,8 @@ class _RitzSubsetsGenerator(object):
         raise NotImplementedError('abstract base class cannot be instanciated')
 
 
-class SmallRitz(_RitzSubsetsGenerator):
+class RitzSmall(_RitzSubsetsGenerator):
+    '''Successively returns the Ritz value of smallest magnitude.'''
     def __init__(self, max_vectors=numpy.Inf):
         self.max_vectors = max_vectors
 
@@ -19,7 +20,7 @@ class SmallRitz(_RitzSubsetsGenerator):
                 len(ritz.values) - len(remaining) >= self.max_vectors:
             return []
         sort = numpy.argsort(numpy.abs(ritz.values[remaining]))
-        return [sort[0]]
+        return [set([remaining[sort[0]]])]
 
 
 class RitzExtremal(_RitzSubsetsGenerator):

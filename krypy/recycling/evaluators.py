@@ -130,18 +130,38 @@ class RitzApriori(object):
 
 class RitzApproxKrylov(object):
     def __init__(self,
-                 tol=1e-4,
+                 mode='extrapolate',
+                 tol=None,
                  pseudospectra=False):
         '''Evaluates a choice of Ritz vectors with a tailored approximate
         Krylov subspace method.
 
+        :param mode: (optional) determines how the number of iterations
+          is estimated. Must be one of the following:
+
+          * ``extrapolate`` (default): use the iteration count where the
+            extrapolation of the smallest residual reduction over all steps
+            drops below the tolerance.
+          * ``direct``: use the iteration count where the predicted residual
+            bound drops below the tolerance. May result in severe
+            underestimation if ``pseudospectra==False``.
+
         :param pseudospectra: (optional) should pseudospectra be computed
-          for the given problem?
+          for the given problem? With ``pseudospectra=True``, a prediction
+          may not be possible due to unfulfilled assumptions for the
+          computation of the pseudospectral bound.
         '''
         self._arnoldifyer = None
+        self.mode = mode
         self.tol = tol
+        self.pseudospectra = pseudospectra
 
     def evaluate(self, ritz, subset):
+        if self.tol is None:
+            tol = ritz._deflated_solver.tol
+        else:
+            tol = self.tol
+
         if self._arnoldifyer is not None and \
                 self._arnoldifyer._deflated_solver is ritz._deflated_solver:
             arnoldifyer = self._arnoldifyer
@@ -150,13 +170,33 @@ class RitzApproxKrylov(object):
             self._arnoldifyer = arnoldifyer
 
         Wt = ritz.coeffs[:, list(subset)]
-        #Hh, Rh, q_norm, bdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
         bound_pseudo = deflation.bound_pseudo(
             arnoldifyer, Wt, ritz._deflated_solver.linear_system.MMlb_norm,
-            tol=0.1*self.tol)
+            tol=tol,
+            pseudo_type='omit' if not self.pseudospectra else 'auto'
+            )
+
         #from matplotlib import pyplot
         #pyplot.semilogy(bound_pseudo)
-        if (bound_pseudo > self.tol).all():
-            return numpy.Inf
+
+        if len(bound_pseudo) <= 1:
+            raise utils.AssumptionError('no bound computed')
+
+        if self.mode == 'direct':
+            if (bound_pseudo > self.tol).all():
+                raise utils.AssumptionError(
+                    'tolerance not reached with mode==`direct`.')
+            else:
+                return (bound_pseudo > tol).sum()
+        elif self.mode == 'extrapolate':
+            # compute minimal overall residual reduction
+            alpha = numpy.max(
+                (bound_pseudo[1:]/bound_pseudo[0])
+                ** (1./numpy.array(range(1, len(bound_pseudo))))
+                )
+            return numpy.log(tol/bound_pseudo[0])/numpy.log(alpha)
+
         else:
-            return (bound_pseudo > self.tol).sum() + 1
+            raise utils.ArgumentError(
+                'Invalid value `{0}` for argument `omode`. '.format(self.mode)
+                + 'Valid are `direct` and `extrapolate`.')

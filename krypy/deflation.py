@@ -370,8 +370,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                  WGW_norm=0.,
                  tol=1e-6,
                  pseudo_type='auto',
-                 delta_n=20,
-                 delta_exp=15
+                 delta_n=20
                  ):
     r'''Bound residual norms of next deflated system.
 
@@ -385,7 +384,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
       :math:`\tilde{W}^*\tilde{W}=I_k`.
     :param b_norm: norm :math:`\|b\|` of right hand side.
     :param g_norm: norm :math:`\|g\|` of difference :math:`g=c-b` of
-      right hand sides.
+      right hand sides. Has to fulfill :math:`\|g\|<\|b\|`.
     :param G_norm: norm :math:`\|G\|` of difference
       :math:`G=B-A` of operators.
     :param GW_norm: Norm :math:`\|G|_{\mathcal{W}}\|` of difference
@@ -404,6 +403,8 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
       * ``'contain'``: the pseudospectrum of the extended Hessenberg matrix
         :math:`\begin{bmatrix}\hat{H}\\S_i\end{bmatrix}` is used
         (pseudospectrum has to be re computed for each iteration).
+      * ``'omit'``: do not compute the pseudospectrum at all and just use the
+        residual bounds from the approximate Krylov subspace.
     '''
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
 
@@ -421,8 +422,30 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         eta = 0.
     beta = PWAW_norm*(eta*(b_norm + g_norm) + g_norm) + vdiff_norm
 
+    # check assumption on g_norm and b_norm
+    if g_norm >= b_norm:
+        raise utils.AssumptionError(
+            '||g_norm|| < ||b_norm|| not satisfied')
+
+    # compute residual norms of Hh*z=e_1*b_norm
+    Solver = type(arnoldifyer._deflated_solver)
+    ls_orig = arnoldifyer._deflated_solver.linear_system
+    ls_small = linsys.LinearSystem(Hh,
+                                   numpy.eye(Hh.shape[0], 1) * q_norm,
+                                   normal=ls_orig.normal,
+                                   self_adjoint=ls_orig.self_adjoint,
+                                   positive_definite=ls_orig.positive_definite
+                                   )
+    solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
+
+    if pseudo_type == 'omit':
+        return solver.resnorms / (b_norm - g_norm)
+
     # spectrum of Hh
     evals, evecs = scipy.linalg.eig(Hh)
+    if ls_small.self_adjoint:
+        evals = numpy.real(evals)
+
     # norm of Hh
     Hh_norm = numpy.linalg.norm(Hh, 2)
 
@@ -441,16 +464,6 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
     if pseudo_type == 'auto':
         pseudo_type = _auto()
 
-    # compute residual norms of Hh*z=e_1*b_norm
-    Solver = type(arnoldifyer._deflated_solver)
-    ls_orig = arnoldifyer._deflated_solver.linear_system
-    ls_small = linsys.LinearSystem(Hh, numpy.eye(Hh.shape[0], 1)*b_norm,
-                                   normal=ls_orig.normal,
-                                   self_adjoint=ls_orig.self_adjoint,
-                                   positive_definite=ls_orig.positive_definite
-                                   )
-    solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
-
     import pseudopy
     if not ls_small.normal:
         # todo: construct bounding box!
@@ -461,7 +474,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         pseudo = None
         #raise NotImplementedError('hermitian not yet implemented')
 
-    bounds = []
+    bounds = [solver.resnorms[0]]
     for i in range(1, len(solver.resnorms)):
         # compute roots of polynomial
         if issubclass(Solver, linsys.Cg):
@@ -473,11 +486,15 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
             roots_inv = scipy.linalg.eigvals(HhQ[:i, :].T.conj(), HhR)
             roots = 1./roots_inv[numpy.abs(roots_inv) > 1e-14]
 
+        if ls_small.self_adjoint:
+            roots = numpy.real(roots)
+
         # compute polynomial
         p = utils.NormalizedRootsPolynomial(roots)
+        p_minmax_candidates = p.minmax_candidates()
 
         # absolute residual
-        res = solver.resnorms[i]*b_norm
+        resnorm = solver.resnorms[i]
 
         # perturbation
         # HACK until numpy.linal.svd (and thus numpy.linalg.norm) is fixed
@@ -492,8 +509,17 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
 
         if pseudo_type == 'contain':
             raise NotImplementedError('contain not yet implemented')
-        pseudo_terms = []
-        for delta in epsilon*numpy.logspace(0, delta_exp, delta_n)[1:]:
+
+        # for delta_max, the pseudospectrum will contain zero and the
+        # thus polymax > 1
+        delta_max = numpy.min(numpy.abs(evals))
+
+        # no bound possible if epsilon >= delta_max
+        if epsilon >= delta_max:
+            break
+
+        def compute_pseudo(delta_log):
+            delta = 10**delta_log
             if pseudo is None:
                 # pseudospectrum are intervals
                 pseudo_intervals = utils.Intervals(
@@ -501,7 +527,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
 
                 # add roots of first derivative of p
                 candidates = []
-                for candidate in p.minmax_candidates():
+                for candidate in p_minmax_candidates:
                     if pseudo_intervals.contains(candidate):
                         candidates.append(candidate)
                 all_candidates = numpy.r_[pseudo_intervals.get_endpoints(),
@@ -522,14 +548,40 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                 polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
 
             # compute THE bound
-            pseudo_terms.append(
-                pseudolen/(2*numpy.pi*delta)
-                * (epsilon/(delta-epsilon)*(q_norm + beta) + beta)
+            return pseudolen/(2*numpy.pi*delta) \
+                * (epsilon/(delta-epsilon)*(q_norm + beta) + beta) \
                 * polymax
-                )
+
+            #print(pseudo_terms[-1])
+            #if pseudo_terms[-1] < 0.1*resnorm:
+            #    print('breeeak')
+            #    break
+
+        delta_log_range = numpy.linspace(numpy.log10(epsilon),
+                                         numpy.log10(delta_max),
+                                         delta_n+2
+                                         )[1:-1]
+        # naive:
+        #pseudo_terms = []
+        #for delta_log in delta_log_range:
+        #    pseudo_terms.append(compute_pseudo(delta_log))
+        #min_pseudo_ind = numpy.argmin(pseudo_terms)
+        #min_pseudo = pseudo_terms[min_pseudo_ind]
+        #print('min_pseudo={0} for delta={1}'
+        #      .format(min_pseudo, 10**delta_log_range[min_pseudo_ind]))
+
+        # minimization
+        from scipy.optimize import minimize_scalar
+        opt_res = minimize_scalar(compute_pseudo,
+                                  bounds=(delta_log_range[0],
+                                          delta_log_range[-1]),
+                                  method='bounded',
+                                  options={'maxiter': 20, 'xatol': 0.1}
+                                  )
+        min_pseudo = 10**opt_res.x
 
         # minimal bound value
-        boundval = res + numpy.min(pseudo_terms)
+        boundval = resnorm + min_pseudo
 
         # if not increasing: append to bounds
         if len(bounds) == 0 or boundval <= bounds[-1]:
@@ -537,7 +589,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         # otherwise: terminate
         else:
             break
-    return numpy.array(bounds)
+    return numpy.array(bounds) / (b_norm - g_norm)
 
 
 class Ritz(object):
