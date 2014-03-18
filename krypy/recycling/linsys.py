@@ -83,7 +83,7 @@ class _RecyclingSolver(object):
                     'M': 0,
                     'Ml': 1,
                     'Mr': 1,
-                    'ip': d*(d+1)/2 + d*d + 2*d*solver_ops['Ml'],
+                    'ip_B': d*(d+1)/2 + d*d + 2*d*solver_ops['Ml'],
                     'axpy': d*(d+1)/2 + d*d + (2*d+2)*solver_ops['Ml']
                     }
         time = 0.

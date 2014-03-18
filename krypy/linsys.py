@@ -621,7 +621,7 @@ class Cg(_KrylovSolver):
                 'M': 2 + nsteps,
                 'Ml': 2 + nsteps,
                 'Mr': 1 + nsteps,
-                'ip': 2 + 2*nsteps,
+                'ip_B': 2 + 2*nsteps,
                 'axpy': 2 + 2*nsteps
                 }
 
@@ -761,7 +761,7 @@ class Minres(_KrylovSolver):
                 'M': 2 + nsteps,
                 'Ml': 2 + nsteps,
                 'Mr': 1 + nsteps,
-                'ip': 2 + 2*nsteps,
+                'ip_B': 2 + 2*nsteps,
                 'axpy': 4 + 8*nsteps
                 }
 
@@ -880,7 +880,7 @@ class Gmres(_KrylovSolver):
                 'M': 2 + nsteps,
                 'Ml': 2 + nsteps,
                 'Mr': 1 + nsteps,
-                'ip': 2 + nsteps + nsteps*(nsteps+1)/2,
+                'ip_B': 2 + nsteps + nsteps*(nsteps+1)/2,
                 'axpy': 4 + 2*nsteps + nsteps*(nsteps+1)/2
                 }
 
