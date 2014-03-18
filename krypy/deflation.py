@@ -439,7 +439,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
     solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
 
     # absolute
-    aresnorms = solver.resnorms * solver.MMlb_norm
+    aresnorms = solver.resnorms * ls_small.MMlb_norm
     if pseudo_type == 'omit':
         return aresnorms / (b_norm - g_norm)
 
