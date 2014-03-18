@@ -438,8 +438,10 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                                    )
     solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
 
+    # absolute
+    aresnorms = solver.resnorms * solver.MMlb_norm
     if pseudo_type == 'omit':
-        return solver.resnorms / (b_norm - g_norm)
+        return aresnorms / (b_norm - g_norm)
 
     # spectrum of Hh
     evals, evecs = scipy.linalg.eig(Hh)
@@ -474,8 +476,8 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         pseudo = None
         #raise NotImplementedError('hermitian not yet implemented')
 
-    bounds = [solver.resnorms[0]]
-    for i in range(1, len(solver.resnorms)):
+    bounds = [aresnorms[0]]
+    for i in range(1, len(aresnorms)):
         # compute roots of polynomial
         if issubclass(Solver, linsys.Cg):
             roots = scipy.linalg.eigvalsh(Hh[:i, :i])
@@ -494,7 +496,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         p_minmax_candidates = p.minmax_candidates()
 
         # absolute residual
-        resnorm = solver.resnorms[i]
+        aresnorm = aresnorms[i]
 
         # perturbation
         # HACK until numpy.linal.svd (and thus numpy.linalg.norm) is fixed
@@ -581,7 +583,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         min_pseudo = 10**opt_res.x
 
         # minimal bound value
-        boundval = resnorm + min_pseudo
+        boundval = aresnorm + min_pseudo
 
         # if not increasing: append to bounds
         if len(bounds) == 0 or boundval <= bounds[-1]:
