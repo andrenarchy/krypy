@@ -183,6 +183,59 @@ class LinearSystem(object):
         return ret+'}'
 
 
+class TimedLinearSystem(LinearSystem):
+    def __init__(self, A, b,
+                 M=None,
+                 Minv=None,
+                 Ml=None,
+                 Mr=None,
+                 ip_B=None,
+                 normal=None,
+                 self_adjoint=False,
+                 positive_definite=False,
+                 exact_solution=None
+                 ):
+        self.timings = utils.Timings()
+
+        # get shape
+        N = len(b)
+        shape = (N, N)
+
+        # time inner product
+        try:
+            _ip_B = utils.get_linearoperator(shape, ip_B,
+                                             timer=self.timings['ip_B'])
+        except TypeError:
+            def _ip_B(X, Y):
+                (_, m) = X.shape
+                (_, n) = Y.shape
+                if m == 0 or n == 0:
+                    return ip_B(X, Y)
+                with self.timings['ip_B']:
+                    ret = ip_B(X, Y)
+                self.timings['ip_B'][-1] /= m*n
+                return ret
+
+        super(TimedLinearSystem, self).__init__(
+            A=utils.get_linearoperator(shape, A,
+                                       self.timings['A']),
+            b=b,
+            M=utils.get_linearoperator(shape, M,
+                                       self.timings['M']),
+            Minv=utils.get_linearoperator(shape, M,
+                                          self.timings['Minv']),
+            Ml=utils.get_linearoperator(shape, Ml,
+                                        self.timings['Ml']),
+            Mr=utils.get_linearoperator(shape, Mr,
+                                        self.timings['Mr']),
+            ip_B=_ip_B,
+            normal=normal,
+            self_adjoint=self_adjoint,
+            positive_definite=positive_definite,
+            exact_solution=exact_solution
+            )
+
+
 class _KrylovSolver(object):
     '''Prototype of a Krylov subspace method for linear systems.'''
     def __init__(self, linear_system,
