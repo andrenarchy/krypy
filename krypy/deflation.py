@@ -208,6 +208,29 @@ class DeflatedGmres(_DeflationMixin, linsys.Gmres):
     pass
 
 
+def get_time(timings, solver, nsteps, m):
+    '''Estimate time needed to run nsteps iterations with deflation
+
+    Uses timings from :py:attr:`last_timings`.
+
+    :param nsteps: number of iterations.
+    :param d: number of deflation vectors.
+    '''
+    solver_ops = solver.operations(nsteps)
+    proj_ops = {'A': 1,
+                'M': 0,
+                'Ml': 1,
+                'Mr': 1,
+                'ip_B': m*(m+1)/2 + m*m + 2*m*solver_ops['Ml'],
+                'axpy': m*(m+1)/2 + m*m + (2*m+2)*solver_ops['Ml']
+                }
+    time = 0.
+    for ops in [solver_ops, proj_ops]:
+        for op, count in ops.iteritems():
+            time += timings.get(op)*count
+    return time
+
+
 class Arnoldifyer(object):
     def __init__(self, deflated_solver):
         r'''Obtain Arnoldi relations for approximate deflated Krylov subspaces.

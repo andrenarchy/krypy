@@ -1,5 +1,5 @@
 import numpy
-from .. import deflation, linsys, utils
+from .. import deflation, utils
 
 
 class _RitzSubsetEvaluator(object):
@@ -198,7 +198,11 @@ class RitzApproxKrylov(object):
                 raise utils.AssumptionError(
                     'Cannot compute bound because alpha == {0} >= 1'.format(
                         alpha))
-            return numpy.log(tol/bound_pseudo[0])/numpy.log(alpha)
+            return deflation.get_time(
+                ritz._deflated_solver.linear_system.timings,
+                ritz._deflated_solver,
+                numpy.log(tol/bound_pseudo[0])/numpy.log(alpha),
+                len(subset))
 
         else:
             raise utils.ArgumentError(

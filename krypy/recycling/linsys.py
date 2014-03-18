@@ -66,32 +66,6 @@ class _RecyclingSolver(object):
         # return solver instance
         return self.last_solver
 
-    def _estimate_time(self, nsteps, d):
-        '''Estimate time needed to run nsteps iterations with deflation
-
-        Uses timings from :py:attr:`last_timings`.
-
-        :param nsteps: number of iterations.
-        :param d: number of deflation vectors.
-        '''
-        if not self.last_timings is None:
-            raise RuntimeError('last_timinigs not yet present. Called before '
-                               'first run of solve()?')
-
-        solver_ops = self.Solver.operations(nsteps)
-        proj_ops = {'A': 1,
-                    'M': 0,
-                    'Ml': 1,
-                    'Mr': 1,
-                    'ip_B': d*(d+1)/2 + d*d + 2*d*solver_ops['Ml'],
-                    'axpy': d*(d+1)/2 + d*d + (2*d+2)*solver_ops['Ml']
-                    }
-        time = 0.
-        for ops in [solver_ops, proj_ops]:
-            for op, count in ops.iteritems():
-                time += self.last_timings[op]*count
-        return time
-
 
 class RecyclingCg(_RecyclingSolver):
     '''Recycling preconditioned CG method.
