@@ -24,7 +24,7 @@ except ImportError:
     import scipy.linalg.blas as blas
 
 __all__ = ['ArgumentError', 'AssumptionError', 'ConvergenceError',
-           'LinearOperatorError', 'InnerProductError',
+           'LinearOperatorError', 'InnerProductError', 'RuntimeError',
            'Arnoldi', 'BoundCG', 'BoundMinres',
            'ConvergenceError', 'Givens', 'House', 'IdentityLinearOperator',
            'LinearOperator', 'MatrixLinearOperator',
@@ -72,6 +72,10 @@ class LinearOperatorError(Exception):
 
 class InnerProductError(Exception):
     '''Raised when the inner product is indefinite.'''
+
+
+class RuntimeError(Exception):
+    '''Raised for errors that do not fit in any other exception.'''
 
 
 def find_common_dtype(*args):
@@ -1311,10 +1315,19 @@ class Timings(defaultdict):
         super(Timings, self).__init__(Timer)
 
     def get(self, key):
+        '''Return timings for `key`. Returns 0 if not present.'''
         if key in self and len(self[key]) > 0:
             return min(self[key])
         else:
             return 0
+
+    def get_ops(self, ops):
+        '''Return timings for dictionary ops holding the operation names as
+        keys and the number of applications as values.'''
+        time = 0.
+        for op, count in ops.iteritems():
+            time += self.get(op) * count
+        return time
 
     def __repr__(self):
         return 'Timings(' + ', '.join(
