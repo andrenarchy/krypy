@@ -3,17 +3,18 @@ from .. import deflation, utils
 
 
 class _RitzSubsetEvaluator(object):
-    def evaluator(self, ritz, subset):
+    def evaluate(self, ritz, subset):
         '''Returns a list of subsets with indices of Ritz vectors that are
         considered for deflation.'''
         raise NotImplementedError('abstract base class cannot be instanciated')
 
 
-class RitzApriori(object):
+class RitzApriori(_RitzSubsetEvaluator):
     def __init__(self,
                  Bound,
                  tol=None,
-                 strategy='simple'
+                 strategy='simple',
+                 deflweight=1.0
                  ):
         '''Evaluates a choice of Ritz vectors with an a-priori bound for
         self-adjoint problems.
@@ -35,8 +36,10 @@ class RitzApriori(object):
         self.Bound = Bound
         self.tol = tol
         self.strategy = strategy
+        self.deflweight = deflweight
 
     def evaluate(self, ritz, subset):
+        ndefl = len(subset)
         if not ritz._deflated_solver.linear_system.self_adjoint:
             from warnings import warn
             warn('RitzApriori is designed for self-adjoint problems but '
@@ -53,18 +56,21 @@ class RitzApriori(object):
                                  .difference(subset))
         if self.strategy == 'simple':
             bound = self.Bound(ritz.values[indices_remaining])
-            return bound.get_step(tol)
+            nsteps = bound.get_step(tol)
         elif self.strategy == 'intervals':
             intervals = self._estimate_eval_intervals(ritz,
                                                       indices,
                                                       indices_remaining)
             bound = self.Bound(intervals)
-            return bound.get_step(tol)
+            nsteps = bound.get_step(tol)
         else:
             raise utils.ArgumentError(
                 'Invalid value \'{0}\' for argument \'strategy\'. '
                 .format(self.strategy)
                 + 'Valid are simple and intervals.')
+
+        return ritz._deflated_solver.estimate_time(
+            nsteps, ndefl, deflweight=self.deflweight)
 
     def _estimate_eval_intervals(self, ritz, indices, indices_remaining,
                                  eps_min=0,
@@ -128,11 +134,12 @@ class RitzApriori(object):
              for mu in ritz.values[indices_remaining]])
 
 
-class RitzApproxKrylov(object):
+class RitzApproxKrylov(_RitzSubsetEvaluator):
     def __init__(self,
                  mode='extrapolate',
                  tol=None,
-                 pseudospectra=False):
+                 pseudospectra=False,
+                 deflweight=1.0):
         '''Evaluates a choice of Ritz vectors with a tailored approximate
         Krylov subspace method.
 
@@ -150,13 +157,20 @@ class RitzApproxKrylov(object):
           for the given problem? With ``pseudospectra=True``, a prediction
           may not be possible due to unfulfilled assumptions for the
           computation of the pseudospectral bound.
+        :param deflweight: (optional) see
+          :py:meth:`~krypy._DeflationMixin.estimate_time`. Defaults to 1.
         '''
         self._arnoldifyer = None
         self.mode = mode
         self.tol = tol
         self.pseudospectra = pseudospectra
+        self.deflweight = deflweight
 
     def evaluate(self, ritz, subset):
+        # number of deflation vectors
+        ndefl = len(subset)
+
+        # get tolerance
         if self.tol is None:
             tol = ritz._deflated_solver.tol
         else:
@@ -187,7 +201,7 @@ class RitzApproxKrylov(object):
                 raise utils.AssumptionError(
                     'tolerance not reached with mode==`direct`.')
             else:
-                return (bound_pseudo > tol).sum()
+                nsteps = (bound_pseudo > tol).sum()
         elif self.mode == 'extrapolate':
             # compute minimal overall residual reduction
             alpha = numpy.max(
@@ -198,13 +212,12 @@ class RitzApproxKrylov(object):
                 raise utils.AssumptionError(
                     'Cannot compute bound because alpha == {0} >= 1'.format(
                         alpha))
-            return deflation.get_time(
-                ritz._deflated_solver.linear_system.timings,
-                ritz._deflated_solver,
-                numpy.log(tol/bound_pseudo[0])/numpy.log(alpha),
-                len(subset))
+            nsteps = numpy.log(tol/bound_pseudo[0])/numpy.log(alpha)
 
         else:
             raise utils.ArgumentError(
                 'Invalid value `{0}` for argument `omode`. '.format(self.mode)
                 + 'Valid are `direct` and `extrapolate`.')
+
+        return ritz._deflated_solver.estimate_time(
+            nsteps, ndefl, deflweight=self.deflweight)

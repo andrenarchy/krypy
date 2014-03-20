@@ -161,6 +161,46 @@ class _DeflationMixin(object):
                                        ip_B=ls.ip_B)
         return self._B_
 
+    def estimate_time(self, nsteps, ndefl, deflweight=1.0):
+        '''Estimate time needed to run nsteps iterations with deflation
+
+        Uses timings from :py:attr:`linear_system` if it is an instance of
+        :py:class:`~krypy.linsys.TimedLinearSystem`. Otherwise, an
+        :py:class:`~krypy.utils.OtherError`
+        is raised.
+
+        :param nsteps: number of iterations.
+        :param ndefl: number of deflation vectors.
+        :param deflweight: (optional) the time for the setup and application of
+          the projection for deflation is multiplied by this factor. This can
+          be used as a counter measure for the evaluation of Ritz vectors.
+          Defaults to 1.
+        '''
+        # get ops for nsteps of this solver
+        solver_ops = self.operations(nsteps)
+
+        # define ops for deflation setup + application with ndefl deflation
+        # vectors
+        proj_ops = {'A': ndefl,
+                    'M': ndefl,
+                    'Ml': ndefl,
+                    'Mr': ndefl,
+                    'ip_B': (ndefl*(ndefl+1)/2
+                             + ndefl**2 + 2*ndefl*solver_ops['Ml']),
+                    'axpy': (ndefl*(ndefl+1)/2 + ndefl*ndefl
+                             + (2*ndefl+2)*solver_ops['Ml'])
+                    }
+
+        # get timings from linear_system
+        if not isinstance(self.linear_system, linsys.TimedLinearSystem):
+            raise utils.RuntimeError(
+                'A `TimedLinearSystem` has to be used in order to obtain '
+                'timings.')
+        timings = self.linear_system.timings
+
+        return (timings.get_ops(solver_ops)
+                + deflweight*timings.get_ops(proj_ops))
+
 
 class DeflatedCg(_DeflationMixin, linsys.Cg):
     '''Deflated preconditioned CG method.
@@ -206,29 +246,6 @@ class DeflatedGmres(_DeflationMixin, linsys.Gmres):
     the documentation of the available parameters.
     '''
     pass
-
-
-def get_time(timings, solver, nsteps, m):
-    '''Estimate time needed to run nsteps iterations with deflation
-
-    Uses timings from :py:attr:`last_timings`.
-
-    :param nsteps: number of iterations.
-    :param d: number of deflation vectors.
-    '''
-    solver_ops = solver.operations(nsteps)
-    proj_ops = {'A': 1,
-                'M': 0,
-                'Ml': 1,
-                'Mr': 1,
-                'ip_B': m*(m+1)/2 + m*m + 2*m*solver_ops['Ml'],
-                'axpy': m*(m+1)/2 + m*m + (2*m+2)*solver_ops['Ml']
-                }
-    time = 0.
-    for ops in [solver_ops, proj_ops]:
-        for op, count in ops.iteritems():
-            time += timings.get(op)*count
-    return time
 
 
 class Arnoldifyer(object):

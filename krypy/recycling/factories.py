@@ -20,13 +20,15 @@ class RitzFactory(_DeflationVectorFactory):
     def __init__(self,
                  subset_evaluator,
                  subsets_generator=None,
-                 mode='ritz'
+                 mode='ritz',
+                 print_timing_results=False
                  ):
         if subsets_generator is None:
             subsets_generator = generators.RitzExtremal()
         self.subsets_generator = subsets_generator
         self.subset_evaluator = subset_evaluator
         self.mode = mode
+        self.print_timing_results = print_timing_results
 
     def get(self, deflated_solver):
         ritz = deflation.Ritz(deflated_solver, mode=self.mode)
@@ -83,11 +85,12 @@ class RitzFactory(_DeflationVectorFactory):
 
             overall_evaluations.update(evaluations)
 
-        #from matplotlib import pyplot
-        #pyplot.show()
-
-        #import operator
-        #print(sorted(overall_evaluations.iteritems(), key=operator.itemgetter(1)))
+        if self.print_timing_results:
+            import operator
+            for subset, time in sorted(overall_evaluations.iteritems(),
+                                       key=operator.itemgetter(1)):
+                print('  {0}: '.format(time)
+                      + ', '.join([str(el) for el in subset]))
 
         # if there was a successfull evaluation: pick the best one
         if len(overall_evaluations) > 0:
