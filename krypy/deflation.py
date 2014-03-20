@@ -265,6 +265,7 @@ class Arnoldifyer(object):
 
         if d > 0:
             # rank-revealing QR decomp of projected AU
+            # change inner product?
             Q, R, P = scipy.linalg.qr(AU - U.dot(E) - V.dot(B_),
                                       mode='economic', pivoting=True)
             P_inv = numpy.argsort(P)
@@ -273,6 +274,7 @@ class Arnoldifyer(object):
             l = (numpy.abs(numpy.diag(R)) > 1e-14*self.A_norm).sum()
             Q1 = Q[:, :l]
             self.R12 = R[:l, P_inv]
+
             # residual helper matrix
             self.N = numpy.c_[numpy.eye(l+n_-n, n_-n),
                               numpy.r_[B_[n:, :],
@@ -459,7 +461,12 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                                    self_adjoint=ls_orig.self_adjoint,
                                    positive_definite=ls_orig.positive_definite
                                    )
-    solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
+    try:
+        solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
+    except utils.ConvergenceError as e:
+        # use all residuals that have been computed
+        # (useful for short recurrences)
+        solver = e.solver
 
     # absolute residual norm
     aresnorms = numpy.array(solver.resnorms) * ls_small.MMlb_norm
