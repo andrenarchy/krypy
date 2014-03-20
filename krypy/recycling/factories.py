@@ -16,19 +16,35 @@ class _DeflationVectorFactory(object):
 
 
 class RitzFactory(_DeflationVectorFactory):
-    '''Select Ritz vectors.'''
     def __init__(self,
                  subset_evaluator,
                  subsets_generator=None,
                  mode='ritz',
-                 print_timing_results=False
+                 print_results=None
                  ):
+        '''Factory of Ritz vectors for automatic recycling.
+
+        :param subset_evaluator: an instance of
+          :py:class:`~krypy.recycling.evaluators._RitzSubsetEvaluator` that
+          evaluates a proposed subset of Ritz vectors for deflation.
+        :param subsets_generator: (optional) an instance of
+          :py:class:`~krypy.recycling.generators._RitzSubsetsGenerator` that
+          generates lists of subsets of Ritz vectors for deflation.
+        :param print_results: (optional) may be one of the following:
+
+          * `None`: nothing is printed.
+          * `'number'`: the number of selected deflation vectors is printed.
+          * `'values'`: the Ritz values corresponding to the selected Ritz
+            vectors are printed.
+          * `'timings'`: the timings of all evaluated subsets of Ritz vectors
+            are printed.
+        '''
         if subsets_generator is None:
-            subsets_generator = generators.RitzExtremal()
+            subsets_generator = generators.RitzSmall()
         self.subsets_generator = subsets_generator
         self.subset_evaluator = subset_evaluator
         self.mode = mode
-        self.print_timing_results = print_timing_results
+        self.print_results = print_results
 
     def get(self, deflated_solver):
         ritz = deflation.Ritz(deflated_solver, mode=self.mode)
@@ -44,8 +60,7 @@ class RitzFactory(_DeflationVectorFactory):
             try:
                 _evaluations[_subset] = \
                     self.subset_evaluator.evaluate(ritz, _subset)
-            except utils.AssumptionError as e:
-                #print(e)
+            except utils.AssumptionError:
                 # no evaluation possible -> move on
                 pass
 
@@ -85,23 +100,40 @@ class RitzFactory(_DeflationVectorFactory):
 
             overall_evaluations.update(evaluations)
 
-        if self.print_timing_results:
+        if len(overall_evaluations) > 0:
+        # if there was a successfull evaluation: pick the best one
+            selection = list(min(overall_evaluations,
+                             key=overall_evaluations.get))
+        else:
+            # otherwise: return empty list
+            selection = []
+
+        # debug output requested?
+        if self.print_results == 'number':
+            print('# of selected deflation vectors: {0}'
+                  .format(len(selection)))
+        elif self.print_results == 'values':
+            print('{0} Ritz values corresponding to selected deflation '
+                  .format(len(selection)) + 'vectors: '
+                  + (', '.join([str(el) for el in ritz.values[selection]])))
+        elif self.print_results == 'timings':
             import operator
+            print('Timings for all successfully evaluated choices of '
+                  'deflation vectors with corresponding Ritz values:')
             for subset, time in sorted(overall_evaluations.iteritems(),
                                        key=operator.itemgetter(1)):
-                print('  {0}: '.format(time)
-                      + ', '.join([str(el) for el in subset]))
+                print(' {0}s: '.format(time)
+                      + ', '.join([str(el)
+                                   for el in ritz.values[list(subset)]]))
+        elif self.print_results is None:
+            pass
+        else:
+            raise utils.ArgumentError(
+                'Invalid value `{0}` for argument `print_result`. '
+                .format(self.print_results)
+                + 'Valid are `None`, `number`, `values` and `timings`.')
 
-        # if there was a successfull evaluation: pick the best one
-        if len(overall_evaluations) > 0:
-            best = list(min(overall_evaluations,
-                            key=overall_evaluations.get))
-            #print(overall_evaluations)
-            #print(best)
-            return best
-
-        # otherwise: return empty list
-        return []
+        return selection
 
 
 class RitzFactorySimple(_DeflationVectorFactory):
