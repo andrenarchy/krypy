@@ -208,7 +208,7 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
                 (bound_pseudo[1:]/bound_pseudo[0])
                 ** (1./numpy.array(range(1, len(bound_pseudo))))
                 )
-            if alpha >= 1:
+            if alpha >= 1 or alpha==0:
                 raise utils.AssumptionError(
                     'Cannot compute bound because alpha == {0} >= 1'.format(
                         alpha))
