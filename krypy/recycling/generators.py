@@ -16,7 +16,7 @@ class RitzSmall(_RitzSubsetsGenerator):
 
     def generate(self, ritz, remaining_subset):
         remaining = list(remaining_subset)
-        if len(remaining) == 0 or \
+        if len(remaining) <= 1 or \
                 len(ritz.values) - len(remaining) >= self.max_vectors:
             return []
         sort = numpy.argsort(numpy.abs(ritz.values[remaining]))
@@ -37,7 +37,7 @@ class RitzExtremal(_RitzSubsetsGenerator):
 
     def generate(self, ritz, remaining_subset):
         remaining = numpy.array(list(remaining_subset))
-        if len(remaining) == 0 or \
+        if len(remaining) <= 1 or \
                 len(ritz.values) - len(remaining) >= self.max_vectors:
             return []
         remaining_values = ritz.values[remaining]
