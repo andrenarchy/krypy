@@ -416,7 +416,9 @@ class _KrylovSolver(object):
                 if self.iter+1 == self.maxiter:
                     self._finalize()
                     raise utils.ConvergenceError(
-                        'No convergence in last iteration.', self)
+                        ('No convergence in last iteration '
+                         '(maxiter: {0}, residual: {1}).')
+                        .format(self.maxiter, self.resnorms[-1]), self)
                 # updated residual was below but explicit is not: warn
                 elif not self.explicit_residual \
                         and resnorm/self.linear_system.MMlb_norm <= self.tol:
