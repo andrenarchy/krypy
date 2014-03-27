@@ -890,7 +890,7 @@ class Arnoldi(object):
         self.invariant = False
 
         if ortho == 'house':
-            if (M is not None
+            if (self.M is not None
                     and not isinstance(self.M, IdentityLinearOperator)) or \
                     (not isinstance(self.ip_B, IdentityLinearOperator) and
                      self.ip_B is not None):
