@@ -478,15 +478,22 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                                    self_adjoint=ls_orig.self_adjoint,
                                    positive_definite=ls_orig.positive_definite
                                    )
-    try:
-        solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
-    except utils.ConvergenceError as e:
-        # use all residuals that have been computed
-        # (useful for short recurrences)
-        solver = e.solver
 
+    if issubclass(Solver, linsys.Minres) or issubclass(Solver, linsys.Gmres):
+        aresnorms = utils.get_residual_norms(Hh,
+                                             self_adjoint=ls_orig.self_adjoint)
+    else:
+        # TODO: compute residuals more efficiently for CG
+        try:
+            solver = Solver(ls_small, tol=tol, maxiter=Hh.shape[0])
+        except utils.ConvergenceError as e:
+            # use all residuals that have been computed
+            # (useful for short recurrences)
+            solver = e.solver
+        aresnorms = numpy.array(solver.resnorms)
     # absolute residual norm
-    aresnorms = numpy.array(solver.resnorms) * ls_small.MMlb_norm
+    aresnorms = aresnorms * ls_small.MMlb_norm
+
     if pseudo_type == 'omit':
         return aresnorms / (b_norm - g_norm)
 

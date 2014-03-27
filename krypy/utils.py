@@ -2045,3 +2045,24 @@ class NormalizedRootsPolynomial(object):
         if numpy.isscalar(points):
             return numpy.asscalar(vals)
         return vals
+
+
+def get_residual_norms(H, self_adjoint=False):
+    '''Compute relative residual norms from Hessenberg matrix.
+
+    It is assumed that the initial guess is chosen as zero.'''
+    H = H.copy()
+    n_, n = H.shape
+    y = numpy.eye(n_, 1)
+    resnorms = [1.]
+    for i in range(n_-1):
+        G = Givens(H[i:i+2, [i]])
+        if self_adjoint:
+            H[i:i+2, i:i+3] = G.apply(H[i:i+2, i:i+3])
+        else:
+            H[i:i+2, i:] = G.apply(H[i:i+2, i:])
+        y[i:i+2] = G.apply(y[i:i+2])
+        resnorms.append(numpy.abs(y[i+1, 0]))
+    if n_ == n:
+        resnorms.append(0.)
+    return numpy.array(resnorms)
