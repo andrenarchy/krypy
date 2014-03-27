@@ -370,7 +370,8 @@ class Arnoldifyer(object):
         # Arnoldify
         WtoQ = Q.apply(Wto.T.conj()).T.conj()
         Hh, T = utils.hessenberg(
-            Q.apply(Wto.T.conj().dot(self.J).dot(Pt*(self.L.dot(WtoQ)))))
+            Q.apply(Wto.T.conj().dot(self.J).dot(Pt*(self.L.dot(WtoQ)))),
+            calc_q=True)
 
         QT = Q.apply(T)
 
