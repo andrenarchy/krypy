@@ -222,7 +222,7 @@ class TimedLinearSystem(LinearSystem):
             b=b,
             M=utils.get_linearoperator(shape, M,
                                        self.timings['M']),
-            Minv=utils.get_linearoperator(shape, M,
+            Minv=utils.get_linearoperator(shape, Minv,
                                           self.timings['Minv']),
             Ml=utils.get_linearoperator(shape, Ml,
                                         self.timings['Ml']),
