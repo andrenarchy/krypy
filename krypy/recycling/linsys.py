@@ -18,6 +18,12 @@ class _RecyclingSolver(object):
         '''
         self._DeflatedSolver = DeflatedSolver
 
+        self.timings = utils.Timings()
+        '''Timings from last run of :py:meth:`solve`.
+
+        Timings of the vector factory runs and the actual solution processes.
+        '''
+
         self.last_solver = None
         '''``DeflatedSolver`` instance from last run of :py:meth:`solve`.
 
@@ -44,17 +50,19 @@ class _RecyclingSolver(object):
           approximate solution. The approximate solution is available under the
           attribute ``xk``.
         '''
-        # get deflation vectors
-        if self.last_solver is None or vector_factory is None:
-            U = numpy.zeros((linear_system.N, 0))
-        else:
-            U = vector_factory.get(self.last_solver)
+        with self.timings['vector_factory']:
+            # get deflation vectors
+            if self.last_solver is None or vector_factory is None:
+                U = numpy.zeros((linear_system.N, 0))
+            else:
+                U = vector_factory.get(self.last_solver)
 
-        # solve deflated linear system
-        self.last_solver = self._DeflatedSolver(linear_system,
-                                                U=U,
-                                                store_arnoldi=True,
-                                                *args, **kwargs)
+        with self.timings['solve']:
+            # solve deflated linear system
+            self.last_solver = self._DeflatedSolver(linear_system,
+                                                    U=U,
+                                                    store_arnoldi=True,
+                                                    *args, **kwargs)
 
         # return solver instance
         return self.last_solver
