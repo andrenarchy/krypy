@@ -18,13 +18,6 @@ class _RecyclingSolver(object):
         '''
         self._DeflatedSolver = DeflatedSolver
 
-        self.last_timings = None
-        '''Timings from last run of :py:meth:`solve`.
-
-        Timings have to be filled after each run of :py:meth:`solve` and has
-        to be a dictionary holding the time needed for applying ``A``, ``M``,
-        ``Ml``, ``Mr``, ``ip``, ``axpy``.'''
-
         self.last_solver = None
         '''``DeflatedSolver`` instance from last run of :py:meth:`solve`.
 
