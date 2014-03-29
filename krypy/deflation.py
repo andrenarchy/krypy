@@ -23,14 +23,15 @@ class _Projection(utils.Projection):
 
 
 class ObliqueProjection(_Projection):
-    def __init__(self, linear_system, U, **kwargs):
+    def __init__(self, linear_system, U, qr_reorthos=0, **kwargs):
         '''Oblique projection for left deflation.'''
         # preprocess and store input
         self.linear_system = linear_system
         (N, d) = U.shape
 
         # orthogonalize U in the Minv-inner-product
-        U, _ = utils.qr(U, ip_B=linear_system.get_ip_Minv_B())
+        U, _ = utils.qr(U, ip_B=linear_system.get_ip_Minv_B(),
+                        reorthos=qr_reorthos)
 
         self.U = U
         '''An orthonormalized basis of the deflation space ``U`` with respect
@@ -73,13 +74,19 @@ class _DeflationMixin(object):
     All other parameters are passed through to the underlying solver from
     :py:mod:`~krypy.linsys`.
     '''
-    def __init__(self, linear_system, U=None, *args, **kwargs):
+    def __init__(self, linear_system, U=None,
+                 projection_kwargs=None, *args, **kwargs):
         if U is None:
             U = numpy.zeros((linear_system.N, 0))
-        projection = ObliqueProjection(linear_system, U)
+        if projection_kwargs is None:
+            projection_kwargs = {}
+
+        # construct projection
+        projection = ObliqueProjection(linear_system, U, **projection_kwargs)
         self.projection = projection
         '''Projection that is used for deflation.'''
 
+        # retrieve E=ip_B(U,AU) from projection
         if projection.Q is None and projection.R is None:
             E = numpy.eye(U.shape[1])
         else:
@@ -369,6 +376,10 @@ class Arnoldifyer(object):
 
         # Arnoldify
         WtoQ = Q.apply(Wto.T.conj()).T.conj()
+
+        # TODO: replace with scipy's Hessenberg when bug is fixed
+        #from scipy.linalg import hessenberg
+        #Hh, T = hessenberg(
         Hh, T = utils.hessenberg(
             Q.apply(Wto.T.conj().dot(self.J).dot(Pt*(self.L.dot(WtoQ)))),
             calc_q=True)

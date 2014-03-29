@@ -417,7 +417,7 @@ def hessenberg(a, calc_q=False, overwrite_a=False, check_finite=True):
         raise ValueError('expected square matrix')
     overwrite_a = overwrite_a or (_datacopied(a1, a))
 
-    # if 2x2 or smaller: already in Hessenberg
+    # if 2x2 or smaller: already in Hessenberg form
     if a1.shape[0] <= 2:
         if calc_q:
             return a1, numpy.eye(a1.shape[0])
@@ -500,6 +500,7 @@ class Projection(object):
     def __init__(self, X,
                  Y=None,
                  ip_B=None,
+                 orthogonalize=True,
                  iterations=2
                  ):
         """Generic projection.
@@ -529,6 +530,10 @@ class Projection(object):
         :param ip_B: (optional) inner product, see :py:meth:`inner`. ``None``,
             a ``numpy.array`` or a ``LinearOperator`` is preferred due to the
             applicability of the proposed algorithms in [Ste11]_, see below.
+        :param orthogonalize: (optional) `True` orthogonalizes the bases
+            provided in `X` and `Y` with respect to the inner product defined
+            by `ip_B`. Defaults to `True` as the orthogonalization is
+            suggested by the round-off error analysis in [Ste11]_.
         :param iterations: (optional) number of applications of the projection.
             It was suggested in [Ste11]_ to use 2 iterations (default) in order
             to achieve high accuracy ("twice is enough" as in the orthogonal
@@ -543,6 +548,7 @@ class Projection(object):
         self.ip_B = ip_B
         if iterations < 1:
             raise ArgumentError('iterations < 1 not allowed')
+        self.orthogonalize = orthogonalize
         self.iterations = iterations
 
         Y = X if Y is None else Y   # default: orthogonal projection
@@ -560,13 +566,21 @@ class Projection(object):
             return
 
         # orthogonalize X
-        self.V, self.VR = qr(X, ip_B=ip_B)
+        if orthogonalize:
+            self.V, self.VR = qr(X, ip_B=ip_B)
+        else:
+            self.V = X
+            self.VR = None
 
-        if Y is X:  # orthogonal projection
+        if Y is X and orthogonalize:  # orthogonal projection
             self.W, self.WR = self.V, self.VR
             self.Q, self.R = None, None
         else:  # general case
-            self.W, self.WR = qr(Y, ip_B=ip_B)
+            if orthogonalize:
+                self.W, self.WR = qr(Y, ip_B=ip_B)
+            else:
+                self.W = Y
+                self.WR = None
             M = inner(self.W, self.V, ip_B=ip_B)
             self.Q, self.R = scipy.linalg.qr(M)
 
