@@ -270,6 +270,8 @@ class Arnoldifyer(object):
         V = deflated_solver.V
         U = deflated_solver.projection.U
         AU = deflated_solver.projection.AU
+        ls = deflated_solver.linear_system
+        MAU = ls.M * AU
 
         # get dimensions
         n_, n = self.n_, self.n = H.shape
@@ -288,16 +290,23 @@ class Arnoldifyer(object):
         self.A_norm = numpy.linalg.norm(self.M, 2)
 
         if d > 0:
-            # rank-revealing QR decomp of projected AU
-            # change inner product?
-            Q, R, P = scipy.linalg.qr(AU - U.dot(E) - V.dot(B_),
+            # rank-revealing QR decomp of projected MAU
+            Q, R, P = scipy.linalg.qr(MAU - U.dot(E) - V.dot(B_),
                                       mode='economic', pivoting=True)
+
+            # inverse permutation
             P_inv = numpy.argsort(P)
 
             # rank of R
             l = (numpy.abs(numpy.diag(R)) > 1e-14*self.A_norm).sum()
             Q1 = Q[:, :l]
             self.R12 = R[:l, P_inv]
+
+            # reorthonormalize in correct inner product.
+            # the above can be removed if the rank-revealing factorization
+            # is carried out directly in the appropriate inner product
+            Q1, Rt = utils.qr(Q1, ip_B=ls.get_ip_Minv_B())
+            self.R12 = Rt.dot(self.R12)
 
             # residual helper matrix
             self.N = numpy.c_[numpy.eye(l+n_-n, n_-n),
@@ -411,8 +420,19 @@ class Arnoldifyer(object):
         if full:
             Vh = numpy.c_[deflated_solver.V[:, :n],
                           deflated_solver.projection.U].dot(Wto.dot(QT))
-            F = - self.Z.dot(Rh.dot(Vh.T.conj()))
-            F = F + F.T.conj()
+            ip_Minv_B = deflated_solver.linear_system.get_ip_Minv_B()
+
+            def _apply_F(x):
+                '''Application of the perturbation.'''
+                return -(self.Z.dot(Rh.dot(utils.inner(Vh, x,
+                                                       ip_B=ip_Minv_B)))
+                         + Vh.dot(Rh.T.conj().dot(utils.inner(self.Z, x,
+                                                              ip_B=ip_Minv_B)))
+                         )
+            F = utils.LinearOperator((Vh.shape[0], Vh.shape[0]),
+                                     dtype=deflated_solver.dtype,
+                                     dot=_apply_F
+                                     )
             return Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F
         return Hh, Rh, q_norm, vdiff_norm, PWAW_norm
 
@@ -578,11 +598,14 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         if pseudo_type == 'contain':
             raise NotImplementedError('contain not yet implemented')
 
-        # for delta_max, the pseudospectrum will contain zero and the
-        # thus polymax > 1
-        delta_max = numpy.min(numpy.abs(evals))
+        # for delta >= min(|\lambda|), the pseudospectrum will contain zero and
+        # the thus polymax > 1. nevertheless, the bound may provide useful
+        # information in early iterations with large values of delta.
+        # Therefore, the maximal perturbation is chosen as the maximal
+        # eigenvalue of Hh
+        delta_max = numpy.max(numpy.abs(evals))
 
-        # no bound possible if epsilon >= delta_max
+        # exit if epsilon >= delta_max
         if epsilon >= delta_max:
             break
 
@@ -625,10 +648,10 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
             #    print('breeeak')
             #    break
 
-        delta_log_range = numpy.linspace(numpy.log10(epsilon),
+        delta_log_range = numpy.linspace(numpy.log10(1.01*epsilon),
                                          numpy.log10(delta_max),
                                          delta_n+2
-                                         )[1:-1]
+                                         )[0:-1]
         # naive:
         #pseudo_terms = []
         #for delta_log in delta_log_range:
@@ -644,12 +667,13 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                                   bounds=(delta_log_range[0],
                                           delta_log_range[-1]),
                                   method='bounded',
-                                  options={'maxiter': 20, 'xatol': 0.1}
+                                  options={'maxiter': delta_n}
                                   )
-        min_pseudo = 10**opt_res.x
+        # the delta with minimal value is min_delta = 10**opt_res.x
+        min_val = opt_res.fun
 
         # minimal bound value
-        boundval = aresnorm + min_pseudo
+        boundval = aresnorm + min_val
 
         # if not increasing: append to bounds
         if len(bounds) == 0 or boundval <= bounds[-1]:
