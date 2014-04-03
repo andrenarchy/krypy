@@ -42,6 +42,8 @@ class ObliqueProjection(_Projection):
         '''Result of application of operator to deflation space, i.e.,
         :math:`M_lAM_rU`.'''
 
+        self._MAU = None
+
         # call Projection constructor
         super(_Projection, self).__init__(self.AU, self.U,
                                           ip_B=linear_system.ip_B,
@@ -59,6 +61,14 @@ class ObliqueProjection(_Projection):
         if self.WR is not self.VR:
             c = self.WR.dot(scipy.linalg.solve_triangular(self.VR, c))
         return z + self.W.dot(c)
+
+    @property
+    def MAU(self):
+        '''Result of preconditioned operator to deflation space, i.e.,
+        :math:`MM_lAM_rU`.'''
+        if self._MAU is None:
+            self._MAU = self.linear_system.M * self.AU
+        return self._MAU
 
 
 class _DeflationMixin(object):
@@ -271,7 +281,7 @@ class Arnoldifyer(object):
         U = deflated_solver.projection.U
         AU = deflated_solver.projection.AU
         ls = deflated_solver.linear_system
-        MAU = ls.M * AU
+        MAU = deflated_solver.projection.MAU
 
         # get dimensions
         n_, n = self.n_, self.n = H.shape
@@ -730,9 +740,7 @@ class Ritz(object):
             # build block matrices
             M = numpy.bmat([[H + B.dot(EinvC), B],
                             [C, E]])
-            # TODO: has M to be applied in the next line on one side?
-            # Andre: I think so! :)
-            F = utils.inner(projection.AU, projection.AU,
+            F = utils.inner(projection.AU, projection.MAU,
                             ip_B=linear_system.ip_B)
             S = numpy.bmat([[I(n_), B_, O((n_, m))],
                             [B_.T.conj(), F, E],
