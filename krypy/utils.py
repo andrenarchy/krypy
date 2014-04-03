@@ -201,11 +201,13 @@ def norm(x, y=None, ip_B=None):
                       or isinstance(ip_B, IdentityLinearOperator)):
         return numpy.linalg.norm(x, 2)
     ip = inner(x, y, ip_B=ip_B)
-    nrm = numpy.sqrt(numpy.linalg.norm(ip, 2))
-    if numpy.linalg.norm(ip.imag, 2) > nrm*1e-10:
+    nrm_diag = numpy.linalg.norm(numpy.diag(ip), 2)
+    nrm_diag_imag = numpy.linalg.norm(numpy.imag(numpy.diag(ip)), 2)
+    if nrm_diag_imag/nrm_diag > 1e-10:
         raise InnerProductError('inner product defined by ip_B not positive '
-                                'definite?')
-    return nrm
+                                'definite? ||diag(ip).imag||/||diag(ip)||={0}'
+                                .format(nrm_diag_imag/nrm_diag))
+    return numpy.sqrt(numpy.linalg.norm(ip, 2))
 
 
 def get_linearoperator(shape, A, timer=None):
