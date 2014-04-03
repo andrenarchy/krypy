@@ -125,19 +125,25 @@ def test_Arnoldifyer():
     for matrix in test_utils.get_matrices():
         A_norm = numpy.linalg.norm(matrix, 2)
         numpy.random.seed(0)
-        evals, evecs = scipy.linalg.eig(matrix)
-        sort = numpy.argsort(numpy.abs(evals))
-        evecs = evecs[:, sort]
-        Us = [numpy.zeros((10, 0)),
-              evecs[:, -2:],
-              evecs[:, -2:] + 1e-5*numpy.random.rand(10, 2)
-              ]
+        Ms = [None, numpy.diag(range(1, 11))]
         Wt_sels = ['none', 'smallest', 'largest']
-        for A, v, U in \
+        for A, v, M, Wt_sel in \
                 itertools.product(test_utils.get_operators(matrix),
-                                  vs, Us,):
-            ls = krypy.linsys.LinearSystem(A, v)
-            for Wt_sel in Wt_sels:
+                                  vs, Ms, Wt_sels):
+            if M is None:
+                Minv = None
+            else:
+                Minv = numpy.linalg.inv(M)
+            ls = krypy.linsys.LinearSystem(A, v, M=M, Minv=Minv)
+
+            evals, evecs = scipy.linalg.eig(ls.M*matrix)
+            sort = numpy.argsort(numpy.abs(evals))
+            evecs = evecs[:, sort]
+            Us = [numpy.zeros((10, 0)),
+                  evecs[:, -2:],
+                  evecs[:, -2:] + 1e-2*numpy.random.rand(10, 2)
+                  ]
+            for U in Us:
                 yield run_Arnoldifyer, ls, U, A_norm, Wt_sel
 
 
@@ -165,37 +171,44 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
     # get Arnoldifyer instance
     arnoldifyer = krypy.deflation.Arnoldifyer(deflated_solver)
 
+    ip_Minv_B = ls.get_ip_Minv_B()
+
+    # check orthonormality of computed residual basis (may fail if U is
+    # close to an invariant subspace of MA due to round-off in rank-revealing
+    # QR
+    Z = arnoldifyer.Z
+    assert_array_almost_equal(krypy.utils.inner(Z, Z, ip_B=ip_Minv_B),
+                              numpy.eye(arnoldifyer.Z.shape[1]),
+                              7)
+
     # arnoldify given Wt
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm, Vh, F = \
         arnoldifyer.get(Wt, full=True)
 
     # perform checks
     (n_, n) = deflated_solver.H.shape
-    ls = deflated_solver.linear_system
     N = ls.N
     d = deflated_solver.projection.U.shape[1]
 
     VU = numpy.c_[deflated_solver.V[:, :n], deflated_solver.projection.U]
     W = VU.dot(Wt)
     PW = krypy.utils.Projection(ls.MlAMr*W, W).operator_complement()
-    At = PW*ls.MlAMr
-    Fop = krypy.utils.get_linearoperator((N, N), F)
+    At = ls.M*(PW*ls.MlAMr)
 
     # check arnoldi relation
-    assert_almost_equal(numpy.linalg.norm((At+Fop).dot(Vh) - Vh.dot(Hh), 2)
+    assert_almost_equal(numpy.linalg.norm((At+F)*Vh - Vh.dot(Hh), 2)
                         / A_norm,
                         0, 7)
 
-    # check projection
-    assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot((At+Fop).dot(Vh))
-                                          - Hh, 2)
-                        / A_norm,
-                        0, 7)
+    ## check projection
+    assert_array_almost_equal(krypy.utils.inner(Vh, (At+F)*Vh, ip_B=ip_Minv_B),
+                              Hh,
+                              7)
 
-    # check orthonormality
-    assert_almost_equal(numpy.linalg.norm(Vh.T.conj().dot(Vh)
-                        - numpy.eye(n+d-k), 2),
-                        0, 7)
+    # check orthonormality of returned Vh
+    assert_array_almost_equal(krypy.utils.inner(Vh, Vh, ip_B=ip_Minv_B),
+                              numpy.eye(n+d-k),
+                              7)
 
     # check norm of perturbation
     if Rh.size > 0:
@@ -204,8 +217,23 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
         #                    8)
         pass
 
+    # check norm of vdiff
+    #PWb = PW*ls.b
+    #assert_array_almost_equal(krypy.utils.norm(ls.M*PW*,
+    #                                           ip_B=ls.get_ip_Minv_B()),
+    #                          vdiff_norm)
+
+    # get orthonormal basis
+    Q, _ = krypy.utils.qr(numpy.eye(N), ip_B=ls.get_ip_Minv_B())
+
+    def _get_op_norm(op):
+        return krypy.utils.norm(op*Q, ip_B=ls.get_ip_Minv_B())
+
     # check PWAW_norm
-    assert_almost_equal(PWAW_norm, numpy.linalg.norm(PW*numpy.eye(N), 2))
+    assert_almost_equal(PWAW_norm,
+                        _get_op_norm(ls.M*PW*ls.Minv)
+                        )
+
 
 
 if __name__ == '__main__':
