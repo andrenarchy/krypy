@@ -203,7 +203,7 @@ def norm(x, y=None, ip_B=None):
     ip = inner(x, y, ip_B=ip_B)
     nrm_diag = numpy.linalg.norm(numpy.diag(ip), 2)
     nrm_diag_imag = numpy.linalg.norm(numpy.imag(numpy.diag(ip)), 2)
-    if nrm_diag_imag/nrm_diag > 1e-10:
+    if nrm_diag_imag > nrm_diag*1e-10:
         raise InnerProductError('inner product defined by ip_B not positive '
                                 'definite? ||diag(ip).imag||/||diag(ip)||={0}'
                                 .format(nrm_diag_imag/nrm_diag))
