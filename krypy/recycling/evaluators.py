@@ -72,7 +72,8 @@ class RitzApriori(_RitzSubsetEvaluator):
         return ritz._deflated_solver.estimate_time(
             nsteps, ndefl, deflweight=self.deflweight)
 
-    def _estimate_eval_intervals(self, ritz, indices, indices_remaining,
+    @staticmethod
+    def _estimate_eval_intervals(ritz, indices, indices_remaining,
                                  eps_min=0,
                                  eps_max=0,
                                  eps_res=None):
