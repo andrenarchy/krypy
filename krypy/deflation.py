@@ -447,7 +447,7 @@ class Arnoldifyer(object):
         return Hh, Rh, q_norm, vdiff_norm, PWAW_norm
 
 
-def bound_pseudo(arnoldifyer, Wt, b_norm,
+def bound_pseudo(arnoldifyer, Wt,
                  g_norm=0.,
                  G_norm=0.,
                  GW_norm=0.,
@@ -466,7 +466,6 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
       :math:`W=[V,U]\tilde{W}` and
       :math:`\mathcal{W}=\operatorname{colspan}(W)`. Must fulfill
       :math:`\tilde{W}^*\tilde{W}=I_k`.
-    :param b_norm: norm :math:`\|b\|` of right hand side.
     :param g_norm: norm :math:`\|g\|` of difference :math:`g=c-b` of
       right hand sides. Has to fulfill :math:`\|g\|<\|b\|`.
     :param G_norm: norm :math:`\|G\|` of difference
@@ -490,7 +489,11 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
       * ``'omit'``: do not compute the pseudospectrum at all and just use the
         residual bounds from the approximate Krylov subspace.
     '''
+    # Arnoldify!
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
+
+    # get original linear system
+    ls_orig = arnoldifyer._deflated_solver.linear_system
 
     k = Wt.shape[1]
     if k > 0:
@@ -504,6 +507,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
         eta = GW_norm/(sigma_min - WGW_norm)
     else:
         eta = 0.
+    b_norm = ls_orig.MMlb_norm
     beta = PWAW_norm*(eta*(b_norm + g_norm) + g_norm) + vdiff_norm
 
     # check assumption on g_norm and b_norm
@@ -512,8 +516,6 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
             '||g_norm|| < ||b_norm|| not satisfied')
 
     # compute residual norms of Hh*z=e_1*b_norm
-    Solver = type(arnoldifyer._deflated_solver)
-    ls_orig = arnoldifyer._deflated_solver.linear_system
     ls_small = linsys.LinearSystem(Hh,
                                    numpy.eye(Hh.shape[0], 1) * q_norm,
                                    normal=ls_orig.normal,
@@ -521,6 +523,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
                                    positive_definite=ls_orig.positive_definite
                                    )
 
+    Solver = type(arnoldifyer._deflated_solver)
     if issubclass(Solver, linsys.Minres) or issubclass(Solver, linsys.Gmres):
         aresnorms = utils.get_residual_norms(Hh,
                                              self_adjoint=ls_orig.self_adjoint)
@@ -534,7 +537,7 @@ def bound_pseudo(arnoldifyer, Wt, b_norm,
             solver = e.solver
         aresnorms = numpy.array(solver.resnorms)
     # absolute residual norm
-    aresnorms = aresnorms * ls_small.MMlb_norm
+    aresnorms = aresnorms * q_norm
 
     if pseudo_type == 'omit':
         return aresnorms / (b_norm - g_norm)

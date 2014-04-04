@@ -186,7 +186,7 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
 
         Wt = ritz.coeffs[:, list(subset)]
         bound_pseudo = deflation.bound_pseudo(
-            arnoldifyer, Wt, ritz._deflated_solver.linear_system.MMlb_norm,
+            arnoldifyer, Wt,
             tol=tol,
             pseudo_type='omit' if not self.pseudospectra else 'auto'
             )
