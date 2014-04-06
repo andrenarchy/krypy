@@ -137,7 +137,7 @@ class RitzFactory(_DeflationVectorFactory):
 
 
 class RitzFactorySimple(_DeflationVectorFactory):
-    def __init__(self, mode='ritz', n_vectors=0, which='smallest_abs'):
+    def __init__(self, mode='ritz', n_vectors=0, which='sm'):
         '''Selects a fixed number of Ritz or harmonic Ritz vectors
         with respect to a prescribed criterion.
 
