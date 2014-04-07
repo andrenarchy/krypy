@@ -2139,7 +2139,7 @@ def get_residual_norms(H, self_adjoint=False):
     It is assumed that the initial guess is chosen as zero.'''
     H = H.copy()
     n_, n = H.shape
-    y = numpy.eye(n_, 1)
+    y = numpy.eye(n_, 1, dtype=H.dtype)
     resnorms = [1.]
     for i in range(n_-1):
         G = Givens(H[i:i+2, [i]])
