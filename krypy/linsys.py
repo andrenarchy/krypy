@@ -302,12 +302,12 @@ class _KrylovSolver(object):
         self.linear_system = linear_system
         N = linear_system.N
         self.maxiter = N if maxiter is None else maxiter
-        self.flat_vecs, (self.x0) = utils.shape_vecs(x0)
+        self.flat_vecs, (self.x0,) = utils.shape_vecs(x0)
         self.explicit_residual = explicit_residual
         self.store_arnoldi = store_arnoldi
 
         # get initial guess
-        self.x0 = self._get_initial_guess(x0)
+        self.x0 = self._get_initial_guess(self.x0)
 
         # get initial residual
         self.MMlr0, self.Mlr0, self.MMlr0_norm = \
