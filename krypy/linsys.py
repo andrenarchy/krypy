@@ -244,6 +244,7 @@ class _KrylovSolver(object):
                  maxiter=None,
                  explicit_residual=False,
                  store_arnoldi=False,
+                 dtype=None
                  ):
         r'''Init standard attributes and perform checks.
 
@@ -280,6 +281,9 @@ class _KrylovSolver(object):
           Defaults to ``False``. If the method is based on the Lanczos method
           (e.g., :py:class:`Cg` or :py:class:`Minres`), then ``H`` is
           real, symmetric and tridiagonal.
+        :param dtype: (optional)
+          an optional dtype that is used to determine the dtype for the
+          Arnoldi/Lanczos basis and matrix.
 
         Upon convergence, the instance contains the following attributes:
 
@@ -323,7 +327,9 @@ class _KrylovSolver(object):
 
         # find common dtype
         self.dtype = numpy.find_common_type([linear_system.dtype,
-                                             self.x0.dtype], [])
+                                             self.x0.dtype,
+                                             dtype
+                                             ], [])
 
         # store operator (can be modified in derived classes)
         self.MlAMr = linear_system.MlAMr

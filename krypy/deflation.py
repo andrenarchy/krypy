@@ -116,6 +116,7 @@ class _DeflationMixin(object):
         self._B_ = None
 
         super(_DeflationMixin, self).__init__(linear_system,
+                                              dtype=U.dtype,
                                               *args, **kwargs)
 
     def _solve(self):
