@@ -365,9 +365,10 @@ class Arnoldifyer(object):
         d = self.d
         k = Wt.shape[1]
 
-        # get orthonormal basis of Wt^\perp
+        # get orthonormal basis of Wt and Wt^\perp
         if k > 0:
             Wto, _ = scipy.linalg.qr(Wt)
+            Wt = Wto[:, :k]
             Wto = Wto[:, k:]
         else:
             Wto = numpy.eye(Wt.shape[0])
@@ -455,7 +456,8 @@ def bound_pseudo(arnoldifyer, Wt,
                  WGW_norm=0.,
                  tol=1e-6,
                  pseudo_type='auto',
-                 delta_n=20
+                 pseudo_kwargs=None,
+                 delta_n=20,
                  ):
     r'''Bound residual norms of next deflated system.
 
@@ -489,7 +491,12 @@ def bound_pseudo(arnoldifyer, Wt,
         (pseudospectrum has to be re computed for each iteration).
       * ``'omit'``: do not compute the pseudospectrum at all and just use the
         residual bounds from the approximate Krylov subspace.
+    :param pseudo_kwargs: (optional) arguments that are passed to the method
+      that computes the pseudospectrum.
     '''
+    if pseudo_kwargs is None:
+        pseudo_kwargs = {}
+
     # Arnoldify!
     Hh, Rh, q_norm, vdiff_norm, PWAW_norm = arnoldifyer.get(Wt)
 
@@ -566,15 +573,30 @@ def bound_pseudo(arnoldifyer, Wt,
     if pseudo_type == 'auto':
         pseudo_type = _auto()
 
+    # for delta >= min(|\lambda|), the pseudospectrum will contain zero and
+    # the thus polymax > 1. nevertheless, the bound may provide useful
+    # information in early iterations with large values of delta.
+    # Therefore, the maximal perturbation is chosen as the maximal
+    # eigenvalue of Hh
+    delta_max = 1e2*numpy.max(numpy.abs(evals))
+
+    # minimal delta is defined via Rh
+    # HACK until numpy.linal.svd (and thus numpy.linalg.norm) is fixed
+    from scipy.linalg import svd
+    _, Rhsvd, _ = svd(Rh[:, :1])
+    delta_min = PWAW_norm*(eta*(Hh_norm + G_norm) + G_norm) + numpy.max(Rhsvd)
+    if delta_min == 0:
+        delta_min = 1e-16
+
     import pseudopy
     if not ls_small.normal:
-        # todo: construct bounding box!
-        raise NotImplementedError('nonnormal not yet implemented')
+        # construct pseudospectrum for the expected range
+        pseudo = pseudopy.NonnormalAuto(Hh, delta_min*0.99, delta_max*1.01,
+                                        **pseudo_kwargs)
     elif not ls_small.self_adjoint:
         pseudo = pseudopy.NormalEvals(evals)
     else:
         pseudo = None
-        #raise NotImplementedError('hermitian not yet implemented')
 
     bounds = [aresnorms[0]]
     for i in range(1, len(aresnorms)):
@@ -593,7 +615,8 @@ def bound_pseudo(arnoldifyer, Wt,
 
         # compute polynomial
         p = utils.NormalizedRootsPolynomial(roots)
-        p_minmax_candidates = p.minmax_candidates()
+        if ls_small.self_adjoint:
+            p_minmax_candidates = p.minmax_candidates()
 
         # absolute residual
         aresnorm = aresnorms[i]
@@ -612,20 +635,18 @@ def bound_pseudo(arnoldifyer, Wt,
         if pseudo_type == 'contain':
             raise NotImplementedError('contain not yet implemented')
 
-        # for delta >= min(|\lambda|), the pseudospectrum will contain zero and
-        # the thus polymax > 1. nevertheless, the bound may provide useful
-        # information in early iterations with large values of delta.
-        # Therefore, the maximal perturbation is chosen as the maximal
-        # eigenvalue of Hh
-        delta_max = numpy.max(numpy.abs(evals))
-
         # exit if epsilon >= delta_max
         if epsilon >= delta_max:
             break
 
+        delta_log_range = numpy.linspace(numpy.log10(1.01*epsilon),
+                                         numpy.log10(delta_max),
+                                         delta_n+2
+                                         )[0:-1]
+
         def compute_pseudo(delta_log):
             delta = 10**delta_log
-            if pseudo is None:
+            if ls_small.self_adjoint:
                 # pseudospectrum are intervals
                 pseudo_intervals = utils.Intervals(
                     [utils.Interval(ev-delta, ev+delta) for ev in evals])
@@ -650,30 +671,15 @@ def bound_pseudo(arnoldifyer, Wt,
                 pseudolen = pseudo_path.length()
 
                 # evaluate polynomial on points of path
-                polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
+                if pseudolen > 0:
+                    polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
+                else:
+                    polymax = numpy.Inf
 
             # compute THE bound
             return pseudolen/(2*numpy.pi*delta) \
                 * (epsilon/(delta-epsilon)*(q_norm + beta) + beta) \
                 * polymax
-
-            #print(pseudo_terms[-1])
-            #if pseudo_terms[-1] < 0.1*resnorm:
-            #    print('breeeak')
-            #    break
-
-        delta_log_range = numpy.linspace(numpy.log10(1.01*epsilon),
-                                         numpy.log10(delta_max),
-                                         delta_n+2
-                                         )[0:-1]
-        # naive:
-        #pseudo_terms = []
-        #for delta_log in delta_log_range:
-        #    pseudo_terms.append(compute_pseudo(delta_log))
-        #min_pseudo_ind = numpy.argmin(pseudo_terms)
-        #min_pseudo = pseudo_terms[min_pseudo_ind]
-        #print('min_pseudo={0} for delta={1}'
-        #      .format(min_pseudo, 10**delta_log_range[min_pseudo_ind]))
 
         # minimization
         from scipy.optimize import minimize_scalar
