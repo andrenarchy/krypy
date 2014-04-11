@@ -140,6 +140,7 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
                  mode='extrapolate',
                  tol=None,
                  pseudospectra=False,
+                 bound_pseudo_kwargs=None,
                  deflweight=1.0):
         '''Evaluates a choice of Ritz vectors with a tailored approximate
         Krylov subspace method.
@@ -158,6 +159,8 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
           for the given problem? With ``pseudospectra=True``, a prediction
           may not be possible due to unfulfilled assumptions for the
           computation of the pseudospectral bound.
+        :param bound_pseudo_kwargs: (optional) a dictionary with arguments
+          that are passed to :py:meth:`~krypy.deflation.bound_pseudo`.
         :param deflweight: (optional) see
           :py:meth:`~krypy._DeflationMixin.estimate_time`. Defaults to 1.
         '''
@@ -165,6 +168,9 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
         self.mode = mode
         self.tol = tol
         self.pseudospectra = pseudospectra
+        if bound_pseudo_kwargs is None:
+            bound_pseudo_kwargs = {}
+        self.bound_pseudo_kwargs = bound_pseudo_kwargs
         self.deflweight = deflweight
 
     def evaluate(self, ritz, subset):
@@ -188,7 +194,8 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
         bound_pseudo = deflation.bound_pseudo(
             arnoldifyer, Wt,
             tol=tol,
-            pseudo_type='omit' if not self.pseudospectra else 'auto'
+            pseudo_type='omit' if not self.pseudospectra else 'auto',
+            **self.bound_pseudo_kwargs
             )
 
         #from matplotlib import pyplot
