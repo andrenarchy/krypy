@@ -458,6 +458,7 @@ def bound_pseudo(arnoldifyer, Wt,
                  pseudo_type='auto',
                  pseudo_kwargs=None,
                  delta_n=20,
+                 terminate_factor=1.
                  ):
     r'''Bound residual norms of next deflated system.
 
@@ -493,6 +494,9 @@ def bound_pseudo(arnoldifyer, Wt,
         residual bounds from the approximate Krylov subspace.
     :param pseudo_kwargs: (optional) arguments that are passed to the method
       that computes the pseudospectrum.
+    :param terminate_factor: (optional) terminate the computation if the ratio
+      of two subsequent residual norms is larger than the provided factor.
+      Defaults to 1.
     '''
     if pseudo_kwargs is None:
         pseudo_kwargs = {}
@@ -696,11 +700,10 @@ def bound_pseudo(arnoldifyer, Wt,
         boundval = aresnorm + min_val
 
         # if not increasing: append to bounds
-        if len(bounds) == 0 or boundval <= bounds[-1]:
-            bounds.append(boundval)
-        # otherwise: terminate
-        else:
+        if i > 1 and boundval/bounds[-1] > terminate_factor:
             break
+        else:
+            bounds.append(numpy.min([boundval, bounds[-1]]))
     return numpy.array(bounds) / (b_norm - g_norm)
 
 
