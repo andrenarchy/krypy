@@ -3,20 +3,27 @@ import numpy
 from .. import utils, deflation
 
 
-
 class _RecyclingSolver(object):
     '''Base class for recycling solvers.'''
-    def __init__(self, DeflatedSolver):
+    def __init__(self, DeflatedSolver,
+                 vector_factory=None
+                 ):
         '''Initialize recycling solver base.
 
         :param DeflatedSolver: a deflated solver from
           :py:mod:`~krypy.deflation`.
+        :param vector_factory: (optional) An instance of a subclass of
+          :py:class:`krypy.recycling.factories._DeflationVectorFactory`
+          that constructs deflation vectors for recycling. Defaults to `None`
+          which means that no recycling is used.
 
         After a run of the provided ``DeflatedSolver`` via :py:meth:`solve`,
         the resulting instance of the ``DeflatedSolver`` is available in the
         attribute ``last_solver``.
         '''
         self._DeflatedSolver = DeflatedSolver
+
+        self._vector_factory = vector_factory
 
         self.timings = utils.Timings()
         '''Timings from last run of :py:meth:`solve`.
@@ -35,14 +42,12 @@ class _RecyclingSolver(object):
               *args, **kwargs):
         '''Solve the given linear system with recycling.
 
-        The deflation vectors and the Krylov subspace of the last solve() call
-        are examined and considered for deflation according to the provided
-        ``deflation_vector_factory``.
+        The provided `vector_factory` determines which vectors are used for
+        deflation.
 
         :param linear_system: the :py:class:`~krypy.linsys.LinearSystem` that
           is about to be solved.
-        :param vector_factory: (optional) An instance of a subclass
-          of :py:class:`krypy.recycling.factories._DeflationVectorFactory`.
+        :param vector_factory: (optional) see description in constructor.
 
         All remaining arguments are passed to the ``DeflatedSolver``.
 
@@ -51,6 +56,8 @@ class _RecyclingSolver(object):
           attribute ``xk``.
         '''
         with self.timings['vector_factory']:
+            if vector_factory is None:
+                vector_factory = self._vector_factory
             # get deflation vectors
             if self.last_solver is None or vector_factory is None:
                 U = numpy.zeros((linear_system.N, 0))
