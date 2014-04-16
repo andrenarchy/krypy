@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 import numpy
 from .. import utils, deflation, linsys
+from . import factories, evaluators
 
 
 class _RecyclingSolver(object):
@@ -16,6 +17,17 @@ class _RecyclingSolver(object):
           :py:class:`krypy.recycling.factories._DeflationVectorFactory`
           that constructs deflation vectors for recycling. Defaults to `None`
           which means that no recycling is used.
+
+          Also the following strings are allowed as shortcuts:
+
+           * ``'RitzApproxKrylov'``: uses the approximate Krylov subspace bound
+             evaluator :py:class:`krypy.recycling.evaluators.RitzApproxKrylov`.
+           * ``'RitzAprioriCg'``: uses the CG :math:`\kappa`-bound
+             (:py:class:`krypy.utils.BoundCG`) as an a priori bound with
+             :py:class:`krypy.recycling.evaluators.RitzApriori`.
+           * ``'RitzAprioriMinres'``: uses the MINRES bound
+             (:py:class:`krypy.utils.BoundMinres`) as an a priori bound with
+             :py:class:`krypy.recycling.evaluators.RitzApriori`.
 
         After a run of the provided ``DeflatedSolver`` via :py:meth:`solve`,
         the resulting instance of the ``DeflatedSolver`` is available in the
@@ -63,6 +75,25 @@ class _RecyclingSolver(object):
         with self.timings['vector_factory']:
             if vector_factory is None:
                 vector_factory = self._vector_factory
+
+            # construct vector_factory if strings are provided
+            if vector_factory == 'RitzApproxKrylov':
+                vector_factory = factories.RitzFactory(
+                    subset_evaluator=evaluators.RitzApproxKrylov()
+                    )
+            elif vector_factory == 'RitzAprioriCg':
+                vector_factory = factories.RitzFactory(
+                    subset_evaluator=evaluators.RitzApriori(
+                        Bound=utils.BoundCG
+                        )
+                    )
+            elif vector_factory == 'RitzAprioriMinres':
+                vector_factory = factories.RitzFactory(
+                    subset_evaluator=evaluators.RitzApriori(
+                        Bound=utils.BoundMinres
+                        )
+                    )
+
             # get deflation vectors
             if self.last_solver is None or vector_factory is None:
                 U = numpy.zeros((linear_system.N, 0))

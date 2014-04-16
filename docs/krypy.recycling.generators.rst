@@ -6,6 +6,6 @@
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: krypy.recycling.generators._RitzCandidateGenerator
+.. autoclass:: krypy.recycling.generators._RitzSubsetsGenerator
     :members:
     :private-members:
