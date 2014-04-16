@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import numpy
-from .. import utils, deflation
+from .. import utils, deflation, linsys
 
 
 class _RecyclingSolver(object):
@@ -55,6 +55,11 @@ class _RecyclingSolver(object):
           approximate solution. The approximate solution is available under the
           attribute ``xk``.
         '''
+
+        # replace linear_system with equivalent TimedLinearSystem on demand
+        if not isinstance(linear_system, linsys.TimedLinearSystem):
+            linear_system = linsys.ConvertedTimedLinearSystem(linear_system)
+
         with self.timings['vector_factory']:
             if vector_factory is None:
                 vector_factory = self._vector_factory

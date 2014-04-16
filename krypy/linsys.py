@@ -236,6 +236,18 @@ class TimedLinearSystem(LinearSystem):
             )
 
 
+class ConvertedTimedLinearSystem(TimedLinearSystem):
+    def __init__(self, linear_system):
+        # pass through all properties of linear_system as arguments
+        kwargs = {k: linear_system.__dict__[k]
+                  for k in ['A', 'b', 'M', 'Minv', 'Ml', 'Mr', 'ip_B',
+                            'normal', 'self_adjoint', 'positive_definite',
+                            'exact_solution'
+                            ]
+                  }
+        super(ConvertedTimedLinearSystem, self).__init__(**kwargs)
+
+
 class _KrylovSolver(object):
     '''Prototype of a Krylov subspace method for linear systems.'''
     def __init__(self, linear_system,
