@@ -84,4 +84,4 @@ KryPy is free software licensed under the [MIT License](http://opensource.org/li
 # References
 
 KryPy evolved from the [PyNosh](https://bitbucket.org/nschloe/pynosh) package (Python framework for nonlinear Schrödinger equations; joint work with [Nico Schlömer](https://github.com/nschloe)) which was used for experiments in the following publication:
-* [Modified Recycling MINRES with application to nonlinear Schrödinger problems, A. Gaul and N. Schlömer, arxiv: 1208.0264, 2012](http://arxiv.org/abs/1208.0264)
+* [Preconditioned Recycling Krylov subspace methods for self-adjoint problems, A. Gaul and N. Schlömer, arxiv: 1208.0264, 2012](http://arxiv.org/abs/1208.0264)
