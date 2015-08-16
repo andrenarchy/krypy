@@ -15,13 +15,7 @@ from scipy.sparse.sputils import isintlike
 from collections import defaultdict
 
 # for Givens rotations
-try:
-    # scipy < 0.12, compare
-    # http://docs.scipy.org/doc/scipy-dev/reference/release.0.12.0.html#fblas-and-cblas
-    import scipy.linalg.blas as blas
-    blas = blas.cblas
-except ImportError:
-    import scipy.linalg.blas as blas
+import scipy.linalg.blas as blas
 
 __all__ = ['ArgumentError', 'AssumptionError', 'ConvergenceError',
            'LinearOperatorError', 'InnerProductError', 'RuntimeError',

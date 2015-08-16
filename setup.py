@@ -19,7 +19,7 @@ setup(name='krypy',
       author='André Gaul',
       author_email='gaul@web-yard.de',
       url='https://github.com/andrenarchy/krypy',
-      requires=['numpy (>=1.7)', 'scipy (>=0.12)'],
+      requires=['numpy (>=1.7)', 'scipy (>=0.13)'],
       classifiers=[
           'Development Status :: 4 - Beta',
           'Intended Audience :: Science/Research',
