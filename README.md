@@ -21,7 +21,7 @@ The documentation is hosted at
 [krypy.readthedocs.org](http://krypy.readthedocs.org).
 
 ### Example
-![GMRES convergence history](example.png)
+![](https://raw.githubusercontent.com/nschloe/krypy/master/example.png)
 
 The above convergence history is obtained with the following example where the
 [Gmres](http://krypy.readthedocs.org/en/latest/krypy.linsys.html#krypy.linsys.Gmres)
@@ -52,8 +52,8 @@ parameters such as the residual tolerance.
 ### Help
 
 Help can be optained via Python's builtin help system. For example, you can use
-the ```?``` in ```ipython```:
-```ipython
+the `?` in `ipython`:
+```python
 from krypy.linsys import Gmres
 ?Gmres
 ```
