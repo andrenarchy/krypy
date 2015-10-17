@@ -1,4 +1,10 @@
-# KryPy [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy) [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
+# KryPy
+
+[![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
+[![Documentation Status](https://readthedocs.org/projects/krypy/badge/?version=latest)](http://krypy.readthedocs.org/en/latest/?badge=latest)
+[![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
+[![Pypi version](https://img.shields.io/pypi/v/krypy.svg)](https://pypi.python.org/pypi/krypy)
+[![Pypi downloads](https://img.shields.io/pypi/dm/krypy.svg)](https://pypi.python.org/pypi/krypy)
 
 KryPy is a Python (versions 2 and 3) module for Krylov subspace methods for the solution of linear algebraic systems. This includes enhanced versions of CG, MINRES and GMRES as well as methods for the efficient solution of sequences of linear systems.
 
