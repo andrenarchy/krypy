@@ -82,6 +82,24 @@ KryPy is currently maintained by [André Gaul](http://www.math.tu-berlin.de/~gau
 
 KryPy is developed with continuous integration. Current status: [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
 
+### Distribution
+
+To create a new release
+
+1. bump the `__version__` number,
+
+2. create a Git tag,
+    ```
+    $ git tag -a v0.3.1
+    $ git push --tags
+    ```
+    and
+
+3. upload to PyPi:
+    ```
+    $ make upload
+    ```
+
 
 # License
 
