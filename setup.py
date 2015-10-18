@@ -6,8 +6,14 @@ import codecs
 
 # shamelessly copied from VoroPy
 def read(fname):
-    return codecs.open(os.path.join(os.path.dirname(__file__), fname),
-                       encoding='utf-8').read()
+    try:
+        content = codecs.open(
+            os.path.join(os.path.dirname(__file__), fname),
+            encoding='utf-8'
+            ).read()
+    except Exception:
+        content = ''
+    return content
 
 from krypy import __version__
 
