@@ -1,4 +1,10 @@
-# KryPy [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy) [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
+# KryPy
+
+[![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
+[![Documentation Status](https://readthedocs.org/projects/krypy/badge/?version=latest)](http://krypy.readthedocs.org/en/latest/?badge=latest)
+[![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
+[![Pypi version](https://img.shields.io/pypi/v/krypy.svg)](https://pypi.python.org/pypi/krypy)
+[![Pypi downloads](https://img.shields.io/pypi/dm/krypy.svg)](https://pypi.python.org/pypi/krypy)
 
 KryPy is a Python (versions 2 and 3) module for Krylov subspace methods for the solution of linear algebraic systems. This includes enhanced versions of CG, MINRES and GMRES as well as methods for the efficient solution of sequences of linear systems.
 
@@ -21,7 +27,7 @@ The documentation is hosted at
 [krypy.readthedocs.org](http://krypy.readthedocs.org).
 
 ### Example
-![GMRES convergence history](example.png)
+![](https://raw.githubusercontent.com/nschloe/krypy/master/example.png)
 
 The above convergence history is obtained with the following example where the
 [Gmres](http://krypy.readthedocs.org/en/latest/krypy.linsys.html#krypy.linsys.Gmres)
@@ -52,8 +58,8 @@ parameters such as the residual tolerance.
 ### Help
 
 Help can be optained via Python's builtin help system. For example, you can use
-the ```?``` in ```ipython```:
-```ipython
+the `?` in `ipython`:
+```python
 from krypy.linsys import Gmres
 ?Gmres
 ```
@@ -75,6 +81,24 @@ KryPy has the following dependencies:
 KryPy is currently maintained by [André Gaul](http://www.math.tu-berlin.de/~gaul/). Feel free to contact André. Please submit feature requests and bugs as github issues.
 
 KryPy is developed with continuous integration. Current status: [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
+
+### Distribution
+
+To create a new release
+
+1. bump the `__version__` number,
+
+2. create a Git tag,
+    ```
+    $ git tag -a v0.3.1
+    $ git push --tags
+    ```
+    and
+
+3. upload to PyPi:
+    ```
+    $ make upload
+    ```
 
 
 # License
