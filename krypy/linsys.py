@@ -256,7 +256,8 @@ class _KrylovSolver(object):
                  maxiter=None,
                  explicit_residual=False,
                  store_arnoldi=False,
-                 dtype=None
+                 dtype=None,
+                 raise_conv_error=False
                  ):
         r'''Init standard attributes and perform checks.
 
@@ -296,6 +297,8 @@ class _KrylovSolver(object):
         :param dtype: (optional)
           an optional dtype that is used to determine the dtype for the
           Arnoldi/Lanczos basis and matrix.
+        :param raise_conv_error: (optional) Convert warning  into error
+          if the converge is not achieved. Defaults to ``False``.
 
         Upon convergence, the instance contains the following attributes:
 
@@ -321,6 +324,7 @@ class _KrylovSolver(object):
         self.flat_vecs, (self.x0,) = utils.shape_vecs(x0)
         self.explicit_residual = explicit_residual
         self.store_arnoldi = store_arnoldi
+        self.raise_conv_error = raise_conv_error
 
         # get initial guess
         self.x0 = self._get_initial_guess(self.x0)
@@ -433,10 +437,17 @@ class _KrylovSolver(object):
                 # (approximate solution can be obtained from exception)
                 if self.iter+1 == self.maxiter:
                     self._finalize()
-                    raise utils.ConvergenceError(
-                        ('No convergence in last iteration '
-                         '(maxiter: {0}, residual: {1}).')
-                        .format(self.maxiter, self.resnorms[-1]), self)
+                    if self.raise_conv_error:
+                        raise utils.ConvergenceError(
+                            ('No convergence in last iteration '
+                            'maxiter: {0}, residual: {1}).')
+                            .format(self.maxiter, self.resnorms[-1]),
+                            self)
+                    else:
+                        warnings.warn(
+                            ('No convergence in last iteration '
+                            'maxiter: {0}, residual: {1}).')
+                            .format(self.maxiter, self.resnorms[-1]))
                 # updated residual was below but explicit is not: warn
                 elif not self.explicit_residual \
                         and resnorm/self.linear_system.MMlb_norm <= self.tol:
@@ -923,6 +934,13 @@ class _RestartedSolver(object):
         if linear_system.exact_solution is not None:
             self.errnorms = [numpy.Inf]
 
+        # because of the management of the restart mecanism
+        try:
+            raise_conv_error = kwargs['raise_conv_error']
+        except:
+            raise_conv_error = False
+        kwargs.update({'raise_conv_error': True})
+
         restart = 0
         while restart == 0 or \
                 self.resnorms[-1] > tol and restart <= max_restarts:
@@ -951,9 +969,14 @@ class _RestartedSolver(object):
             restart += 1
 
         if self.resnorms[-1] > tol:
-            raise utils.ConvergenceError(
-                'No convergence after {0} restarts.'.format(max_restarts),
-                self)
+            if raise_conv_error:
+                raise utils.ConvergenceError(
+                    'No convergence after {0} restarts.'.format(max_restarts),
+                    self)
+            else:
+                warnings.warn(
+                    'No convergence after {0} restarts.'.format(max_restarts)
+                    )
 
 
 class RestartedGmres(_RestartedSolver):
