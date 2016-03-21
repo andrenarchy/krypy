@@ -1405,7 +1405,7 @@ class Timings(defaultdict):
         '''Return timings for dictionary ops holding the operation names as
         keys and the number of applications as values.'''
         time = 0.
-        for op, count in ops.iteritems():
+        for op, count in ops.items():
             time += self.get(op) * count
         return time
 

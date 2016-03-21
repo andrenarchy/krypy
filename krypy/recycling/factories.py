@@ -120,7 +120,7 @@ class RitzFactory(_DeflationVectorFactory):
             import operator
             print('Timings for all successfully evaluated choices of '
                   'deflation vectors with corresponding Ritz values:')
-            for subset, time in sorted(overall_evaluations.iteritems(),
+            for subset, time in sorted(overall_evaluations.items(),
                                        key=operator.itemgetter(1)):
                 print(' {0}s: '.format(time)
                       + ', '.join([str(el)
