@@ -256,7 +256,8 @@ class _KrylovSolver(object):
                  maxiter=None,
                  explicit_residual=False,
                  store_arnoldi=False,
-                 dtype=None
+                 dtype=None,
+                 callback=None
                  ):
         r'''Init standard attributes and perform checks.
 
@@ -296,6 +297,9 @@ class _KrylovSolver(object):
         :param dtype: (optional)
           an optional dtype that is used to determine the dtype for the
           Arnoldi/Lanczos basis and matrix.
+        :param callback: (optional)
+          User-supplied function to call after each iteration. It is called
+          as callback(xk), where xk is the current solution vector.
 
         Upon convergence, the instance contains the following attributes:
 
@@ -321,6 +325,7 @@ class _KrylovSolver(object):
         self.flat_vecs, (self.x0,) = utils.shape_vecs(x0)
         self.explicit_residual = explicit_residual
         self.store_arnoldi = store_arnoldi
+        self.callback = callback
 
         # get initial guess
         self.x0 = self._get_initial_guess(self.x0)
@@ -825,12 +830,11 @@ class Gmres(_KrylovSolver):
     If the operator :math:`M_l A M_r` is self-adjoint then consider using
     the MINRES method :py:class:`Minres`.
     '''
-    def __init__(self, linear_system, ortho='mgs', callback=None, **kwargs):
+    def __init__(self, linear_system, ortho='mgs', **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         '''
         self.ortho = ortho
-        self.callback = callback
         super(Gmres, self).__init__(linear_system, **kwargs)
 
     def _get_xk(self, y):
