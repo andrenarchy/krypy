@@ -409,6 +409,11 @@ class _KrylovSolver(object):
                 self.linear_system.exact_solution - self.xk,
                 ip_B=self.linear_system.ip_B))
 
+        if self.callback is not None:
+            if self.xk is None:
+                self.xk = self._get_xk(yk)
+            self.callback(self.xk)
+
         rkn = None
 
         # compute explicit residual if asked for or if the updated residual
@@ -820,11 +825,12 @@ class Gmres(_KrylovSolver):
     If the operator :math:`M_l A M_r` is self-adjoint then consider using
     the MINRES method :py:class:`Minres`.
     '''
-    def __init__(self, linear_system, ortho='mgs', **kwargs):
+    def __init__(self, linear_system, ortho='mgs', callback=None, **kwargs):
         '''
         All parameters of :py:class:`_KrylovSolver` are valid in this solver.
         '''
         self.ortho = ortho
+        self.callback = callback
         super(Gmres, self).__init__(linear_system, **kwargs)
 
     def _get_xk(self, y):
