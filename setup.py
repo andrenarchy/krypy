@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
-from distutils.core import setup
 import codecs
+
+# Use setuptools for these commands (they don't work well or at all
+# with distutils).  For normal builds use distutils.
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
 
 # shamelessly copied from VoroPy
@@ -15,17 +21,15 @@ def read(fname):
         content = ''
     return content
 
-from krypy import __version__
-
 setup(name='krypy',
       packages=['krypy', 'krypy.recycling'],
-      version=__version__,
+      version='2.1.6',
       description='Krylov subspace methods for linear systems',
       long_description=read('README.rst'),
       author='André Gaul',
       author_email='gaul@web-yard.de',
       url='https://github.com/andrenarchy/krypy',
-      requires=['numpy (>=1.7)', 'scipy (>=0.13)'],
+      install_requires=['numpy (>=1.7)', 'scipy (>=0.13)'],
       classifiers=[
           'Development Status :: 4 - Beta',
           'Intended Audience :: Science/Research',
