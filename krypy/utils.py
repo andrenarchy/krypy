@@ -2114,7 +2114,7 @@ class NormalizedRootsPolynomial(object):
         for j in range(vals.shape[1]):
             sort_tmp = numpy.argsort(numpy.abs(vals[:, j]))
             sort = numpy.zeros((n,), dtype=numpy.int)
-            mid = numpy.ceil(float(n)/2)
+            mid = int(numpy.ceil(float(n)/2))
             sort[::2] = sort_tmp[:mid]
             sort[1::2] = sort_tmp[mid:][::-1]
             vals[:, j] = vals[sort, j]
