@@ -188,12 +188,12 @@ def norm(x, y=None, ip_B=None):
     Compute :math:`\sqrt{\langle x,y\rangle}` where the inner product is
     defined via ``ip_B``.
     '''
-    if y is None:
-        y = x
     # Euclidean inner product?
     if y is None and (ip_B is None
                       or isinstance(ip_B, IdentityLinearOperator)):
         return numpy.linalg.norm(x, 2)
+    if y is None:
+        y = x
     ip = inner(x, y, ip_B=ip_B)
     nrm_diag = numpy.linalg.norm(numpy.diag(ip), 2)
     nrm_diag_imag = numpy.linalg.norm(numpy.imag(numpy.diag(ip)), 2)
