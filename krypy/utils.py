@@ -1989,7 +1989,7 @@ class BoundMinres(object):
             pos = True
         if pos:
             return BoundCG(evals)
-        return super(BoundMinres, cls).__new__(cls, evals)
+        return super(BoundMinres, cls).__new__(cls)
 
     def __init__(self, evals):
         '''Initialize with array/list of eigenvalues or Intervals object.'''
