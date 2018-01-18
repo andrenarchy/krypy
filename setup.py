@@ -29,7 +29,7 @@ setup(name='krypy',
       author='André Gaul',
       author_email='gaul@web-yard.de',
       url='https://github.com/andrenarchy/krypy',
-      install_requires=['numpy (>=1.7)', 'scipy (>=0.13)'],
+      install_requires=['numpy (>=1.11)', 'scipy (>=0.17)'],
       classifiers=[
           'Development Status :: 4 - Beta',
           'Intended Audience :: Science/Research',
