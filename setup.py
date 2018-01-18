@@ -23,7 +23,7 @@ def read(fname):
 
 setup(name='krypy',
       packages=['krypy', 'krypy.recycling'],
-      version='2.1.6',
+      version='2.1.7',
       description='Krylov subspace methods for linear systems',
       long_description=read('README.rst'),
       author='André Gaul',
