@@ -1,6 +1,10 @@
 Bibliography
 ============
 
+.. [Gau14] A. Gaul. Recycling Krylov subspace methods for sequences of
+    linear systems. PhD thesis. TU Berlin, 2014.
+    https://dx.doi.org/10.14279/depositonce-4147
+
 .. [GauGLN13] A. Gaul, M. H. Gutknecht, J. Liesen, and R. Nabben. A framework
     for deflated and augmented Krylov subspace methods. SIAM J. Matrix Anal.
     Appl., 34 (2013), pp. 495-518.
