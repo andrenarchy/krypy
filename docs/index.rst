@@ -12,7 +12,20 @@ What is KryPy and where is the code?
 KryPy is a Krylov subspace methods package for Python. If you're looking for
 the source code or bug reports, take a look at `KryPy's github page
 <https://github.com/andrenarchy/krypy>`_. These pages provide the
-documentation of KryPy's API.
+documentation of KryPy's API. The project was initiated by André Gaul while
+researching Krylov subspace methods. The theoretical background as well as
+applications of this software package can be found in the PhD thesis [Gau14]_.
+
+KryPy allows Python users to easily use Krylov subspace methods, e.g., for solving
+linear systems or eigenvalue problems. With its built-in deflation and
+recycling capabilities it is suitable for advanced applications of Krylov
+subspace methods (see :doc:`krypy.deflation` and :doc:`krypy.recycling`).
+It is also ideal for experimenting with Krylov subspaces since you have access to
+all data that is generated (e.g., Arnoldi/Lanczos relations), you can use
+different orthogonalization algorithms (Lanczos short recurrences, modified
+Gram-Schmidt, double modified Gram-Schmidt, Householder), compare subspaces via
+angles, and much more. And if you need more: KryPy is free software, it's easy
+to extend, and pull requests are more than welcome!
 
 Contents
 --------
@@ -64,10 +77,10 @@ strategy. Just for illustration, the same linear system is solved twice in the
 following code::
 
   from krypy.recycling import RecyclingMinres
-  
+
   # get recycling solver with approximate Krylov subspace strategy
   rminres = RecyclingMinres(vector_factory='RitzApproxKrylov')
-  
+
   # solve twice
   rsolver1 = rminres.solve(linear_system)
   rsolver2 = rminres.solve(linear_system)

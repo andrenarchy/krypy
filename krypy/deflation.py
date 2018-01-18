@@ -398,10 +398,8 @@ class Arnoldifyer(object):
         # Arnoldify
         WtoQ = Q.apply(Wto.T.conj()).T.conj()
 
-        # TODO: replace with scipy's Hessenberg when bug is fixed
-        #from scipy.linalg import hessenberg
-        #Hh, T = hessenberg(
-        Hh, T = utils.hessenberg(
+        from scipy.linalg import hessenberg
+        Hh, T = hessenberg(
             Q.apply(Wto.T.conj().dot(self.J).dot(Pt*(self.L.dot(WtoQ)))),
             calc_q=True)
 
