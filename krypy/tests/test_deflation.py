@@ -4,8 +4,7 @@ import krypy.tests.test_linsys as test_linsys
 import numpy
 import scipy.linalg
 import itertools
-from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
-    assert_array_equal, assert_equal
+from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 
 def test_deflation_solver():
@@ -28,8 +27,8 @@ def test_deflation_solver():
                         'maxiter': 15,
                         'store_arnoldi': True}
 
-                    #if solver is krypy.deflation.DeflatedGmres:
-                    #    params['ortho'] = 'dmgs'
+                    # if solver is krypy.deflation.DeflatedGmres:
+                    #     params['ortho'] = 'dmgs'
 
                     yield run_deflation_solver, solver, ls, params
 
@@ -114,8 +113,8 @@ def check_Ritz(solver, ls):
                 numpy.ones(m+n))
 
             # check resnorms
-            #assert_array_almost_equal(ritz.resnorms[sort],
-            #                          cmp_resnorms, decimal=4)
+            # assert_array_almost_equal(ritz.resnorms[sort],
+            #                           cmp_resnorms, decimal=4)
 
 
 def test_Arnoldifyer():
@@ -200,7 +199,7 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
                         / A_norm,
                         0, 7)
 
-    ## check projection
+    # check projection
     assert_array_almost_equal(krypy.utils.inner(Vh, (At+F)*Vh, ip_B=ip_Minv_B),
                               Hh,
                               7)
@@ -212,16 +211,16 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
 
     # check norm of perturbation
     if Rh.size > 0:
-        #TODO: reenable once the numpy installation on travis is up-to-date!
-        #assert_almost_equal(numpy.linalg.norm(Rh, 2), numpy.linalg.norm(F, 2),
-        #                    8)
+        # TODO: reenable once the numpy installation on travis is up-to-date!
+        # assert_almost_equal(numpy.linalg.norm(Rh, 2), numpy.linalg.norm(F, 2),
+        #                     8)
         pass
 
     # check norm of vdiff
-    #PWb = PW*ls.b
-    #assert_array_almost_equal(krypy.utils.norm(ls.M*PW*,
-    #                                           ip_B=ls.get_ip_Minv_B()),
-    #                          vdiff_norm)
+    # PWb = PW*ls.b
+    # assert_array_almost_equal(krypy.utils.norm(ls.M*PW*,
+    #                                            ip_B=ls.get_ip_Minv_B()),
+    #                           vdiff_norm)
 
     # get orthonormal basis
     Q, _ = krypy.utils.qr(numpy.eye(N), ip_B=ls.get_ip_Minv_B())
@@ -233,7 +232,6 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
     assert_almost_equal(PWAW_norm,
                         _get_op_norm(ls.M*PW*ls.Minv)
                         )
-
 
 
 if __name__ == '__main__':

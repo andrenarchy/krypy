@@ -68,7 +68,7 @@ class LinearSystem(object):
           (for debugging or research purposes). Defaults to ``None``.
         '''
         self.N = N = len(b)
-        '''Dimension :math:`N` of the space :math:`\mathbb{C}^N` where the
+        '''Dimension :math:`N` of the space :math:`\\mathbb{C}^N` where the
         linear system is defined.'''
         shape = (N, N)
 
@@ -117,7 +117,7 @@ class LinearSystem(object):
 
         .. math::
 
-          \|M M_l b\|_{M^{-1}}
+          \\|M M_l b\\|_{M^{-1}}
         '''
 
     def get_residual(self, z, compute_norm=False):

@@ -1,7 +1,6 @@
 import krypy
 import numpy
 import itertools
-from scipy.sparse import csr_matrix
 import scipy.linalg
 from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
     assert_array_equal, assert_equal
@@ -337,14 +336,14 @@ def run_hegedus(A, b, x0, M, Ml, ip_B):
 
 
 def test_arnoldi():
-    #TODO: reactivate the complex tests once travis-ci uses newer
-    #      numpy/scipy versions.
+    # TODO: reactivate the complex tests once travis-ci uses newer
+    #       numpy/scipy versions.
     matrices = [get_matrix_spd(),
-                #get_matrix_hpd(),
+                # get_matrix_hpd(),
                 get_matrix_symm_indef(),
-                #get_matrix_herm_indef(),
+                # get_matrix_herm_indef(),
                 get_matrix_nonsymm(),
-                #get_matrix_comp_nonsymm()
+                # get_matrix_comp_nonsymm()
                 ]
     vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
     maxiters = [1, 5, 9, 10]
@@ -365,12 +364,12 @@ def test_arnoldi():
                 continue
             yield run_arnoldi, A, v, maxiter, ortho, M, ip_B, An
 
-    #TODO: reactivate the complex tests once travis-ci uses newer
-    #      numpy/scipy versions.
+    # TODO: reactivate the complex tests once travis-ci uses newer
+    #       numpy/scipy versions.
     matrices = [get_matrix_spd(),
-                #get_matrix_hpd(),
+                # get_matrix_hpd(),
                 get_matrix_symm_indef(),
-                #get_matrix_herm_indef()
+                # get_matrix_herm_indef()
                 ]
     for (matrix, v, maxiter, M, ip_B) in \
             itertools.product(matrices, vs, maxiters, Ms, ip_Bs):
@@ -408,7 +407,7 @@ def assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B,
 
     k = H.shape[1]
 
-    #maxiter respected?
+    # maxiter respected?
     assert(k <= maxiter)
 
     invariant = H.shape[0] == k
@@ -486,9 +485,9 @@ def assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B,
 def test_ritz():
     # Hermitian matrices
     matrices_herm = [get_matrix_spd(),
-                     #get_matrix_hpd(),
-                     #get_matrix_symm_indef(),
-                     #get_matrix_herm_indef(),
+                     # get_matrix_hpd(),
+                     # get_matrix_symm_indef(),
+                     # get_matrix_herm_indef(),
                      ]
     matrices_nonherm = [get_matrix_nonsymm(),
                         get_matrix_comp_nonsymm()

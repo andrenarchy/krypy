@@ -1,8 +1,8 @@
 import numpy
 from .. import utils, deflation
-from . import generators, evaluators
+from . import generators
 
-#__all__ = ['_DeflationVectorFactory', 'RitzFactory']
+# __all__ = ['_DeflationVectorFactory', 'RitzFactory']
 
 
 class _DeflationVectorFactory(object):
@@ -101,7 +101,7 @@ class RitzFactory(_DeflationVectorFactory):
             overall_evaluations.update(evaluations)
 
         if len(overall_evaluations) > 0:
-        # if there was a successfull evaluation: pick the best one
+            # if there was a successfull evaluation: pick the best one
             selection = list(min(overall_evaluations,
                              key=overall_evaluations.get))
         else:

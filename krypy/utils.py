@@ -10,7 +10,7 @@ import warnings
 import time
 import scipy.linalg
 from scipy.sparse import isspmatrix
-#from scipy.sparse.linalg import LinearOperator, aslinearoperator
+# from scipy.sparse.linalg import LinearOperator, aslinearoperator
 from scipy.sparse.sputils import isintlike
 from collections import defaultdict
 
@@ -260,7 +260,7 @@ def norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product=ip_euclid):
 def orthonormality(V, ip_B=None):
     """Measure orthonormality of given basis.
 
-    :param V: a matrix :math:`V=[v_1,\ldots,v_n]` with ``shape==(N,n)``.
+    :param V: a matrix :math:`V=[v_1,\\ldots,v_n]` with ``shape==(N,n)``.
     :param ip_B: (optional) the inner product to use, see :py:meth:`inner`.
 
     :return: :math:`\\| I_n - \\langle V,V \\rangle \\|_2`.
@@ -297,7 +297,7 @@ class House:
         """Compute Householder transformation for given vector.
 
         Initialize Householder transformation :math:`H` such that
-        :math:`Hx = \\alpha \|x\|_2 e_1` with :math:`|\\alpha|=1`
+        :math:`Hx = \\alpha \\|x\\|_2 e_1` with :math:`|\\alpha|=1`
 
         The algorithm is a combination of Algorithm 5.1.1 on page 236
         and the treatment of the complex case in Section 5.1.13 on page 243
@@ -1078,7 +1078,7 @@ def arnoldi_projected(H, P, k, ortho='mgs'):
     to :math:`\\langle\\cdot,\\cdot\\rangle`,
     :math:`\\underline{G}_i` is an extended upper Hessenberg matrix
     and :math:`E_i x = v_{n+1} F_i \\langle W_i,x\\rangle` with
-    :math:`F_i=[f_1,\ldots,f_i]\\in\\mathbb{C}^{1,i}`.
+    :math:`F_i=[f_1,\\ldots,f_i]\\in\\mathbb{C}^{1,i}`.
 
     The perturbed Arnoldi relation can also be generated with the operator
     :math:`P_{V_n} \\tilde{P} A`:
@@ -1115,8 +1115,7 @@ def arnoldi_projected(H, P, k, ortho='mgs'):
     v = P * numpy.eye(n, 1)
     maxiter = n-k+1
     F = numpy.zeros((1, maxiter), dtype=dtype)
-    PH = lambda x: P*(H*x)
-    PH = LinearOperator((n, n), dtype, PH)
+    PH = LinearOperator((n, n), dtype, lambda x: P*(H*x))
     _arnoldi = Arnoldi(PH, v, maxiter=maxiter, ortho=ortho)
     while _arnoldi.iter < _arnoldi.maxiter and not _arnoldi.invariant:
         u, _ = _arnoldi.get_last()
@@ -1153,15 +1152,15 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
       in the following description:
 
       `Given two n-dimensional subspaces`
-      :math:`X,Y\subseteq \\mathbb{C}^N`,
+      :math:`X,Y\\subseteq \\mathbb{C}^N`,
       `find a basis`
-      :math:`z_1,\ldots,z_n`
+      :math:`z_1,\\ldots,z_n`
       `of`
       :math:`X`
-      `and` :math:`\\theta_1,\ldots,\\theta_n\\in\\mathbb{C}`
+      `and` :math:`\\theta_1,\\ldots,\\theta_n\\in\\mathbb{C}`
       such that
       :math:`A z_i - \\theta_i z_i \\perp Y`
-      for all :math:`i\\in\{1,\ldots,n\}`.
+      for all :math:`i\\in\\{1,\\ldots,n\\}`.
 
       In this setting the choices are
 
@@ -1185,7 +1184,7 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
 
       Where
 
-      * ``theta`` are the Ritz values :math:`[\\theta_1,\ldots,\\theta_n]`.
+      * ``theta`` are the Ritz values :math:`[\\theta_1,\\ldots,\\theta_n]`.
       * ``U`` are the coefficients of the Ritz vectors in the Arnoldi basis,
         i.e. :math:`z_i=Vu_i` where :math:`u_i` is the i-th column of U.
       * ``resnorm`` is a residual norm vector.
@@ -1401,7 +1400,7 @@ class LinearOperator(object):
     def __neg__(self):
         try:
             return _ScaledLinearOperator(self, -1)
-        except LinearOperatorError as e:
+        except LinearOperatorError:
             return NotImplemented
 
     def __sub__(self, X):
@@ -1604,26 +1603,26 @@ def gap(lamda, sigma, mode='individual'):
     """Compute spectral gap.
 
     Useful for eigenvalue/eigenvector bounds. Computes the gap
-    :math:`\delta\geq 0` between two sets of real numbers ``lamda`` and
+    :math:`\\delta\\geq 0` between two sets of real numbers ``lamda`` and
     ``sigma``. The gap can be computed in several ways and may not exist, see
     the ``mode`` parameter.
 
     :param lamda: a non-empty set
-      :math:`\Lambda=\{\lambda_1,\ldots,\lambda_n\}` given as a single real
+      :math:`\\Lambda=\\{\\lambda_1,\\ldots,\\lambda_n\\}` given as a single real
       number or a list or ``numpy.array`` with real numbers.
-    :param sigma: a non-empty set :math:`\Sigma=\{\sigma_1,\ldots,\sigma_m\}`.
+    :param sigma: a non-empty set :math:`\\Sigma=\\{\\sigma_1,\\ldots,\\sigma_m\\}`.
       See ``lamda``.
     :param mode: (optional). Defines how the gap should be computed. May be one
       of
 
       * ``'individual'`` (default):
-        :math:`\delta=\min_{\substack{i\in\{1,\ldots,n\}\\\\j\in\{1,\ldots,m\}}} |\lambda_i - \sigma_j|`.
+        :math:`\\delta=\\min_{\\substack{i\\in\\{1,\\ldots,n\\}\\\\j\\in\\{1,\\ldots,m\\}}} |\\lambda_i - \\sigma_j|`.
         With this mode, the gap is always be defined.
-      * ``'interval'``: determine the maximal :math:`\delta` such that
-        :math:`\Sigma\subset\mathbb{R}\setminus[\min_{\lambda\in\Lambda}\lambda-\delta,\max_{\lambda\in\Lambda}\lambda+\delta]`.
+      * ``'interval'``: determine the maximal :math:`\\delta` such that
+        :math:`\\Sigma\\subset\\mathbb{R}\\setminus[\\min_{\\lambda\\in\\Lambda}\\lambda-\\delta,\\max_{\\lambda\\in\\Lambda}\\lambda+\\delta]`.
         If the gap does not exists, ``None`` is returned.
 
-    :return: :math:`\delta` or ``None``.
+    :return: :math:`\\delta` or ``None``.
     """
     # sanitize input
     if numpy.isscalar(lamda):
@@ -2004,9 +2003,9 @@ class NormalizedRootsPolynomial(object):
         '''Evaluate polyonmial at given points.
 
         :param points: a point :math:`x` or array of points
-          :math:`x_1,\dots,x_m` with ``points.shape==(m,)``.
+          :math:`x_1,\\dots,x_m` with ``points.shape==(m,)``.
         :returns: :math:`p(x)` or array of shape ``(m,)`` with
-          :math:`p(x_1),\dots,p(x_m)`.
+          :math:`p(x_1),\\dots,p(x_m)`.
         '''
         # check input
         p = numpy.asarray(points)
