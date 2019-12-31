@@ -2,8 +2,7 @@ import krypy
 import krypy.tests.test_utils as test_utils
 import numpy
 import itertools
-from numpy.testing import assert_almost_equal, assert_array_almost_equal, \
-    assert_array_equal, assert_equal
+from numpy.testing import assert_almost_equal
 
 
 def dictproduct(d):
@@ -151,7 +150,7 @@ def check_solver(sol, solver, ls, params):
     Ml = krypy.utils.get_linearoperator(shape, ls.Ml)
 
     # maxiter respected?
-    if not 'max_restarts' in params:
+    if 'max_restarts' not in params:
         assert(len(sol.resnorms)-1 <= params['maxiter'])
     else:
         assert(len(sol.resnorms)-1 <=
@@ -203,8 +202,9 @@ def check_solver(sol, solver, ls, params):
     # has gmres (without restarts) found the solution after max N iterations?
     # (cg or minres may take longer because of roundoff errors)
     if solver == krypy.linsys.Gmres and \
-            ((not 'max_restarts' in params) or (params['max_restarts'] == 0)):
+            (('max_restarts' not in params) or (params['max_restarts'] == 0)):
         assert (len(sol.resnorms)-1 <= ls.b.shape[0])
+
 
 if __name__ == '__main__':
     import nose

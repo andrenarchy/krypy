@@ -625,12 +625,11 @@ def bound_pseudo(arnoldifyer, Wt,
 
         # perturbation
         # HACK until numpy.linal.svd (and thus numpy.linalg.norm) is fixed
-        from scipy.linalg import svd
         _, Rhsvd, _ = svd(Rh[:, :i])
         Rhnrm = numpy.max(Rhsvd)
         epsilon = PWAW_norm*(eta*(Hh_norm + G_norm) + G_norm) \
             + Rhnrm
-            #+ numpy.linalg.norm(Rh[:, :i], 2)
+            # + numpy.linalg.norm(Rh[:, :i], 2)
         if epsilon == 0:
             epsilon = 1e-16
 
@@ -798,8 +797,8 @@ class Ritz(object):
                 resnorm2 = Gy.T.conj().dot(S.dot(Gy))
                 self.resnorms[i] = numpy.sqrt(numpy.abs(resnorm2))
 
-        #elif isinstance(P, TODO):
-            #TODO
+        # elif isinstance(P, TODO):
+            # TODO
         else:
             raise utils.ArgumentError(
                 'Invalid projection used in deflated_solver. '

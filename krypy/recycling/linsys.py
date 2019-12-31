@@ -22,7 +22,7 @@ class _RecyclingSolver(object):
 
            * ``'RitzApproxKrylov'``: uses the approximate Krylov subspace bound
              evaluator :py:class:`krypy.recycling.evaluators.RitzApproxKrylov`.
-           * ``'RitzAprioriCg'``: uses the CG :math:`\kappa`-bound
+           * ``'RitzAprioriCg'``: uses the CG :math:`\\kappa`-bound
              (:py:class:`krypy.utils.BoundCG`) as an a priori bound with
              :py:class:`krypy.recycling.evaluators.RitzApriori`.
            * ``'RitzAprioriMinres'``: uses the MINRES bound

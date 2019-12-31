@@ -102,7 +102,7 @@ class RitzApriori(_RitzSubsetEvaluator):
         mu_min = mu_ints.min_abs()
 
         # check gap assumption
-        #if delta_sel + delta_non_sel + eps_max - eps_min >= delta:
+        # if delta_sel + delta_non_sel + eps_max - eps_min >= delta:
         if delta_sel + eps_max - eps_min >= delta:
             raise utils.AssumptionError(
                 'delta_sel + delta_non_sel + eps_max - eps_min >= delta'
@@ -116,12 +116,12 @@ class RitzApriori(_RitzSubsetEvaluator):
             raise utils.AssumptionError('mu_min == 0 not allowed')
 
         # compute eta
-        #eta = (delta_sel+eps_res)**2 * (
-        #    1/(delta-delta_non_sel-eps_max+eps_min)
-        #    + 1/mu_min
-        #    )
-        #left = - delta_non_sel + eps_min - eta
-        #right = delta_non_sel + eps_max + eta
+        # eta = (delta_sel+eps_res)**2 * (
+        #     1/(delta-delta_non_sel-eps_max+eps_min)
+        #     + 1/mu_min
+        #     )
+        # left = - delta_non_sel + eps_min - eta
+        # right = delta_non_sel + eps_max + eta
         eta = (delta_sel+eps_res)**2 * (
             1/(delta-eps_max+eps_min)
             + 1/mu_min
@@ -198,8 +198,8 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
             **self.bound_pseudo_kwargs
             )
 
-        #from matplotlib import pyplot
-        #pyplot.semilogy(bound_pseudo)
+        # from matplotlib import pyplot
+        # pyplot.semilogy(bound_pseudo)
 
         if len(bound_pseudo) <= 1:
             raise utils.AssumptionError('no bound computed')
@@ -216,7 +216,7 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
                 (bound_pseudo[1:]/bound_pseudo[0])
                 ** (1./numpy.array(range(1, len(bound_pseudo))))
                 )
-            if alpha >= 1 or alpha==0:
+            if alpha >= 1 or alpha == 0:
                 raise utils.AssumptionError(
                     'Cannot compute bound because alpha == {0} >= 1'.format(
                         alpha))

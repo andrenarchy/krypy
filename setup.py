@@ -21,6 +21,7 @@ def read(fname):
         content = ''
     return content
 
+
 setup(name='krypy',
       packages=['krypy', 'krypy.recycling'],
       version='2.1.7',
