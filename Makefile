@@ -1,13 +1,14 @@
-
 default:
 	@echo "\"make upload\"?"
 
-README.rst: README.md
-	pandoc README.md -o README.rst
-	python setup.py check -r -s || exit 1
-
-upload: setup.py README.rst
-	python setup.py sdist upload --sign
+upload: clean setup.py
+	# Make sure we're on the master branch
+	@if [ "$(shell git rev-parse --abbrev-ref HEAD)" != "master" ]; then exit 1; fi
+	rm -f dist/*
+	python3 setup.py sdist
+	python3 setup.py bdist_wheel
+	twine upload dist/*
 
 clean:
-	rm -f README.rst
+	@find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
+	@rm -rf *.egg-info/ build/ dist/
