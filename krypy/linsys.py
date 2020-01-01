@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 import numpy
 import warnings
 from . import utils
@@ -435,15 +434,17 @@ class _KrylovSolver(object):
                     self._finalize()
                     raise utils.ConvergenceError(
                         ('No convergence in last iteration '
-                         '(maxiter: {0}, residual: {1}).')
-                        .format(self.maxiter, self.resnorms[-1]), self)
+                         f'(maxiter: {self.maxiter}, '
+                         f'residual: {self.resnorms[-1]}).'),
+                         self)
                 # updated residual was below but explicit is not: warn
                 elif not self.explicit_residual \
                         and resnorm/self.linear_system.MMlb_norm <= self.tol:
                     warnings.warn(
                         'updated residual is below tolerance, explicit '
-                        'residual is NOT! (upd={0} <= tol={1} < exp={2})'
-                        .format(resnorm, self.tol, self.resnorms[-1]))
+                        'residual is NOT! '
+                        f'(upd={resnorm} <= tol={self.tol} < exp={self.resnorms[-1]})'
+                        )
         else:
             # only store updated residual
             self.resnorms.append(resnorm/self.linear_system.MMlb_norm)
@@ -573,10 +574,10 @@ class Cg(_KrylovSolver):
             # check if alpha is real
             if abs(alpha.imag) > 1e-12:
                 warnings.warn(
-                    'Iter {0}: abs(alpha.imag) = {1} > 1e-12. '
+                    f'Iter {k}: abs(alpha.imag) = {abs(alpha.imag)} > 1e-12. '
                     'Is your operator self-adjoint in the provided inner '
                     'product?'
-                    .format(k, abs(alpha.imag)))
+                    )
             alpha = alpha.real
 
             # compute new diagonal element
@@ -952,7 +953,7 @@ class _RestartedSolver(object):
 
         if self.resnorms[-1] > tol:
             raise utils.ConvergenceError(
-                'No convergence after {0} restarts.'.format(max_restarts),
+                f'No convergence after {max_restarts} restarts.',
                 self)
 
 

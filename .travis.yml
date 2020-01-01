@@ -2,8 +2,9 @@ sudo: false
 language: python
 cache: pip
 python:
-    - "2.7"
     - "3.6"
+    - "3.7"
+    - "3.8"
 install:
     - travis_retry pip install -r requirements.txt
 script: nosetests krypy/tests

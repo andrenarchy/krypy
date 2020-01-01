@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # KryPy documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun 21 17:54:43 2013.
@@ -43,7 +42,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'KryPy'
-copyright = u'2013—2014, André Gaul'
+copyright = '2013—2014, André Gaul'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Use setuptools for these commands (they don't work well or at all
 # with distutils).  For normal builds use distutils.
 try:
@@ -17,6 +15,7 @@ setup(name='krypy',
       author_email='gaul@web-yard.de',
       url='https://github.com/andrenarchy/krypy',
       install_requires=['numpy (>=1.11)', 'scipy (>=0.17)'],
+      python_requires=">=3.6",
       classifiers=[
           'Development Status :: 4 - Beta',
           'Intended Audience :: Science/Research',

@@ -110,11 +110,10 @@ class RitzFactory(_DeflationVectorFactory):
 
         # debug output requested?
         if self.print_results == 'number':
-            print('# of selected deflation vectors: {0}'
-                  .format(len(selection)))
+            print(f'# of selected deflation vectors: {len(selection)}')
         elif self.print_results == 'values':
-            print('{0} Ritz values corresponding to selected deflation '
-                  .format(len(selection)) + 'vectors: '
+            print(f'{len(selection)} Ritz values corresponding to selected deflation '
+                  + 'vectors: '
                   + (', '.join([str(el) for el in ritz.values[selection]])))
         elif self.print_results == 'timings':
             import operator
@@ -122,15 +121,14 @@ class RitzFactory(_DeflationVectorFactory):
                   'deflation vectors with corresponding Ritz values:')
             for subset, time in sorted(overall_evaluations.items(),
                                        key=operator.itemgetter(1)):
-                print(' {0}s: '.format(time)
+                print(f' {time}s: '
                       + ', '.join([str(el)
                                    for el in ritz.values[list(subset)]]))
         elif self.print_results is None:
             pass
         else:
             raise utils.ArgumentError(
-                'Invalid value `{0}` for argument `print_result`. '
-                .format(self.print_results)
+                f'Invalid value `{self.print_results}` for argument `print_result`. '
                 + 'Valid are `None`, `number`, `values` and `timings`.')
 
         return selection
@@ -185,7 +183,7 @@ class RitzFactorySimple(_DeflationVectorFactory):
             indices = numpy.argsort(ritz.resnorms)[:n_vectors]
         else:
             raise utils.ArgumentError(
-                'Invalid value \'{0}\' for \'which\'. '.format(which)
+                f'Invalid value \'{which}\' for \'which\'. '
                 + 'Valid are lm, sm, lr, sr, li, si and smallest_res.')
         return ritz.get_vectors(indices)
 
