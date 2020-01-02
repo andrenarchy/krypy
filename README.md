@@ -6,7 +6,7 @@
 [![Pypi version](https://img.shields.io/pypi/v/krypy.svg)](https://pypi.python.org/pypi/krypy)
 [![Pypi downloads](https://img.shields.io/pypi/dm/krypy.svg)](https://pypi.python.org/pypi/krypy)
 
-KryPy is a Python (versions 2 and 3) module for Krylov subspace methods for the solution of linear algebraic systems. This includes enhanced versions of CG, MINRES and GMRES as well as methods for the efficient solution of sequences of linear systems.
+KryPy is a Python 3 module for Krylov subspace methods for the solution of linear algebraic systems. This includes enhanced versions of CG, MINRES and GMRES as well as methods for the efficient solution of sequences of linear systems.
 
 # Features
 
