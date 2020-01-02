@@ -65,8 +65,7 @@ class RitzApriori(_RitzSubsetEvaluator):
             nsteps = bound.get_step(tol)
         else:
             raise utils.ArgumentError(
-                'Invalid value \'{0}\' for argument \'strategy\'. '
-                .format(self.strategy)
+                f'Invalid value \'{self.strategy}\' for argument \'strategy\'. '
                 + 'Valid are simple and intervals.')
 
         return ritz._deflated_solver.estimate_time(
@@ -106,9 +105,7 @@ class RitzApriori(_RitzSubsetEvaluator):
         if delta_sel + eps_max - eps_min >= delta:
             raise utils.AssumptionError(
                 'delta_sel + delta_non_sel + eps_max - eps_min >= delta'
-                + '({0} >= {1}'.format(
-                    delta_sel + delta_non_sel + eps_max - eps_min,
-                    delta)
+                f'({delta_sel + delta_non_sel + eps_max - eps_min} >= {delta}'
                 )
 
         # check assumption on mu_min
@@ -218,13 +215,13 @@ class RitzApproxKrylov(_RitzSubsetEvaluator):
                 )
             if alpha >= 1 or alpha == 0:
                 raise utils.AssumptionError(
-                    'Cannot compute bound because alpha == {0} >= 1'.format(
-                        alpha))
+                    'Cannot compute bound because alpha == {alpha} >= 1'
+                    )
             nsteps = numpy.log(tol/bound_pseudo[0])/numpy.log(alpha)
 
         else:
             raise utils.ArgumentError(
-                'Invalid value `{0}` for argument `omode`. '.format(self.mode)
+                'Invalid value `{self.mode}` for argument `omode`. '
                 + 'Valid are `direct` and `extrapolate`.')
 
         return ritz._deflated_solver.estimate_time(

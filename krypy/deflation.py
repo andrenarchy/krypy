@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 import numpy
 import scipy.linalg
 from . import utils, linsys
@@ -776,7 +775,7 @@ class Ritz(object):
                 self.values[zero] = numpy.Inf
             else:
                 raise utils.ArgumentError(
-                    'Invalid value  \'{0}\' for \'mode\'. '.format(mode)
+                    f'Invalid value  \'{mode}\' for \'mode\'. '
                     + 'Valid are ritz and harmonic.')
 
             # normalize Ritz vectors

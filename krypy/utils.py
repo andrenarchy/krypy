@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 '''
 Collection of standard functions.
 
@@ -199,8 +198,9 @@ def norm(x, y=None, ip_B=None):
     nrm_diag_imag = numpy.linalg.norm(numpy.imag(numpy.diag(ip)), 2)
     if nrm_diag_imag > nrm_diag*1e-10:
         raise InnerProductError('inner product defined by ip_B not positive '
-                                'definite? ||diag(ip).imag||/||diag(ip)||={0}'
-                                .format(nrm_diag_imag/nrm_diag))
+                                'definite? ||diag(ip).imag||/||diag(ip)||='
+                                f'{nrm_diag_imag/nrm_diag}'
+                                )
     return numpy.sqrt(numpy.linalg.norm(ip, 2))
 
 
@@ -908,7 +908,7 @@ class Arnoldi(object):
                     self.vnorm = Mv_norm
         else:
             raise ArgumentError(
-                'Invalid value \'{0}\' for argument \'ortho\'. '.format(ortho)
+                f'Invalid value \'{ortho}\' for argument \'ortho\'. '
                 + 'Valid are house, mgs, dmgs and lanczos.')
         if self.vnorm > 0:
             self.V[:, [0]] = v / self.vnorm
@@ -976,10 +976,10 @@ class Arnoldi(object):
                         # check if alpha is real
                         if abs(alpha.imag) > 1e-10:
                             warnings.warn(
-                                'Iter {0}: abs(alpha.imag) = {1} > 1e-10. '
+                                f'Iter {self.iter}: abs(alpha.imag) = {abs(alpha.imag)} > 1e-10. '
                                 'Is your operator self-adjoint in the '
                                 'provided inner product?'
-                                .format(self.iter, abs(alpha.imag)))
+                                )
                         alpha = alpha.real
                     self.H[j, k] += alpha
                     if self.M is not None:
@@ -1199,8 +1199,7 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         raise ArgumentError('H not of shape (n+1,n) or (n,n)')
     symmres = numpy.linalg.norm(H[:n, :] - H[:n, :].T.conj())
     if hermitian and symmres >= 5e-14:
-        warnings.warn('Hessenberg matrix is not symmetric: |H-H^*|={0}'
-                      .format(symmres))
+        warnings.warn(f'Hessenberg matrix is not symmetric: |H-H^*|={symmres}')
 
     # choose eig for Hermitian or non-Hermitian matrices
     eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
@@ -1237,7 +1236,7 @@ def ritz(H, V=None, hermitian=False, type='ritz'):
         resnorm = numpy.array(resnorm)
         pass
     else:
-        raise ArgumentError('unknown Ritz type {0}'.format(type))
+        raise ArgumentError(f'unknown Ritz type {type}')
 
     if V is not None:
         return theta, U, resnorm, numpy.dot(V[:, :n], U)
@@ -1317,7 +1316,7 @@ class Timings(defaultdict):
 
     def __repr__(self):
         return 'Timings(' + ', '.join(
-            ['{0}: {1}'.format(key, self.get(key)) for key in self]
+            [f'{key}: {self.get(key)}' for key in self]
             ) + ')'
 
 
@@ -1682,7 +1681,7 @@ class Interval(object):
         return None
 
     def __repr__(self):
-        return '[{0},{1}]'.format(self.left, self.right)
+        return f'[{self.left},{self.right}]'
 
     def contains(self, alpha):
         '''Returns True if alpha is an element of the interval.'''

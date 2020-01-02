@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 import numpy
 from .. import utils, deflation, linsys
 from . import factories, evaluators
