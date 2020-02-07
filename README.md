@@ -50,7 +50,7 @@ out = krypy.gmres(A, b)
 
 # plot residuals
 import matplotlib.pyplot as plt
-plt.semilogy(sol.resnorms)
+plt.semilogy(out.resnorms)
 plt.show()
 ```
 Of course, this is just a toy example where you would not use GMRES in
