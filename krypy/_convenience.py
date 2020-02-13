@@ -3,10 +3,13 @@ from .deflation import DeflatedCg, DeflatedMinres, DeflatedGmres
 import numpy
 
 
+# The simplest inner product, `numpy.dot`, should work as an input.
+# krypy assumes that the inner product _always_ returns a 2D matrix which is why we need
+# to wrap.
 def wrap_inner_product(inner):
     def _wrap(a, b):
         if a.shape[1] == 0:
-            return numpy.array([[]]).T
+            return numpy.array([[]])
         return numpy.array([[inner(a[:, 0], b[:, 0])]])
 
     return _wrap
@@ -39,7 +42,7 @@ def cg(
     if U is not None:
         U = U.reshape(U.shape[0], -1)
     if x0 is not None:
-        x0 = x0.reshape(U.shape[0], -1)
+        x0 = x0.reshape(x0.shape[0], -1)
 
     linear_system = LinearSystem(
         A=A,
@@ -74,10 +77,10 @@ def cg(
         )
 
     # Flatten a bunch of unnecessarily augmented vectors
-    out.x0 = out.x0.reshape(-1)
-    out.xk = out.xk.reshape(-1)
-    out.MMlr0 = out.MMlr0.reshape(-1)
-    out.Mlr0 = out.Mlr0.reshape(-1)
+    out.x0 = out.x0.reshape(b.shape)
+    out.xk = out.xk.reshape(b.shape)
+    out.MMlr0 = out.MMlr0.reshape(b.shape)
+    out.Mlr0 = out.Mlr0.reshape(b.shape)
     return out
 
 
@@ -109,7 +112,7 @@ def minres(
     if U is not None:
         U = U.reshape(U.shape[0], -1)
     if x0 is not None:
-        x0 = x0.reshape(U.shape[0], -1)
+        x0 = x0.reshape(x0.shape[0], -1)
 
     linear_system = LinearSystem(
         A=A,
@@ -145,10 +148,10 @@ def minres(
         )
 
     # Flatten a bunch of unnecessarily augmented vectors
-    out.x0 = out.x0.reshape(-1)
-    out.xk = out.xk.reshape(-1)
-    out.MMlr0 = out.MMlr0.reshape(-1)
-    out.Mlr0 = out.Mlr0.reshape(-1)
+    out.x0 = out.x0.reshape(b.shape)
+    out.xk = out.xk.reshape(b.shape)
+    out.MMlr0 = out.MMlr0.reshape(b.shape)
+    out.Mlr0 = out.Mlr0.reshape(b.shape)
     return out
 
 
@@ -180,7 +183,7 @@ def gmres(
     if U is not None:
         U = U.reshape(U.shape[0], -1)
     if x0 is not None:
-        x0 = x0.reshape(U.shape[0], -1)
+        x0 = x0.reshape(x0.shape[0], -1)
 
     linear_system = LinearSystem(
         A=A,
@@ -214,8 +217,8 @@ def gmres(
         )
 
     # Flatten a bunch of unnecessarily augmented vectors
-    out.x0 = out.x0.reshape(-1)
-    out.xk = out.xk.reshape(-1)
-    out.MMlr0 = out.MMlr0.reshape(-1)
-    out.Mlr0 = out.Mlr0.reshape(-1)
+    out.x0 = out.x0.reshape(b.shape)
+    out.xk = out.xk.reshape(b.shape)
+    out.MMlr0 = out.MMlr0.reshape(b.shape)
+    out.Mlr0 = out.Mlr0.reshape(b.shape)
     return out

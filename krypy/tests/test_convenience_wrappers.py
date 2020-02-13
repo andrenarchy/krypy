@@ -8,11 +8,19 @@ def test_cg_matrix():
     ref = [1004.1873775173957, 1000.0003174916551, 999.9999999997555]
 
     A = numpy.diag([1.0e-3] + list(range(2, 101)))
+
+    # Make sure the shapes are alright
+    b = numpy.ones((100, 1))
+    out = method(A, b, inner_product=numpy.dot)
+    assert out.x0.shape == b.shape
+    assert out.xk.shape == b.shape
+
     b = numpy.ones(100)
+    out = method(A, b, inner_product=numpy.dot)
+    assert out.x0.shape == b.shape
+    assert out.xk.shape == b.shape
 
-    out = method(A, b)
-    print(out)
-
+    out = method(A, b, inner_product=numpy.dot)
     assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
     assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
     assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
