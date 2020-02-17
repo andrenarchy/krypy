@@ -40,13 +40,12 @@ import krypy
 A = numpy.diag([1.0e-3] + list(range(2, 101)))
 b = numpy.ones(100)
 
-# out = krypy.cg(A, b)
-# out = krypy.minres(A, b)
-out = krypy.gmres(A, b)
+# sol, out = krypy.cg(A, b)
+# sol, out = krypy.minres(A, b)
+sol, out = krypy.gmres(A, b)
 
-# out.xk contains the last iterate (ideally the solution),
-# out.resnorms the relative residual norms;
-# there's plenty more
+# sol is None if no solution has been found
+# out.resnorms the relative residual norms and some more data
 
 # plot residuals
 import matplotlib.pyplot as plt
