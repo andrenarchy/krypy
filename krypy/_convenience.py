@@ -11,7 +11,6 @@ def wrap_inner_product(inner):
         if a.shape[1] == 0:
             return numpy.array([[]])
         return numpy.array([[inner(a[:, 0], b[:, 0])]])
-
     return _wrap
 
 
@@ -75,13 +74,7 @@ def cg(
             explicit_residual=use_explicit_residual,
             store_arnoldi=store_arnoldi,
         )
-
-    # Flatten a bunch of unnecessarily augmented vectors
-    out.x0 = out.x0.reshape(b.shape)
-    out.xk = out.xk.reshape(b.shape)
-    out.MMlr0 = out.MMlr0.reshape(b.shape)
-    out.Mlr0 = out.Mlr0.reshape(b.shape)
-    return out
+    return out.xk.reshape(b.shape) if out.resnorms[-1] < out.tol else None, out
 
 
 def minres(
@@ -146,13 +139,7 @@ def minres(
             explicit_residual=use_explicit_residual,
             store_arnoldi=store_arnoldi,
         )
-
-    # Flatten a bunch of unnecessarily augmented vectors
-    out.x0 = out.x0.reshape(b.shape)
-    out.xk = out.xk.reshape(b.shape)
-    out.MMlr0 = out.MMlr0.reshape(b.shape)
-    out.Mlr0 = out.Mlr0.reshape(b.shape)
-    return out
+    return out.xk.reshape(b.shape) if out.resnorms[-1] < out.tol else None, out
 
 
 def gmres(
@@ -215,10 +202,4 @@ def gmres(
             explicit_residual=use_explicit_residual,
             store_arnoldi=store_arnoldi,
         )
-
-    # Flatten a bunch of unnecessarily augmented vectors
-    out.x0 = out.x0.reshape(b.shape)
-    out.xk = out.xk.reshape(b.shape)
-    out.MMlr0 = out.MMlr0.reshape(b.shape)
-    out.Mlr0 = out.Mlr0.reshape(b.shape)
-    return out
+    return out.xk.reshape(b.shape) if out.resnorms[-1] < out.tol else None, out

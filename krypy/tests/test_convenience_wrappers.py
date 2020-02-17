@@ -11,19 +11,17 @@ def test_cg_matrix():
 
     # Make sure the shapes are alright
     b = numpy.ones((100, 1))
-    out = method(A, b, inner_product=numpy.dot)
-    assert out.x0.shape == b.shape
-    assert out.xk.shape == b.shape
+    sol, _ = method(A, b, inner_product=numpy.dot)
+    assert sol.shape == b.shape
 
     b = numpy.ones(100)
-    out = method(A, b, inner_product=numpy.dot)
-    assert out.x0.shape == b.shape
-    assert out.xk.shape == b.shape
+    sol, _ = method(A, b, inner_product=numpy.dot)
+    assert sol.shape == b.shape
 
-    out = method(A, b, inner_product=numpy.dot)
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
+    sol, _ = method(A, b, inner_product=numpy.dot)
+    assert abs(numpy.sum(numpy.abs(sol)) - ref[0]) < tol * ref[0]
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref[1]) < tol * ref[1]
+    assert abs(numpy.max(numpy.abs(sol)) - ref[2]) < tol * ref[2]
 
 
 def test_minres_matrix():
@@ -34,12 +32,11 @@ def test_minres_matrix():
     A = numpy.diag([1.0e-3] + list(range(2, 101)))
     b = numpy.ones(100)
 
-    out = method(A, b)
-    print(out)
+    sol, _ = method(A, b)
 
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
+    assert abs(numpy.sum(numpy.abs(sol)) - ref[0]) < tol * ref[0]
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref[1]) < tol * ref[1]
+    assert abs(numpy.max(numpy.abs(sol)) - ref[2]) < tol * ref[2]
 
 
 def test_gmres_matrix():
@@ -50,12 +47,11 @@ def test_gmres_matrix():
     A = numpy.diag([1.0e-3] + list(range(2, 101)))
     b = numpy.ones(100)
 
-    out = method(A, b)
-    print(out)
+    sol, _ = method(A, b)
 
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
+    assert abs(numpy.sum(numpy.abs(sol)) - ref[0]) < tol * ref[0]
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref[1]) < tol * ref[1]
+    assert abs(numpy.max(numpy.abs(sol)) - ref[2]) < tol * ref[2]
 
 
 def test_deflate_cg():
@@ -70,11 +66,11 @@ def test_deflate_cg():
     # deflate out the vector that belongs to the small eigenvalue
     U = numpy.zeros(n)
     U[0] = 1.0
-    out = method(A, b, U=U)
+    sol, _ = method(A, b, U=U)
 
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
+    assert abs(numpy.sum(numpy.abs(sol)) - ref[0]) < tol * ref[0]
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref[1]) < tol * ref[1]
+    assert abs(numpy.max(numpy.abs(sol)) - ref[2]) < tol * ref[2]
 
 
 def test_deflate_minres():
@@ -89,11 +85,11 @@ def test_deflate_minres():
     # deflate out the vector that belongs to the small eigenvalue
     U = numpy.zeros(n)
     U[0] = 1.0
-    out = method(A, b, U=U)
+    sol, _ = method(A, b, U=U)
 
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
+    assert abs(numpy.sum(numpy.abs(sol)) - ref[0]) < tol * ref[0]
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref[1]) < tol * ref[1]
+    assert abs(numpy.max(numpy.abs(sol)) - ref[2]) < tol * ref[2]
 
 
 def test_deflate_gmres():
@@ -108,11 +104,11 @@ def test_deflate_gmres():
     # deflate out the vector that belongs to the small eigenvalue
     U = numpy.zeros(n)
     U[0] = 1.0
-    out = method(A, b, U=U)
+    sol, _ = method(A, b, U=U)
 
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref[0]) < tol * ref[0]
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref[1]) < tol * ref[1]
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref[2]) < tol * ref[2]
+    assert abs(numpy.sum(numpy.abs(sol)) - ref[0]) < tol * ref[0]
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref[1]) < tol * ref[1]
+    assert abs(numpy.max(numpy.abs(sol)) - ref[2]) < tol * ref[2]
 
 
 def test_custom_inner_product():
@@ -124,11 +120,11 @@ def test_custom_inner_product():
     def inner(a, b):
         return numpy.dot(a, b)
 
-    out = krypy.cg(A, b, inner_product=inner)
+    sol, _ = krypy.cg(A, b, inner_product=inner)
 
     ref = 1004.1873775173957
-    assert abs(numpy.sum(numpy.abs(out.xk)) - ref) < tol * ref
+    assert abs(numpy.sum(numpy.abs(sol)) - ref) < tol * ref
     ref = 1000.0003174916551
-    assert abs(numpy.sqrt(numpy.dot(out.xk, out.xk)) - ref) < tol * ref
+    assert abs(numpy.sqrt(numpy.dot(sol, sol)) - ref) < tol * ref
     ref = 999.9999999997555
-    assert abs(numpy.max(numpy.abs(out.xk)) - ref) < tol * ref
+    assert abs(numpy.max(numpy.abs(sol)) - ref) < tol * ref
