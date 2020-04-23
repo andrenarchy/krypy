@@ -8,9 +8,10 @@ except ImportError:
 
 setup(name='krypy',
       packages=['krypy', 'krypy.recycling'],
-      version='2.1.7',
+      version='2.2.0',
       description='Krylov subspace methods for linear systems',
       long_description=open('README.md').read(),
+      long_description_content_type="text/markdown",
       author='André Gaul',
       author_email='gaul@web-yard.de',
       url='https://github.com/andrenarchy/krypy',
