@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
 [![Documentation Status](https://readthedocs.org/projects/krypy/badge/?version=latest)](http://krypy.readthedocs.org/en/latest/?badge=latest)
 [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/krypy.svg)](https://pypi.org/pypi/krypy/)
 [![Pypi version](https://img.shields.io/pypi/v/krypy.svg)](https://pypi.python.org/pypi/krypy)
 [![Pypi downloads](https://img.shields.io/pypi/dm/krypy.svg)](https://pypi.python.org/pypi/krypy)
 
