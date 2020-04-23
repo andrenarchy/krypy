@@ -50,15 +50,29 @@ Solve a linear system
 The following code uses MINRES to solves a linear system with an indefinite
 diagonal matrix::
 
-  from numpy import diag, linspace, ones, eye
-  from krypy.linsys import LinearSystem, Minres
+  from numpy import diag, linspace, ones
+  import krypy
 
   # construct the linear system
   A = diag(linspace(1, 2, 20))
   A[0, 0] = -1e-5
   b = ones(20)
-  linear_system = LinearSystem(A, b, self_adjoint=True)
+  sol, out = krypy.minres(A, b)
 
+The variable ``sol`` contains the solution as a ``numpy.array``, ``out`` holds more
+information like the residual norms etc.
+
+The above example uses the convenience function ``krypy.minres``. For advanced use
+you can use the ``krypy.linsys.Minres`` with a ``LinearSystem``:
+
+  from numpy import diag, linspace, ones
+  from krypy.linsys import LinearSystem, Minres
+
+  A = diag(linspace(1, 2, 20))
+  A[0, 0] = -1e-5
+  b = ones(20)
+
+  linear_system = LinearSystem(A, b, self_adjoint=True)
   # solve the linear system (approximate solution is solver.xk)
   solver = Minres(linear_system)
 

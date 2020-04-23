@@ -35,17 +35,22 @@ method is used to solve the linear system `A*x=b` with the diagonal matrix
 `A=diag(1e-3,2,...,100)` and right hand side `b=[1,...,1]`.
 ```python
 import numpy
-from krypy.linsys import LinearSystem, Gmres
+import krypy
 
-# create linear system and solve
-linear_system = LinearSystem(A=numpy.diag([1e-3]+range(2, 101)),
-                             b=numpy.ones((100, 1)))
-sol = Gmres(linear_system)
+A = numpy.diag([1.0e-3] + list(range(2, 101)))
+b = numpy.ones(100)
+
+# sol, out = krypy.cg(A, b)
+# sol, out = krypy.minres(A, b)
+sol, out = krypy.gmres(A, b)
+
+# sol is None if no solution has been found
+# out.resnorms the relative residual norms and some more data
 
 # plot residuals
-from matplotlib import pyplot
-pyplot.semilogy(sol.resnorms)
-pyplot.show()
+import matplotlib.pyplot as plt
+plt.semilogy(out.resnorms)
+plt.show()
 ```
 Of course, this is just a toy example where you would not use GMRES in
 practice. KryPy can handle arbitrary large matrices - as long as the (hopefully

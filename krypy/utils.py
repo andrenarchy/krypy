@@ -378,8 +378,8 @@ class Givens:
         if x.shape != (2, 1):
             raise ArgumentError('x is not a vector of shape (2,1)')
 
-        a = numpy.asscalar(x[0])
-        b = numpy.asscalar(x[1])
+        a = x[0].item()
+        b = x[1].item()
         # real vector
         if numpy.isreal(x).all():
             a = numpy.real(a)
