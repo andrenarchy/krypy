@@ -62,7 +62,8 @@ diagonal matrix::
 The variable ``sol`` contains the solution as a ``numpy.array``, ``out`` holds more
 information like the residual norms etc.
 
-For advanced usage, you can create a ``LinearSystem`` object to feed into the solver::
+The above example uses the convenience function ``krypy.minres``. For advanced use
+you can use the ``krypy.linsys.Minres`` with a ``LinearSystem``:
 
   from numpy import diag, linspace, ones
   from krypy.linsys import LinearSystem, Minres
