@@ -12,3 +12,11 @@ upload: clean setup.py
 clean:
 	@find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
 	@rm -rf *.egg-info/ build/ dist/
+
+format:
+	isort -rc .
+	black .
+
+lint:
+	black --check .
+	flake8 .
