@@ -346,7 +346,7 @@ class House:
 
         v = x.copy()
 
-        gamma = numpy.asscalar(v[0])
+        gamma = v[0].item()
         v[0] = 1
         if x.shape[0] == 1:
             sigma = 0
