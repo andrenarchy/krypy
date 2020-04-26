@@ -156,23 +156,19 @@ def test_givens(a, b):
     assert numpy.linalg.norm(y[1], 2) <= 1e-14 * numpy.linalg.norm(x, 2)
 
 
-def test_projection():
-    Xs = [
-        numpy.eye(10, 1),
-        numpy.eye(10, 5),
-        numpy.eye(10, 5) + 1e-1 * numpy.ones((10, 5)),
-        numpy.eye(10),
-        numpy.zeros((10, 0)),
-    ]
-    ip_Bs = get_ip_Bs()
-    its = [1, 2, 3]
-    for (X, ip_B, iterations) in itertools.product(Xs, ip_Bs, its):
-        Ys = [None, X, X + numpy.ones((10, X.shape[1]))]
-        for Y in Ys:
-            yield run_projection, X, Y, ip_B, iterations
+@pytest.mark.parametrize("X", [
+    numpy.eye(10, 1),
+    numpy.eye(10, 5),
+    numpy.eye(10, 5) + 1e-1 * numpy.ones((10, 5)),
+    numpy.eye(10),
+    numpy.zeros((10, 0)),
+])
+@pytest.mark.parametrize("Ys", [None, 0, 1])
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+@pytest.mark.parametrize("iterations", [1, 2, 3])
+def test_projection(X, Ys, ip_B, iterations):
+    Y = None if Ys is None else X + Ys
 
-
-def run_projection(X, Y, ip_B, iterations):
     P = krypy.utils.Projection(X, Y, ip_B=ip_B, iterations=iterations)
 
     (N, k) = X.shape
