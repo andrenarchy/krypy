@@ -2094,7 +2094,7 @@ class NormalizedRootsPolynomial(object):
         vals = numpy.prod(vals, axis=0)
 
         if numpy.isscalar(points):
-            return numpy.asscalar(vals)
+            return vals.item()
         return vals
 
 
