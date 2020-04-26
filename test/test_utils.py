@@ -1,5 +1,3 @@
-import itertools
-
 import numpy
 import pytest
 import scipy.linalg
@@ -156,13 +154,16 @@ def test_givens(a, b):
     assert numpy.linalg.norm(y[1], 2) <= 1e-14 * numpy.linalg.norm(x, 2)
 
 
-@pytest.mark.parametrize("X", [
-    numpy.eye(10, 1),
-    numpy.eye(10, 5),
-    numpy.eye(10, 5) + 1e-1 * numpy.ones((10, 5)),
-    numpy.eye(10),
-    numpy.zeros((10, 0)),
-])
+@pytest.mark.parametrize(
+    "X",
+    [
+        numpy.eye(10, 1),
+        numpy.eye(10, 5),
+        numpy.eye(10, 5) + 1e-1 * numpy.ones((10, 5)),
+        numpy.eye(10),
+        numpy.zeros((10, 0)),
+    ],
+)
 @pytest.mark.parametrize("Ys", [None, 0, 1])
 @pytest.mark.parametrize("ip_B", get_ip_Bs())
 @pytest.mark.parametrize("iterations", [1, 2, 3])
@@ -303,8 +304,7 @@ def _get_m():
     return m
 
 
-def _get_x():
-    return [numpy.ones((10, 1)), (1.0j + 1) * numpy.ones((10, 1))]
+_x = [numpy.ones((10, 1)), numpy.full((10, 1), 1.0j + 1)]
 
 
 @pytest.mark.parametrize(
@@ -321,9 +321,9 @@ def _get_x():
 @pytest.mark.parametrize(
     "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
 )
-@pytest.mark.parametrize("x", _get_x())
+@pytest.mark.parametrize("x", _x)
 @pytest.mark.parametrize(
-    "x0", [numpy.zeros((10, 1)), numpy.linspace(1, 5, 10).reshape((10, 1))] + _get_x()
+    "x0", [numpy.zeros((10, 1)), numpy.linspace(1, 5, 10).reshape((10, 1))] + _x
 )
 @pytest.mark.parametrize("M", [None, numpy.diag(_get_m())])
 @pytest.mark.parametrize("Ml", [None, numpy.diag(_get_m())])
@@ -349,55 +349,85 @@ def test_hegedus(matrix, get_operator, x, x0, M, Ml, ip_B):
     assert MMlr0new_norm <= MMlr0_norm + 1e-13
 
 
-def test_arnoldi():
-    # TODO: reactivate the complex tests once travis-ci uses newer
-    #       numpy/scipy versions.
-    matrices = [
-        get_matrix_spd(),
-        # get_matrix_hpd(),
-        get_matrix_symm_indef(),
-        # get_matrix_herm_indef(),
-        get_matrix_nonsymm(),
-        # get_matrix_comp_nonsymm()
-    ]
-    vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
-    maxiters = [1, 5, 9, 10]
-    orthos = ["mgs", "dmgs", "house"]
-    B = numpy.diag(numpy.linspace(1, 5, 10))
-    Ms = [None, B]
-    ip_Bs = [
-        None,
-        B,
-        krypy.utils.MatrixLinearOperator(B),
-        lambda x, y: x.T.conj().dot(B.dot(y)),
-    ]
+_B = numpy.diag(numpy.linspace(1, 5, 10))
 
-    for (matrix, v, maxiter, ortho, M, ip_B) in itertools.product(
-        matrices, vs, maxiters, orthos, Ms, ip_Bs
-    ):
-        An = numpy.linalg.norm(matrix, 2)
-        for A in get_operators(matrix):
-            if ortho == "house" and (ip_B is not None or M is not None):
-                continue
-            yield run_arnoldi, A, v, maxiter, ortho, M, ip_B, An
 
-    # TODO: reactivate the complex tests once travis-ci uses newer
-    #       numpy/scipy versions.
-    matrices = [
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        # TODO: reactivate the complex tests once travis-ci uses newer
+        #       numpy/scipy versions.
         get_matrix_spd(),
         # get_matrix_hpd(),
         get_matrix_symm_indef(),
         # get_matrix_herm_indef()
-    ]
-    for (matrix, v, maxiter, M, ip_B) in itertools.product(
-        matrices, vs, maxiters, Ms, ip_Bs
-    ):
-        An = numpy.linalg.norm(matrix, 2)
-        for A in get_operators(matrix):
-            yield run_arnoldi, A, v, maxiter, "lanczos", M, ip_B, An
+        get_matrix_nonsymm(),
+        # get_matrix_comp_nonsymm()
+    ],
+)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("v", [numpy.ones((10, 1)), numpy.eye(10, 1)])
+@pytest.mark.parametrize("maxiter", [1, 5, 9, 10])
+@pytest.mark.parametrize("ortho", ["mgs", "dmgs", "house"])
+@pytest.mark.parametrize("M", [None, _B])
+@pytest.mark.parametrize(
+    "ip_B",
+    [
+        None,
+        _B,
+        krypy.utils.MatrixLinearOperator(_B),
+        lambda x, y: x.T.conj().dot(_B.dot(y)),
+    ],
+)
+def test_arnoldi(matrix, get_operator, v, maxiter, ortho, M, ip_B):
+    An = numpy.linalg.norm(matrix, 2)
+    A = get_operator(matrix)
+
+    if ortho == "house" and (ip_B is not None or M is not None):
+        return
+
+    res = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, M=M, ip_B=ip_B)
+    if M is not None:
+        V, H, P = res
+    else:
+        V, H = res
+        P = None
+    assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B, An=An)
 
 
-def run_arnoldi(A, v, maxiter, ortho, M, ip_B, An):
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        # TODO: reactivate the complex tests once travis-ci uses newer
+        #       numpy/scipy versions.
+        get_matrix_spd(),
+        # get_matrix_hpd(),
+        get_matrix_symm_indef(),
+        # get_matrix_herm_indef()
+    ],
+)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("v", [numpy.ones((10, 1)), numpy.eye(10, 1)])
+@pytest.mark.parametrize("maxiter", [1, 5, 9, 10])
+@pytest.mark.parametrize("M", [None, _B])
+@pytest.mark.parametrize(
+    "ip_B",
+    [
+        None,
+        _B,
+        krypy.utils.MatrixLinearOperator(_B),
+        lambda x, y: x.T.conj().dot(_B.dot(y)),
+    ],
+)
+def test_arnoldi_lanczos(matrix, get_operator, v, maxiter, M, ip_B):
+    An = numpy.linalg.norm(matrix, 2)
+    A = get_operator(matrix)
+    ortho = "lanczos"
+
     res = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, M=M, ip_B=ip_B)
     if M is not None:
         V, H, P = res
@@ -545,7 +575,9 @@ def test_ritz(matrix, get_operator, v, maxiter, ip_B, with_V, type):
 
     Z = None
     if with_V:
-        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=is_hermitian, type=type)
+        theta, U, resnorm, Z = krypy.utils.ritz(
+            H, V=V, hermitian=is_hermitian, type=type
+        )
     else:
         theta, U, resnorm = krypy.utils.ritz(H, hermitian=is_hermitian, type=type)
     # check Z
