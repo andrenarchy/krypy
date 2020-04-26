@@ -1,14 +1,14 @@
 import numpy
-from .. import utils, deflation, linsys
-from . import factories, evaluators
+
+from .. import deflation, linsys, utils
+from . import evaluators, factories
 
 
 class _RecyclingSolver(object):
-    '''Base class for recycling solvers.'''
-    def __init__(self, DeflatedSolver,
-                 vector_factory=None
-                 ):
-        '''Initialize recycling solver base.
+    """Base class for recycling solvers."""
+
+    def __init__(self, DeflatedSolver, vector_factory=None):
+        """Initialize recycling solver base.
 
         :param DeflatedSolver: a deflated solver from
           :py:mod:`~krypy.deflation`.
@@ -31,27 +31,25 @@ class _RecyclingSolver(object):
         After a run of the provided ``DeflatedSolver`` via :py:meth:`solve`,
         the resulting instance of the ``DeflatedSolver`` is available in the
         attribute ``last_solver``.
-        '''
+        """
         self._DeflatedSolver = DeflatedSolver
 
         self._vector_factory = vector_factory
 
         self.timings = utils.Timings()
-        '''Timings from last run of :py:meth:`solve`.
+        """Timings from last run of :py:meth:`solve`.
 
         Timings of the vector factory runs and the actual solution processes.
-        '''
+        """
 
         self.last_solver = None
-        '''``DeflatedSolver`` instance from last run of :py:meth:`solve`.
+        """``DeflatedSolver`` instance from last run of :py:meth:`solve`.
 
         Instance of ``DeflatedSolver`` that resulted from the last call to
-        :py:meth:`solve`. Initialized with ``None`` before the first run.'''
+        :py:meth:`solve`. Initialized with ``None`` before the first run."""
 
-    def solve(self, linear_system,
-              vector_factory=None,
-              *args, **kwargs):
-        '''Solve the given linear system with recycling.
+    def solve(self, linear_system, vector_factory=None, *args, **kwargs):
+        """Solve the given linear system with recycling.
 
         The provided `vector_factory` determines which vectors are used for
         deflation.
@@ -65,33 +63,29 @@ class _RecyclingSolver(object):
         :returns: instance of ``DeflatedSolver`` which was used to obtain the
           approximate solution. The approximate solution is available under the
           attribute ``xk``.
-        '''
+        """
 
         # replace linear_system with equivalent TimedLinearSystem on demand
         if not isinstance(linear_system, linsys.TimedLinearSystem):
             linear_system = linsys.ConvertedTimedLinearSystem(linear_system)
 
-        with self.timings['vector_factory']:
+        with self.timings["vector_factory"]:
             if vector_factory is None:
                 vector_factory = self._vector_factory
 
             # construct vector_factory if strings are provided
-            if vector_factory == 'RitzApproxKrylov':
+            if vector_factory == "RitzApproxKrylov":
                 vector_factory = factories.RitzFactory(
                     subset_evaluator=evaluators.RitzApproxKrylov()
-                    )
-            elif vector_factory == 'RitzAprioriCg':
+                )
+            elif vector_factory == "RitzAprioriCg":
                 vector_factory = factories.RitzFactory(
-                    subset_evaluator=evaluators.RitzApriori(
-                        Bound=utils.BoundCG
-                        )
-                    )
-            elif vector_factory == 'RitzAprioriMinres':
+                    subset_evaluator=evaluators.RitzApriori(Bound=utils.BoundCG)
+                )
+            elif vector_factory == "RitzAprioriMinres":
                 vector_factory = factories.RitzFactory(
-                    subset_evaluator=evaluators.RitzApriori(
-                        Bound=utils.BoundMinres
-                        )
-                    )
+                    subset_evaluator=evaluators.RitzApriori(Bound=utils.BoundMinres)
+                )
 
             # get deflation vectors
             if self.last_solver is None or vector_factory is None:
@@ -99,45 +93,44 @@ class _RecyclingSolver(object):
             else:
                 U = vector_factory.get(self.last_solver)
 
-        with self.timings['solve']:
+        with self.timings["solve"]:
             # solve deflated linear system
-            self.last_solver = self._DeflatedSolver(linear_system,
-                                                    U=U,
-                                                    store_arnoldi=True,
-                                                    *args, **kwargs)
+            self.last_solver = self._DeflatedSolver(
+                linear_system, U=U, store_arnoldi=True, *args, **kwargs
+            )
 
         # return solver instance
         return self.last_solver
 
 
 class RecyclingCg(_RecyclingSolver):
-    '''Recycling preconditioned CG method.
+    """Recycling preconditioned CG method.
 
     See :py:class:`~krypy.recycling.linsys._RecyclingSolver` for the
     documentation of the available parameters.
-    '''
+    """
+
     def __init__(self, *args, **kwargs):
-        super(RecyclingCg, self).__init__(deflation.DeflatedCg,
-                                          *args, **kwargs)
+        super(RecyclingCg, self).__init__(deflation.DeflatedCg, *args, **kwargs)
 
 
 class RecyclingMinres(_RecyclingSolver):
-    '''Recycling preconditioned MINRES method.
+    """Recycling preconditioned MINRES method.
 
     See :py:class:`~krypy.recycling.linsys._RecyclingSolver` for the
     documentation of the available parameters.
-    '''
+    """
+
     def __init__(self, *args, **kwargs):
-        super(RecyclingMinres, self).__init__(deflation.DeflatedMinres,
-                                              *args, **kwargs)
+        super(RecyclingMinres, self).__init__(deflation.DeflatedMinres, *args, **kwargs)
 
 
 class RecyclingGmres(_RecyclingSolver):
-    '''Recycling preconditioned GMRES method.
+    """Recycling preconditioned GMRES method.
 
     See :py:class:`~krypy.recycling.linsys._RecyclingSolver` for the
     documentation of the available parameters.
-    '''
+    """
+
     def __init__(self, *args, **kwargs):
-        super(RecyclingGmres, self).__init__(deflation.DeflatedGmres,
-                                             *args, **kwargs)
+        super(RecyclingGmres, self).__init__(deflation.DeflatedGmres, *args, **kwargs)

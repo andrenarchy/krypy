@@ -1,5 +1,6 @@
-import krypy
 import numpy
+
+import krypy
 
 
 def test_cg_matrix():
