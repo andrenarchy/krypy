@@ -4,7 +4,7 @@ import numpy
 from numpy.testing import assert_almost_equal
 
 import krypy
-import krypy.tests.test_utils as test_utils
+import test_utils
 
 
 def dictproduct(d):

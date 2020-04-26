@@ -515,31 +515,32 @@ def assert_arnoldi(
     assert numpy.linalg.norm(proj_res, 2) <= proj_tol
 
 
-def test_ritz():
-    # Hermitian matrices
-    matrices_herm = [
-        get_matrix_spd(),
-        # get_matrix_hpd(),
-        # get_matrix_symm_indef(),
-        # get_matrix_herm_indef(),
-    ]
-    matrices_nonherm = [get_matrix_nonsymm(), get_matrix_comp_nonsymm()]
-    vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
-    maxiters = [1, 5, 9, 10]
-    ip_Bs = get_ip_Bs()
-    types = ["ritz", "harmonic", "harmonic_improved"]
-    for (matrix, v, maxiter, ip_B, with_V, type) in itertools.product(
-        matrices_herm + matrices_nonherm, vs, maxiters, ip_Bs, [True, False], types
-    ):
-        hermitian = any(matrix is x for x in matrices_herm)
-        eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
-        Aevals, _ = eig(matrix)
-        An = numpy.linalg.norm(matrix, 2)
-        for A in get_operators(matrix):
-            yield run_ritz, A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type
+_matrices_herm = [
+    get_matrix_spd(),
+    # get_matrix_hpd(),
+    # get_matrix_symm_indef(),
+    # get_matrix_herm_indef(),
+]
+_matrices_nonherm = [get_matrix_nonsymm(), get_matrix_comp_nonsymm()]
 
 
-def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
+@pytest.mark.parametrize("matrix", _matrices_herm + _matrices_nonherm)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("v", [numpy.ones((10, 1)), numpy.eye(10, 1)])
+@pytest.mark.parametrize("maxiter", [1, 5, 9, 10])
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+@pytest.mark.parametrize("with_V", [True, False])
+@pytest.mark.parametrize("type", ["ritz", "harmonic", "harmonic_improved"])
+def test_ritz(matrix, get_operator, v, maxiter, ip_B, with_V, type):
+    is_hermitian = any(matrix is x for x in _matrices_herm)
+    eig = scipy.linalg.eigh if is_hermitian else scipy.linalg.eig
+    Aevals, _ = eig(matrix)
+    An = numpy.linalg.norm(matrix, 2)
+
+    A = get_operator(matrix)
+
     ortho = "house" if ip_B is None else "dmgs"
     V, H = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, ip_B=ip_B)
     N = v.shape[0]
@@ -548,9 +549,9 @@ def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
 
     Z = None
     if with_V:
-        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=hermitian, type=type)
+        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=is_hermitian, type=type)
     else:
-        theta, U, resnorm = krypy.utils.ritz(H, hermitian=hermitian, type=type)
+        theta, U, resnorm = krypy.utils.ritz(H, hermitian=is_hermitian, type=type)
     # check Z
     if Z is not None:
         assert numpy.linalg.norm(numpy.dot(V[:, :n], U) - Z, 2) <= 1e-14
