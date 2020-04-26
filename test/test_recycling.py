@@ -1,12 +1,20 @@
-import itertools
-
 import numpy
+import pytest
 
 import krypy
-import krypy.tests.test_linsys as test_linsys
+import test_linsys
 
 
-def test_RitzFactorySimple():
+@pytest.mark.parametrize(
+    "Solver",
+    [
+        krypy.recycling.RecyclingCg,
+        krypy.recycling.RecyclingMinres,
+        krypy.recycling.RecyclingGmres,
+    ],
+)
+@pytest.mark.parametrize("which", ["lm", "sm", "lr", "sr", "li", "si", "smallest_res"])
+def test_RitzFactorySimple(Solver, which):
     N = 100
     d = numpy.linspace(1, 2, N)
     d[:5] = [1e-8, 1e-4, 1e-2, 2e-2, 3e-2]
@@ -18,17 +26,6 @@ def test_RitzFactorySimple():
         positive_definite=True,
     )
 
-    Solvers = [
-        krypy.recycling.RecyclingCg,
-        krypy.recycling.RecyclingMinres,
-        krypy.recycling.RecyclingGmres,
-    ]
-    whichs = ["lm", "sm", "lr", "sr", "li", "si", "smallest_res"]
-    for Solver, which in itertools.product(Solvers, whichs):
-        yield run_RitzFactorySimple, Solver, ls, which
-
-
-def run_RitzFactorySimple(Solver, ls, which):
     vector_factory = krypy.recycling.factories.RitzFactorySimple(
         n_vectors=3, which=which
     )
@@ -64,9 +61,3 @@ def run_RitzFactorySimple(Solver, ls, which):
 #     ritz = _get_ritz(A, self_adjoint)
 #     small = krypy.recycling.generators.SmallRitz(max_vectors=max_vectors)
 #     pass
-
-
-if __name__ == "__main__":
-    import nose
-
-    nose.main()
