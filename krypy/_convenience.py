@@ -1,6 +1,7 @@
-from .linsys import LinearSystem, Cg, Minres, Gmres
-from .deflation import DeflatedCg, DeflatedMinres, DeflatedGmres
 import numpy
+
+from .deflation import DeflatedCg, DeflatedGmres, DeflatedMinres
+from .linsys import Cg, Gmres, LinearSystem, Minres
 
 
 # The simplest inner product, `numpy.dot`, should work as an input.
@@ -11,6 +12,7 @@ def wrap_inner_product(inner):
         if a.shape[1] == 0:
             return numpy.array([[]])
         return numpy.array([[inner(a[:, 0], b[:, 0])]])
+
     return _wrap
 
 
