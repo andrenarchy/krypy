@@ -230,9 +230,3 @@ def check_solver(sol, solver, ls, params):
         ("max_restarts" not in params) or (params["max_restarts"] == 0)
     ):
         assert len(sol.resnorms) - 1 <= ls.b.shape[0]
-
-
-if __name__ == "__main__":
-    import nose
-
-    nose.main()

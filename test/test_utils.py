@@ -721,9 +721,3 @@ def test_NormalizedRootsPolynomial(roots):
         assert_almost_equal(
             numpy.max(numpy.abs(p(interval))), numpy.max(numpy.abs(p(c))), decimal=4
         )
-
-
-if __name__ == "__main__":
-    import nose
-
-    nose.main()

@@ -7,4 +7,5 @@ python:
     - "3.8"
 install:
     - travis_retry pip install .
-script: nosetests krypy/tests
+script:
+    - pytest
