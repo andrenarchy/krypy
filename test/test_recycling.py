@@ -39,25 +39,24 @@ def test_RitzFactorySimple(Solver, which):
             assert len(sols[-1].resnorms) <= len(sols[0].resnorms)
 
 
-# def test_SmallRitzGenerator():
-#
-#     matrices = [test_utils.get_matrix_spd(),
-#                 test_utils.get_matrix_hpd(),
-#                 test_utils.get_symm_indef(),
-#                 test_utils.get_herm_indef()]
-#     max_vectorss = [numpy.Inf, 2]
-#     for matrix, max_vectors in itertools.product(matrices, max_vectorss):
-#         yield run_SmallRitzGenerator, matrix, True, max_vectors
-#
-#
 # def _get_ritz(A, self_adjoint):
-#     linear_system = krypy.linsys.LinearSystem(A, numpy.ones((10, 1)),
-#                                               self_adjoint=True)
-#     deflated_solver = krypy.deflation.DeflatedGmres(linear_system,
-#                                                     store_arnoldi=True)
+#     linear_system = krypy.linsys.LinearSystem(A, numpy.ones((10, 1)), self_adjoint=True)
+#     deflated_solver = krypy.deflation.DeflatedGmres(linear_system, store_arnoldi=True)
 #     return krypy.deflation.Ritz(deflated_solver)
 #
-# def run_SmallRitzGenerator(A, self_adjoint, max_vectors):
+#
+# @pytest.mark.parametrize(
+#     "matrix",
+#     [
+#         test_utils.get_matrix_spd(),
+#         test_utils.get_matrix_hpd(),
+#         test_utils.get_symm_indef(),
+#         test_utils.get_herm_indef(),
+#     ],
+# )
+# @pytest.mark.parametrize("self_adjoint", [True])
+# @pytest.mark.parametrize("max_vectors", [numpy.Inf, 2])
+# def test_SmallRitzGenerator(A, self_adjoint, max_vectors):
 #     ritz = _get_ritz(A, self_adjoint)
 #     small = krypy.recycling.generators.SmallRitz(max_vectors=max_vectors)
 #     pass

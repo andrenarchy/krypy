@@ -2,6 +2,7 @@ import itertools
 
 import numpy
 from numpy.testing import assert_almost_equal
+import pytest
 
 import krypy
 import test_utils
@@ -142,7 +143,7 @@ cases = [
 ]
 
 
-def test_solver():
+def generate_cases():
     for case in cases:
         for ls in linear_systems_generator(**case):
             solvers = [krypy.linsys.Gmres, krypy.linsys.RestartedGmres]
@@ -152,10 +153,12 @@ def test_solver():
                 solvers.append(krypy.linsys.Cg)
             for solver in solvers:
                 for params in solver_params_generator(solver, ls):
-                    yield run_solver, solver, ls, params
+                    yield solver, ls, params
 
 
-def run_solver(solver, ls, params):
+@pytest.mark.parametrize("args", generate_cases())
+def test_solver(args):
+    solver, ls, params = args
     sol = solver(ls, **params)
     check_solver(sol, solver, ls, params)
 
