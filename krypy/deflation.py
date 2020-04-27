@@ -292,7 +292,7 @@ class Arnoldifyer(object):
 
         V = deflated_solver.V
         U = deflated_solver.projection.U
-        AU = deflated_solver.projection.AU
+        # AU = deflated_solver.projection.AU
         ls = deflated_solver.linear_system
         MAU = deflated_solver.projection.MAU
 

@@ -1037,8 +1037,11 @@ class _RestartedSolver(object):
         if linear_system.exact_solution is not None:
             self.errnorms = [numpy.Inf]
 
+        # dummy value, gets reset in the first iteration
+        tol = None
+
         restart = 0
-        while restart == 0 or self.resnorms[-1] > tol and restart <= max_restarts:
+        while restart == 0 or (self.resnorms[-1] > tol and restart <= max_restarts):
             try:
                 if self.xk is not None:
                     # use last approximate solution as initial guess
