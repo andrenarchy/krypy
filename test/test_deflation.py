@@ -1,9 +1,9 @@
 import itertools
 
 import numpy
+import pytest
 import scipy.linalg
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
-import pytest
 
 import krypy
 import test_linsys

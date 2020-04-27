@@ -1,8 +1,8 @@
 import itertools
 
 import numpy
-from numpy.testing import assert_almost_equal
 import pytest
+from numpy.testing import assert_almost_equal
 
 import krypy
 import test_utils
