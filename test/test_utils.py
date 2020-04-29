@@ -1,6 +1,5 @@
-import itertools
-
 import numpy
+import pytest
 import scipy.linalg
 from numpy.testing import (
     assert_almost_equal,
@@ -100,15 +99,16 @@ def get_vecs(v):
     return [v, numpy.reshape(v, (v.shape[0],))]
 
 
-def test_house():
-    factors = [0.0, 1.0, 1.0j, 1.0 + 1.0j, 1e8, 1e-8]
-    for (a, b, len) in itertools.product(factors, factors, [10, 1]):
-        x = numpy.ones((len, 1), dtype=numpy.array([a]).dtype) * b
-        x[0] = a
-        yield run_house, x
+_factors = [0.0, 1.0, 1.0j, 1.0 + 1.0j, 1e8, 1e-8]
 
 
-def run_house(x):
+@pytest.mark.parametrize("a", _factors)
+@pytest.mark.parametrize("b", _factors)
+@pytest.mark.parametrize("length", [10, 1])
+def test_house(a, b, length):
+    x = numpy.ones((length, 1), dtype=numpy.array([a]).dtype) * b
+    x[0] = a
+
     H = krypy.utils.House(x)
     y = H.apply(x)
 
@@ -135,14 +135,11 @@ def run_house(x):
         assert numpy.linalg.norm(y[1:], 2) <= 1e-14 * numpy.linalg.norm(x, 2)
 
 
-def test_givens():
-    factors = [0.0, 1.0, 1.0j, 1.0 + 1.0j, 1e8, 1e-8]
-    for (a, b) in itertools.product(factors, factors):
-        x = numpy.array([[a], [b]])
-        yield run_givens, x
+@pytest.mark.parametrize("a", _factors)
+@pytest.mark.parametrize("b", _factors)
+def test_givens(a, b):
+    x = numpy.array([[a], [b]])
 
-
-def run_givens(x):
     G = krypy.utils.Givens(x)
     y = G.apply(x)
 
@@ -157,23 +154,22 @@ def run_givens(x):
     assert numpy.linalg.norm(y[1], 2) <= 1e-14 * numpy.linalg.norm(x, 2)
 
 
-def test_projection():
-    Xs = [
+@pytest.mark.parametrize(
+    "X",
+    [
         numpy.eye(10, 1),
         numpy.eye(10, 5),
         numpy.eye(10, 5) + 1e-1 * numpy.ones((10, 5)),
         numpy.eye(10),
         numpy.zeros((10, 0)),
-    ]
-    ip_Bs = get_ip_Bs()
-    its = [1, 2, 3]
-    for (X, ip_B, iterations) in itertools.product(Xs, ip_Bs, its):
-        Ys = [None, X, X + numpy.ones((10, X.shape[1]))]
-        for Y in Ys:
-            yield run_projection, X, Y, ip_B, iterations
+    ],
+)
+@pytest.mark.parametrize("Ys", [None, 0, 1])
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+@pytest.mark.parametrize("iterations", [1, 2, 3])
+def test_projection(X, Ys, ip_B, iterations):
+    Y = None if Ys is None else X + Ys
 
-
-def run_projection(X, Y, ip_B, iterations):
     P = krypy.utils.Projection(X, Y, ip_B=ip_B, iterations=iterations)
 
     (N, k) = X.shape
@@ -227,15 +223,10 @@ def run_projection(X, Y, ip_B, iterations):
     )
 
 
-def test_qr():
-    Xs = [numpy.eye(10, 5), scipy.linalg.hilbert(10)[:, :5]]
-    ip_Bs = get_ip_Bs()
-    reorthos = [0, 1, 2]
-    for X, ip_B, reortho in itertools.product(Xs, ip_Bs, reorthos):
-        yield run_qr, X, ip_B, reortho
-
-
-def run_qr(X, ip_B, reorthos):
+@pytest.mark.parametrize("X", [numpy.eye(10, 5), scipy.linalg.hilbert(10)[:, :5]])
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+@pytest.mark.parametrize("reorthos", [0, 1, 2])
+def test_qr(X, ip_B, reorthos):
     (N, k) = X.shape
     s = scipy.linalg.svd(X, compute_uv=False)
     Q, R = krypy.utils.qr(X, ip_B=ip_B, reorthos=reorthos)
@@ -255,23 +246,21 @@ def run_qr(X, ip_B, reorthos):
     assert numpy.linalg.norm(numpy.tril(R, -1)) == 0
 
 
-def test_angles():
-    FGs = [
-        numpy.eye(10, 1),
-        1j * numpy.eye(10, 1),
-        numpy.eye(10, 4),
-        numpy.eye(10)[:, -4:],
-        numpy.dot(numpy.eye(10, 4), numpy.diag([1, 1e1, 1e2, 1e3])),
-        numpy.eye(10, 4),
-    ]
-    ip_Bs = get_ip_Bs()
-    for F, G, ip_B, compute_vectors in itertools.product(
-        FGs, FGs, ip_Bs, [False, True]
-    ):
-        yield run_angles, F, G, ip_B, compute_vectors
+_FGs = [
+    numpy.eye(10, 1),
+    1j * numpy.eye(10, 1),
+    numpy.eye(10, 4),
+    numpy.eye(10)[:, -4:],
+    numpy.dot(numpy.eye(10, 4), numpy.diag([1, 1e1, 1e2, 1e3])),
+    numpy.eye(10, 4),
+]
 
 
-def run_angles(F, G, ip_B, compute_vectors):
+@pytest.mark.parametrize("F", _FGs)
+@pytest.mark.parametrize("G", _FGs)
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+@pytest.mark.parametrize("compute_vectors", [False, True])
+def test_angles(F, G, ip_B, compute_vectors):
     if compute_vectors:
         theta, U, V = krypy.utils.angles(
             F, G, ip_B=ip_B, compute_vectors=compute_vectors
@@ -309,32 +298,40 @@ def run_angles(F, G, ip_B, compute_vectors):
         )
 
 
-def test_hegedus():
-    matrices = [
+def _get_m():
+    m = numpy.array(range(1, 11))
+    m[-1] = 1.0
+    return m
+
+
+_x = [numpy.ones((10, 1)), numpy.full((10, 1), 1.0j + 1)]
+
+
+@pytest.mark.parametrize(
+    "matrix",
+    [
         get_matrix_spd(),
         get_matrix_hpd(),
         get_matrix_symm_indef(),
         get_matrix_herm_indef(),
         get_matrix_nonsymm(),
         get_matrix_comp_nonsymm(),
-    ]
-    xs = [numpy.ones((10, 1)), (1.0j + 1) * numpy.ones((10, 1))]
-    x0s = [numpy.zeros((10, 1)), numpy.linspace(1, 5, 10).reshape((10, 1))] + xs
-    m = numpy.array(range(1, 11))
-    m[-1] = 1.0
-    Ms = [None, numpy.diag(m)]
-    Mls = [None, numpy.diag(m)]
-    ip_Bs = get_ip_Bs()
+    ],
+)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("x", _x)
+@pytest.mark.parametrize(
+    "x0", [numpy.zeros((10, 1)), numpy.linspace(1, 5, 10).reshape((10, 1))] + _x
+)
+@pytest.mark.parametrize("M", [None, numpy.diag(_get_m())])
+@pytest.mark.parametrize("Ml", [None, numpy.diag(_get_m())])
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+def test_hegedus(matrix, get_operator, x, x0, M, Ml, ip_B):
+    b = numpy.dot(matrix, x)
+    A = get_operator(matrix)
 
-    for matrix, x, x0, M, Ml, ip_B in itertools.product(
-        matrices, xs, x0s, Ms, Mls, ip_Bs
-    ):
-        b = numpy.dot(matrix, x)
-        for A in get_operators(matrix):
-            yield run_hegedus, A, b, x0, M, Ml, ip_B
-
-
-def run_hegedus(A, b, x0, M, Ml, ip_B):
     x0new = krypy.utils.hegedus(A, b, x0, M, Ml, ip_B)
 
     N = len(b)
@@ -352,55 +349,85 @@ def run_hegedus(A, b, x0, M, Ml, ip_B):
     assert MMlr0new_norm <= MMlr0_norm + 1e-13
 
 
-def test_arnoldi():
-    # TODO: reactivate the complex tests once travis-ci uses newer
-    #       numpy/scipy versions.
-    matrices = [
-        get_matrix_spd(),
-        # get_matrix_hpd(),
-        get_matrix_symm_indef(),
-        # get_matrix_herm_indef(),
-        get_matrix_nonsymm(),
-        # get_matrix_comp_nonsymm()
-    ]
-    vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
-    maxiters = [1, 5, 9, 10]
-    orthos = ["mgs", "dmgs", "house"]
-    B = numpy.diag(numpy.linspace(1, 5, 10))
-    Ms = [None, B]
-    ip_Bs = [
-        None,
-        B,
-        krypy.utils.MatrixLinearOperator(B),
-        lambda x, y: x.T.conj().dot(B.dot(y)),
-    ]
+_B = numpy.diag(numpy.linspace(1, 5, 10))
 
-    for (matrix, v, maxiter, ortho, M, ip_B) in itertools.product(
-        matrices, vs, maxiters, orthos, Ms, ip_Bs
-    ):
-        An = numpy.linalg.norm(matrix, 2)
-        for A in get_operators(matrix):
-            if ortho == "house" and (ip_B is not None or M is not None):
-                continue
-            yield run_arnoldi, A, v, maxiter, ortho, M, ip_B, An
 
-    # TODO: reactivate the complex tests once travis-ci uses newer
-    #       numpy/scipy versions.
-    matrices = [
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        # TODO: reactivate the complex tests once travis-ci uses newer
+        #       numpy/scipy versions.
         get_matrix_spd(),
         # get_matrix_hpd(),
         get_matrix_symm_indef(),
         # get_matrix_herm_indef()
-    ]
-    for (matrix, v, maxiter, M, ip_B) in itertools.product(
-        matrices, vs, maxiters, Ms, ip_Bs
-    ):
-        An = numpy.linalg.norm(matrix, 2)
-        for A in get_operators(matrix):
-            yield run_arnoldi, A, v, maxiter, "lanczos", M, ip_B, An
+        get_matrix_nonsymm(),
+        # get_matrix_comp_nonsymm()
+    ],
+)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("v", [numpy.ones((10, 1)), numpy.eye(10, 1)])
+@pytest.mark.parametrize("maxiter", [1, 5, 9, 10])
+@pytest.mark.parametrize("ortho", ["mgs", "dmgs", "house"])
+@pytest.mark.parametrize("M", [None, _B])
+@pytest.mark.parametrize(
+    "ip_B",
+    [
+        None,
+        _B,
+        krypy.utils.MatrixLinearOperator(_B),
+        lambda x, y: x.T.conj().dot(_B.dot(y)),
+    ],
+)
+def test_arnoldi(matrix, get_operator, v, maxiter, ortho, M, ip_B):
+    An = numpy.linalg.norm(matrix, 2)
+    A = get_operator(matrix)
+
+    if ortho == "house" and (ip_B is not None or M is not None):
+        return
+
+    res = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, M=M, ip_B=ip_B)
+    if M is not None:
+        V, H, P = res
+    else:
+        V, H = res
+        P = None
+    assert_arnoldi(A, v, V, H, P, maxiter, ortho, M, ip_B, An=An)
 
 
-def run_arnoldi(A, v, maxiter, ortho, M, ip_B, An):
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        # TODO: reactivate the complex tests once travis-ci uses newer
+        #       numpy/scipy versions.
+        get_matrix_spd(),
+        # get_matrix_hpd(),
+        get_matrix_symm_indef(),
+        # get_matrix_herm_indef()
+    ],
+)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("v", [numpy.ones((10, 1)), numpy.eye(10, 1)])
+@pytest.mark.parametrize("maxiter", [1, 5, 9, 10])
+@pytest.mark.parametrize("M", [None, _B])
+@pytest.mark.parametrize(
+    "ip_B",
+    [
+        None,
+        _B,
+        krypy.utils.MatrixLinearOperator(_B),
+        lambda x, y: x.T.conj().dot(_B.dot(y)),
+    ],
+)
+def test_arnoldi_lanczos(matrix, get_operator, v, maxiter, M, ip_B):
+    An = numpy.linalg.norm(matrix, 2)
+    A = get_operator(matrix)
+    ortho = "lanczos"
+
     res = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, M=M, ip_B=ip_B)
     if M is not None:
         V, H, P = res
@@ -514,31 +541,32 @@ def assert_arnoldi(
     assert numpy.linalg.norm(proj_res, 2) <= proj_tol
 
 
-def test_ritz():
-    # Hermitian matrices
-    matrices_herm = [
-        get_matrix_spd(),
-        # get_matrix_hpd(),
-        # get_matrix_symm_indef(),
-        # get_matrix_herm_indef(),
-    ]
-    matrices_nonherm = [get_matrix_nonsymm(), get_matrix_comp_nonsymm()]
-    vs = [numpy.ones((10, 1)), numpy.eye(10, 1)]
-    maxiters = [1, 5, 9, 10]
-    ip_Bs = get_ip_Bs()
-    types = ["ritz", "harmonic", "harmonic_improved"]
-    for (matrix, v, maxiter, ip_B, with_V, type) in itertools.product(
-        matrices_herm + matrices_nonherm, vs, maxiters, ip_Bs, [True, False], types
-    ):
-        hermitian = any(matrix is x for x in matrices_herm)
-        eig = scipy.linalg.eigh if hermitian else scipy.linalg.eig
-        Aevals, _ = eig(matrix)
-        An = numpy.linalg.norm(matrix, 2)
-        for A in get_operators(matrix):
-            yield run_ritz, A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type
+_matrices_herm = [
+    get_matrix_spd(),
+    # get_matrix_hpd(),
+    # get_matrix_symm_indef(),
+    # get_matrix_herm_indef(),
+]
+_matrices_nonherm = [get_matrix_nonsymm(), get_matrix_comp_nonsymm()]
 
 
-def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
+@pytest.mark.parametrize("matrix", _matrices_herm + _matrices_nonherm)
+@pytest.mark.parametrize(
+    "get_operator", [lambda A: A, lambda A: krypy.utils.MatrixLinearOperator(A)]
+)
+@pytest.mark.parametrize("v", [numpy.ones((10, 1)), numpy.eye(10, 1)])
+@pytest.mark.parametrize("maxiter", [1, 5, 9, 10])
+@pytest.mark.parametrize("ip_B", get_ip_Bs())
+@pytest.mark.parametrize("with_V", [True, False])
+@pytest.mark.parametrize("type", ["ritz", "harmonic", "harmonic_improved"])
+def test_ritz(matrix, get_operator, v, maxiter, ip_B, with_V, type):
+    is_hermitian = any(matrix is x for x in _matrices_herm)
+    eig = scipy.linalg.eigh if is_hermitian else scipy.linalg.eig
+    Aevals, _ = eig(matrix)
+    An = numpy.linalg.norm(matrix, 2)
+
+    A = get_operator(matrix)
+
     ortho = "house" if ip_B is None else "dmgs"
     V, H = krypy.utils.arnoldi(A, v, maxiter=maxiter, ortho=ortho, ip_B=ip_B)
     N = v.shape[0]
@@ -547,9 +575,11 @@ def run_ritz(A, v, maxiter, ip_B, Aevals, An, with_V, hermitian, type):
 
     Z = None
     if with_V:
-        theta, U, resnorm, Z = krypy.utils.ritz(H, V=V, hermitian=hermitian, type=type)
+        theta, U, resnorm, Z = krypy.utils.ritz(
+            H, V=V, hermitian=is_hermitian, type=type
+        )
     else:
-        theta, U, resnorm = krypy.utils.ritz(H, hermitian=hermitian, type=type)
+        theta, U, resnorm = krypy.utils.ritz(H, hermitian=is_hermitian, type=type)
     # check Z
     if Z is not None:
         assert numpy.linalg.norm(numpy.dot(V[:, :n], U) - Z, 2) <= 1e-14
@@ -669,13 +699,10 @@ def test_BoundMinres():
     assert ceil(b.get_step(2e-3)) == 8
 
 
-def test_NormalizedRootsPolynomial():
-    rs = [[1, 2], [1, 1j], [1, 2, 1e8], [1, 2, 1e8, 1e8 + 1e-3]]
-    for roots in rs:
-        yield run_NormalizedRootsPolynomial, roots
-
-
-def run_NormalizedRootsPolynomial(roots):
+@pytest.mark.parametrize(
+    "roots", [[1, 2], [1, 1j], [1, 2, 1e8], [1, 2, 1e8, 1e8 + 1e-3]]
+)
+def test_NormalizedRootsPolynomial(roots):
     p = krypy.utils.NormalizedRootsPolynomial(roots)
 
     # check if roots are exactly (!) zero
@@ -694,9 +721,3 @@ def run_NormalizedRootsPolynomial(roots):
         assert_almost_equal(
             numpy.max(numpy.abs(p(interval))), numpy.max(numpy.abs(p(c))), decimal=4
         )
-
-
-if __name__ == "__main__":
-    import nose
-
-    nose.main()

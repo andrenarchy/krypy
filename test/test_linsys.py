@@ -1,10 +1,11 @@
 import itertools
 
 import numpy
+import pytest
 from numpy.testing import assert_almost_equal
 
 import krypy
-import krypy.tests.test_utils as test_utils
+import test_utils
 
 
 def dictproduct(d):
@@ -142,7 +143,7 @@ cases = [
 ]
 
 
-def test_solver():
+def generate_cases():
     for case in cases:
         for ls in linear_systems_generator(**case):
             solvers = [krypy.linsys.Gmres, krypy.linsys.RestartedGmres]
@@ -152,10 +153,12 @@ def test_solver():
                 solvers.append(krypy.linsys.Cg)
             for solver in solvers:
                 for params in solver_params_generator(solver, ls):
-                    yield run_solver, solver, ls, params
+                    yield solver, ls, params
 
 
-def run_solver(solver, ls, params):
+@pytest.mark.parametrize("args", generate_cases())
+def test_solver(args):
+    solver, ls, params = args
     sol = solver(ls, **params)
     check_solver(sol, solver, ls, params)
 
@@ -227,9 +230,3 @@ def check_solver(sol, solver, ls, params):
         ("max_restarts" not in params) or (params["max_restarts"] == 0)
     ):
         assert len(sol.resnorms) - 1 <= ls.b.shape[0]
-
-
-if __name__ == "__main__":
-    import nose
-
-    nose.main()

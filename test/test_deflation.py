@@ -1,15 +1,16 @@
 import itertools
 
 import numpy
+import pytest
 import scipy.linalg
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
 
 import krypy
-import krypy.tests.test_linsys as test_linsys
-import krypy.tests.test_utils as test_utils
+import test_linsys
+import test_utils
 
 
-def test_deflation_solver():
+def generate_deflation_cases():
     for case in test_linsys.cases:
         for ls in test_linsys.linear_systems_generator(**case):
             solvers = [krypy.deflation.DeflatedGmres]
@@ -36,11 +37,12 @@ def test_deflation_solver():
 
                     # if solver is krypy.deflation.DeflatedGmres:
                     #     params['ortho'] = 'dmgs'
+                    yield solver, ls, params
 
-                    yield run_deflation_solver, solver, ls, params
 
-
-def run_deflation_solver(Solver, ls, params):
+@pytest.mark.parametrize("args", generate_deflation_cases())
+def test_deflation_solver(args):
+    Solver, ls, params = args
     sol = Solver(ls, **params)
     test_linsys.check_solver(sol, Solver, ls, params)
 
@@ -103,7 +105,7 @@ def check_Ritz(solver, ls):
                 cmp_coeffs[:, [i]] /= numpy.linalg.norm(cmp_coeffs[:, [i]], 2)
             cmp_vectors = Z.dot(cmp_coeffs)
             cmp_res = ls.M * (ls.MlAMr * cmp_vectors) - cmp_vectors * cmp_values
-            cmp_resnorms = [
+            [
                 krypy.utils.norm(cmp_res[:, [i]], ip_B=ls.get_ip_Minv_B())
                 for i in range(n + m)
             ]
@@ -134,7 +136,7 @@ def check_Ritz(solver, ls):
             #                           cmp_resnorms, decimal=4)
 
 
-def test_Arnoldifyer():
+def generate_Arnoldifyer_cases():
     vs = [numpy.ones((10, 1)), numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]]
     for matrix in test_utils.get_matrices():
         A_norm = numpy.linalg.norm(matrix, 2)
@@ -159,10 +161,12 @@ def test_Arnoldifyer():
                 evecs[:, -2:] + 1e-2 * numpy.random.rand(10, 2),
             ]
             for U in Us:
-                yield run_Arnoldifyer, ls, U, A_norm, Wt_sel
+                yield ls, U, A_norm, Wt_sel
 
 
-def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
+@pytest.mark.parametrize("args", generate_Arnoldifyer_cases())
+def test_Arnoldifyer(args):
+    ls, U, A_norm, Wt_sel = args
     try:
         deflated_solver = krypy.deflation.DeflatedGmres(
             ls, U=U, store_arnoldi=True, maxiter=5
@@ -243,9 +247,3 @@ def run_Arnoldifyer(ls, U, A_norm, Wt_sel):
 
     # check PWAW_norm
     assert_almost_equal(PWAW_norm, _get_op_norm(ls.M * PW * ls.Minv))
-
-
-if __name__ == "__main__":
-    import nose
-
-    nose.main()

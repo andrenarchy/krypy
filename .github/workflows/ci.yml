@@ -31,7 +31,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install package
       run: pip install .
-    - name: Test with nose
+    - name: Test with pytest
       run: |
-        pip install nose
-        nosetest krypy/tests
+        pip install pytest pytest-cov
+        cd test/ && pytest --cov krypy
