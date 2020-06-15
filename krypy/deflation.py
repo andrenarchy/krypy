@@ -176,10 +176,14 @@ class _DeflationMixin(object):
             if ls.self_adjoint:
                 self._B_ = self.C.T.conj()
                 if n_ > n:
-                    self._B_ = numpy.r_[
-                        self._B_,
-                        utils.inner(self.V[:, [-1]], self.projection.AU, ip_B=ls.ip_B),
-                    ]
+                    self._B_ = numpy.vstack(
+                        [
+                            self._B_,
+                            utils.inner(
+                                self.V[:, [-1]], self.projection.AU, ip_B=ls.ip_B
+                            ),
+                        ]
+                    )
             else:
                 self._B_ = utils.inner(self.V, self.projection.AU, ip_B=ls.ip_B)
         return self._B_
@@ -330,7 +334,7 @@ class Arnoldifyer(object):
 
             # residual helper matrix
             self.N = numpy.column_stack(
-                [numpy.eye(l + n_ - n, n_ - n), numpy.r_[B_[n:, :], self.R12]]
+                [numpy.eye(l + n_ - n, n_ - n), numpy.vstack([B_[n:, :], self.R12])]
             ).dot(numpy.block([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
         else:
             Q1 = numpy.zeros((U.shape[0], 0))
@@ -387,16 +391,19 @@ class Arnoldifyer(object):
         ).operator_complement()
         if d > 0:
             qt = Pt * (
-                numpy.r_[
-                    [[deflated_solver.MMlr0_norm]],
-                    numpy.zeros((self.n_ - 1, 1)),
-                    numpy.linalg.solve(deflated_solver.E, deflated_solver.UMlr),
-                ]
+                numpy.vstack(
+                    [
+                        [[deflated_solver.MMlr0_norm]],
+                        numpy.zeros((self.n_ - 1, 1)),
+                        numpy.linalg.solve(deflated_solver.E, deflated_solver.UMlr),
+                    ]
+                )
             )
         else:
-            qt = Pt * (
-                numpy.r_[[[deflated_solver.MMlr0_norm]], numpy.zeros((self.n_ - 1, 1))]
-            )
+            tmp = numpy.zeros((self.n_, 1))
+            tmp[0] = deflated_solver.MMlr0_norm
+            qt = Pt * tmp
+
         q = Wto.T.conj().dot(self.J.dot(qt))
 
         # TODO: q seems to suffer from round-off errors and thus the first
@@ -438,7 +445,7 @@ class Arnoldifyer(object):
             YL_Q, _ = scipy.linalg.qr(Y.dot(self.L.dot(Wt)), mode="economic")
 
             # compute <W,X> where X is an orthonormal basis of AW
-            WX = Wt.T.conj().dot(numpy.r_[YL_Q[:n, :], YL_Q[n_ : n_ + d, :]])
+            WX = Wt.T.conj().dot(numpy.vstack([YL_Q[:n, :], YL_Q[n_ : n_ + d, :]]))
             PWAW_norm = 1.0 / numpy.min(scipy.linalg.svdvals(WX))
         else:
             PWAW_norm = 1.0
@@ -675,9 +682,9 @@ def bound_pseudo(
                 for candidate in p_minmax_candidates:
                     if pseudo_intervals.contains(candidate):
                         candidates.append(candidate)
-                all_candidates = numpy.r_[
-                    pseudo_intervals.get_endpoints(), numpy.array(candidates)
-                ]
+                all_candidates = numpy.hstack(
+                    [pseudo_intervals.get_endpoints(), numpy.array(candidates)]
+                )
 
                 # evaluate polynomial
                 polymax = numpy.max(numpy.abs(p(all_candidates)))

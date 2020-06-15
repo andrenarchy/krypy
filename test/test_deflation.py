@@ -137,7 +137,7 @@ def check_Ritz(solver, ls):
 
 
 def generate_Arnoldifyer_cases():
-    vs = [numpy.ones((10, 1)), numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]]
+    vs = [numpy.ones((10, 1)), numpy.vstack([numpy.ones((3, 1)), numpy.zeros((7, 1))])]
     for matrix in test_utils.get_matrices():
         A_norm = numpy.linalg.norm(matrix, 2)
         numpy.random.seed(0)

@@ -769,10 +769,12 @@ def angles(F, G, ip_B=None, compute_vectors=False):
         Vcos = numpy.dot(QG, Z.T.conj())
         n_large = numpy.flatnonzero((s ** 2) < 0.5).shape[0]
         n_small = s.shape[0] - n_large
-        theta = numpy.r_[
-            numpy.arccos(s[n_small:]),  # [-i:] does not work if i==0
-            numpy.ones(F.shape[1] - G.shape[1]) * numpy.pi / 2,
-        ]
+        theta = numpy.hstack(
+            [
+                numpy.arccos(s[n_small:]),  # [-i:] does not work if i==0
+                numpy.ones(F.shape[1] - G.shape[1]) * numpy.pi / 2,
+            ]
+        )
         if compute_vectors:
             Ucos = numpy.dot(QF, Y)
             U = Ucos[:, n_small:]
@@ -783,7 +785,7 @@ def angles(F, G, ip_B=None, compute_vectors=False):
             S = RG - numpy.dot(QF, inner(QF, RG, ip_B=ip_B))
             _, R = qr(S, ip_B=ip_B)
             Y, u, Z = scipy.linalg.svd(R)
-            theta = numpy.r_[numpy.arcsin(u[::-1][:n_small]), theta]
+            theta = numpy.hstack([numpy.arcsin(u[::-1][:n_small]), theta])
             if compute_vectors:
                 RF = Ucos[:, :n_small]
                 Vsin = numpy.dot(RG, Z.T.conj())
