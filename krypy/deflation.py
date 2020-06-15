@@ -301,9 +301,10 @@ class Arnoldifyer(object):
 
         # store a few matrices for later use
         EinvC = numpy.linalg.solve(E, C) if d > 0 else numpy.zeros((0, n))
-        self.L = numpy.bmat([[H, numpy.zeros((n_, d))], [EinvC, numpy.eye(d)]])
-        self.J = numpy.bmat([[numpy.eye(n, n_), B_[:n, :]], [numpy.zeros((d, n_)), E]])
-        self.M = numpy.bmat([[H[:n, :n] + B_[:n, :].dot(EinvC), B_[:n, :]], [C, E]])
+
+        self.L = numpy.block([[H, numpy.zeros((n_, d))], [EinvC, numpy.eye(d)]])
+        self.J = numpy.block([[numpy.eye(n, n_), B_[:n, :]], [numpy.zeros((d, n_)), E]])
+        self.M = numpy.block([[H[:n, :n] + B_[:n, :].dot(EinvC), B_[:n, :]], [C, E]])
         self.A_norm = numpy.linalg.norm(self.M, 2)
 
         if d > 0:
@@ -329,11 +330,11 @@ class Arnoldifyer(object):
             # residual helper matrix
             self.N = numpy.c_[
                 numpy.eye(l + n_ - n, n_ - n), numpy.r_[B_[n:, :], self.R12]
-            ].dot(numpy.bmat([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
+            ].dot(numpy.block([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
         else:
             Q1 = numpy.zeros((U.shape[0], 0))
             self.R12 = numpy.zeros((0, 0))
-            self.N = numpy.bmat([[numpy.zeros((n_ - n, n)), numpy.eye(n_ - n, n_ - n)]])
+            self.N = numpy.block([[numpy.zeros((n_ - n, n)), numpy.eye(n_ - n, n_ - n)]])
 
         # residual basis
         self.Z = numpy.c_[V[:, n:], Q1]
@@ -424,7 +425,7 @@ class Arnoldifyer(object):
         # compute norm of projection P_{W^\perp,AW}
         if k > 0:
             # compute coefficients of orthonormalized AW in the basis [V,Z]
-            Y = numpy.bmat(
+            Y = numpy.block(
                 [
                     [numpy.eye(n_), deflated_solver.B_],
                     [numpy.zeros((d, n_)), deflated_solver.E],
@@ -767,9 +768,9 @@ class Ritz(object):
             B = B_[:n, :]
 
             # build block matrices
-            M = numpy.bmat([[H + B.dot(EinvC), B], [C, E]])
+            M = numpy.block([[H + B.dot(EinvC), B], [C, E]])
             F = utils.inner(projection.AU, projection.MAU, ip_B=linear_system.ip_B)
-            S = numpy.bmat(
+            S = numpy.block(
                 [
                     [I(n_), B_, O((n_, m))],
                     [B_.T.conj(), F, E],
@@ -784,8 +785,8 @@ class Ritz(object):
             if mode == "ritz":
                 self.values, self.coeffs = eig(M)
             elif mode == "harmonic":
-                L = numpy.bmat([[H_, O((n_, m))], [EinvC, I(m)]])
-                K = numpy.bmat([[I(n_), B_], [B_.T.conj(), F]])
+                L = numpy.block([[H_, O((n_, m))], [EinvC, I(m)]])
+                K = numpy.block([[I(n_), B_], [B_.T.conj(), F]])
                 sigmas, self.coeffs = eig(M.T.conj(), L.T.conj().dot(K.dot(L)))
                 self.values = numpy.zeros(m + n, dtype=sigmas.dtype)
                 zero = numpy.abs(sigmas) < numpy.finfo(float).eps
@@ -807,7 +808,7 @@ class Ritz(object):
             for i in range(n + m):
                 mu = self.values[i]
                 y = self.coeffs[:, [i]]
-                G = numpy.bmat(
+                G = numpy.block(
                     [
                         [H_ - mu * I(n_, n), O((n_, m))],
                         [EinvC, I(m)],

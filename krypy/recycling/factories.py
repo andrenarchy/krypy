@@ -205,4 +205,4 @@ class UnionFactory(_DeflationVectorFactory):
 
     def get(self, solver):
         vectors = [factory.get(solver) for factory in self._factories]
-        return numpy.asarray(numpy.bmat(vectors))
+        return numpy.asarray(numpy.block(vectors))
