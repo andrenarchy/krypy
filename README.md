@@ -1,6 +1,7 @@
 # KryPy
 
 [![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
+[![codecov](https://img.shields.io/codecov/c/github/nschloe/krypy.svg?style=flat-square)](https://codecov.io/gh/nschloe/krypy)
 [![Documentation Status](https://readthedocs.org/projects/krypy/badge/?version=latest)](http://krypy.readthedocs.org/en/latest/?badge=latest)
 [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square)](https://github.com/psf/black)
