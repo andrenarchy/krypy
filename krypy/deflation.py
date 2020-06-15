@@ -334,7 +334,9 @@ class Arnoldifyer(object):
         else:
             Q1 = numpy.zeros((U.shape[0], 0))
             self.R12 = numpy.zeros((0, 0))
-            self.N = numpy.block([[numpy.zeros((n_ - n, n)), numpy.eye(n_ - n, n_ - n)]])
+            self.N = numpy.block(
+                [[numpy.zeros((n_ - n, n)), numpy.eye(n_ - n, n_ - n)]]
+            )
 
         # residual basis
         self.Z = numpy.c_[V[:, n:], Q1]
