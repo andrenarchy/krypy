@@ -139,7 +139,7 @@ class _DeflationMixin(object):
           to the current Arnoldi vector. (CG needs special treatment, here).
         """
         PAv, UAv = self.projection.apply_complement(Av, return_Ya=True)
-        self.C = numpy.c_[self.C, UAv]
+        self.C = numpy.column_stack([self.C, UAv])
         return PAv
 
     def _get_initial_residual(self, x0):
@@ -254,7 +254,8 @@ class DeflatedCg(_DeflationMixin, linsys.Cg):
         c *= ((-1) ** self.iter) / numpy.sqrt(rhos[-1])
         if self.iter > 0:
             c -= numpy.sqrt(rhos[-2] / rhos[-1]) * self.C[:, [-1]]
-        self.C = numpy.c_[self.C, c]
+
+        self.C = numpy.column_stack([self.C, c])
         return PAv
 
 
@@ -328,9 +329,9 @@ class Arnoldifyer(object):
             self.R12 = Rt.dot(self.R12)
 
             # residual helper matrix
-            self.N = numpy.c_[
-                numpy.eye(l + n_ - n, n_ - n), numpy.r_[B_[n:, :], self.R12]
-            ].dot(numpy.block([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
+            self.N = numpy.column_stack(
+                [numpy.eye(l + n_ - n, n_ - n), numpy.r_[B_[n:, :], self.R12]]
+            ).dot(numpy.block([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
         else:
             Q1 = numpy.zeros((U.shape[0], 0))
             self.R12 = numpy.zeros((0, 0))
@@ -339,7 +340,7 @@ class Arnoldifyer(object):
             )
 
         # residual basis
-        self.Z = numpy.c_[V[:, n:], Q1]
+        self.Z = numpy.column_stack([V[:, n:], Q1])
 
     def get(self, Wt, full=False):
         r"""Get Arnoldi relation for a deflation subspace choice.
@@ -443,9 +444,9 @@ class Arnoldifyer(object):
             PWAW_norm = 1.0
 
         if full:
-            Vh = numpy.c_[deflated_solver.V[:, :n], deflated_solver.projection.U].dot(
-                Wto.dot(QT)
-            )
+            Vh = numpy.column_stack(
+                [deflated_solver.V[:, :n], deflated_solver.projection.U]
+            ).dot(Wto.dot(QT))
             ip_Minv_B = deflated_solver.linear_system.get_ip_Minv_B()
 
             def _apply_F(x):
@@ -834,9 +835,9 @@ class Ritz(object):
         H_ = self._deflated_solver.H
         (n_, n) = H_.shape
         coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
-        return numpy.c_[
-            self._deflated_solver.V[:, :n], self._deflated_solver.projection.U
-        ].dot(coeffs)
+        return numpy.column_stack(
+            [self._deflated_solver.V[:, :n], self._deflated_solver.projection.U]
+        ).dot(coeffs)
 
     def get_explicit_residual(self, indices=None):
         """Explicitly computes the Ritz residual."""

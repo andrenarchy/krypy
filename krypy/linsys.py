@@ -804,7 +804,7 @@ class Minres(_KrylovSolver):
         )
 
         # Necessary for efficient update of yk:
-        W = numpy.c_[numpy.zeros(N, dtype=self.dtype), numpy.zeros(N)]
+        W = numpy.column_stack([numpy.zeros(N, dtype=self.dtype), numpy.zeros(N)])
         # some small helpers
         y = [self.MMlr0_norm, 0]  # first entry is (updated) residual
         G2 = None  # old givens rotation
@@ -842,7 +842,7 @@ class Minres(_KrylovSolver):
 
             # update solution
             z = (V[:, [k]] - R[0, 0] * W[:, [0]] - R[1, 0] * W[:, [1]]) / R[2, 0]
-            W = numpy.c_[W[:, [1]], z]
+            W = numpy.column_stack([W[:, [1]], z])
             yk = yk + y[0] * z
             y = [y[1], 0]
 

@@ -517,7 +517,8 @@ def assert_arnoldi(
         ortho_tol = ortho_const * (k ** 1.5) * N * eps  # inequality (2.4) in [1]
     else:
         vAV_singvals = scipy.linalg.svd(
-            numpy.c_[V[:, [0]], (MAV[:, :-1] if invariant else MAV)], compute_uv=False
+            numpy.column_stack([V[:, [0]], (MAV[:, :-1] if invariant else MAV)]),
+            compute_uv=False,
         )
         if vAV_singvals[-1] == 0:
             ortho_tol = numpy.inf

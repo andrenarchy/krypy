@@ -796,8 +796,8 @@ def angles(F, G, ip_B=None, compute_vectors=False):
                         numpy.dot(Z.T.conj(), numpy.diag(s[:n_small])),
                     ),
                 )
-                U = numpy.c_[Usin, U]
-                V = numpy.c_[Vsin, V]
+                U = numpy.column_stack([Usin, U])
+                V = numpy.column_stack([Vsin, V])
 
     if compute_vectors:
         if reverse:
