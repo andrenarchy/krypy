@@ -139,7 +139,7 @@ class _DeflationMixin(object):
           to the current Arnoldi vector. (CG needs special treatment, here).
         """
         PAv, UAv = self.projection.apply_complement(Av, return_Ya=True)
-        self.C = numpy.c_[self.C, UAv]
+        self.C = numpy.column_stack([self.C, UAv])
         return PAv
 
     def _get_initial_residual(self, x0):
@@ -176,10 +176,14 @@ class _DeflationMixin(object):
             if ls.self_adjoint:
                 self._B_ = self.C.T.conj()
                 if n_ > n:
-                    self._B_ = numpy.r_[
-                        self._B_,
-                        utils.inner(self.V[:, [-1]], self.projection.AU, ip_B=ls.ip_B),
-                    ]
+                    self._B_ = numpy.vstack(
+                        [
+                            self._B_,
+                            utils.inner(
+                                self.V[:, [-1]], self.projection.AU, ip_B=ls.ip_B
+                            ),
+                        ]
+                    )
             else:
                 self._B_ = utils.inner(self.V, self.projection.AU, ip_B=ls.ip_B)
         return self._B_
@@ -254,7 +258,8 @@ class DeflatedCg(_DeflationMixin, linsys.Cg):
         c *= ((-1) ** self.iter) / numpy.sqrt(rhos[-1])
         if self.iter > 0:
             c -= numpy.sqrt(rhos[-2] / rhos[-1]) * self.C[:, [-1]]
-        self.C = numpy.c_[self.C, c]
+
+        self.C = numpy.column_stack([self.C, c])
         return PAv
 
 
@@ -301,9 +306,10 @@ class Arnoldifyer(object):
 
         # store a few matrices for later use
         EinvC = numpy.linalg.solve(E, C) if d > 0 else numpy.zeros((0, n))
-        self.L = numpy.bmat([[H, numpy.zeros((n_, d))], [EinvC, numpy.eye(d)]])
-        self.J = numpy.bmat([[numpy.eye(n, n_), B_[:n, :]], [numpy.zeros((d, n_)), E]])
-        self.M = numpy.bmat([[H[:n, :n] + B_[:n, :].dot(EinvC), B_[:n, :]], [C, E]])
+
+        self.L = numpy.block([[H, numpy.zeros((n_, d))], [EinvC, numpy.eye(d)]])
+        self.J = numpy.block([[numpy.eye(n, n_), B_[:n, :]], [numpy.zeros((d, n_)), E]])
+        self.M = numpy.block([[H[:n, :n] + B_[:n, :].dot(EinvC), B_[:n, :]], [C, E]])
         self.A_norm = numpy.linalg.norm(self.M, 2)
 
         if d > 0:
@@ -327,16 +333,18 @@ class Arnoldifyer(object):
             self.R12 = Rt.dot(self.R12)
 
             # residual helper matrix
-            self.N = numpy.c_[
-                numpy.eye(l + n_ - n, n_ - n), numpy.r_[B_[n:, :], self.R12]
-            ].dot(numpy.bmat([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
+            self.N = numpy.column_stack(
+                [numpy.eye(l + n_ - n, n_ - n), numpy.vstack([B_[n:, :], self.R12])]
+            ).dot(numpy.block([[numpy.zeros((d + n_ - n, n)), numpy.eye(d + n_ - n)]]))
         else:
             Q1 = numpy.zeros((U.shape[0], 0))
             self.R12 = numpy.zeros((0, 0))
-            self.N = numpy.bmat([[numpy.zeros((n_ - n, n)), numpy.eye(n_ - n, n_ - n)]])
+            self.N = numpy.block(
+                [[numpy.zeros((n_ - n, n)), numpy.eye(n_ - n, n_ - n)]]
+            )
 
         # residual basis
-        self.Z = numpy.c_[V[:, n:], Q1]
+        self.Z = numpy.column_stack([V[:, n:], Q1])
 
     def get(self, Wt, full=False):
         r"""Get Arnoldi relation for a deflation subspace choice.
@@ -383,16 +391,19 @@ class Arnoldifyer(object):
         ).operator_complement()
         if d > 0:
             qt = Pt * (
-                numpy.r_[
-                    [[deflated_solver.MMlr0_norm]],
-                    numpy.zeros((self.n_ - 1, 1)),
-                    numpy.linalg.solve(deflated_solver.E, deflated_solver.UMlr),
-                ]
+                numpy.vstack(
+                    [
+                        [[deflated_solver.MMlr0_norm]],
+                        numpy.zeros((self.n_ - 1, 1)),
+                        numpy.linalg.solve(deflated_solver.E, deflated_solver.UMlr),
+                    ]
+                )
             )
         else:
-            qt = Pt * (
-                numpy.r_[[[deflated_solver.MMlr0_norm]], numpy.zeros((self.n_ - 1, 1))]
-            )
+            tmp = numpy.zeros((self.n_, 1))
+            tmp[0] = deflated_solver.MMlr0_norm
+            qt = Pt * tmp
+
         q = Wto.T.conj().dot(self.J.dot(qt))
 
         # TODO: q seems to suffer from round-off errors and thus the first
@@ -424,7 +435,7 @@ class Arnoldifyer(object):
         # compute norm of projection P_{W^\perp,AW}
         if k > 0:
             # compute coefficients of orthonormalized AW in the basis [V,Z]
-            Y = numpy.bmat(
+            Y = numpy.block(
                 [
                     [numpy.eye(n_), deflated_solver.B_],
                     [numpy.zeros((d, n_)), deflated_solver.E],
@@ -434,15 +445,15 @@ class Arnoldifyer(object):
             YL_Q, _ = scipy.linalg.qr(Y.dot(self.L.dot(Wt)), mode="economic")
 
             # compute <W,X> where X is an orthonormal basis of AW
-            WX = Wt.T.conj().dot(numpy.r_[YL_Q[:n, :], YL_Q[n_ : n_ + d, :]])
+            WX = Wt.T.conj().dot(numpy.vstack([YL_Q[:n, :], YL_Q[n_ : n_ + d, :]]))
             PWAW_norm = 1.0 / numpy.min(scipy.linalg.svdvals(WX))
         else:
             PWAW_norm = 1.0
 
         if full:
-            Vh = numpy.c_[deflated_solver.V[:, :n], deflated_solver.projection.U].dot(
-                Wto.dot(QT)
-            )
+            Vh = numpy.column_stack(
+                [deflated_solver.V[:, :n], deflated_solver.projection.U]
+            ).dot(Wto.dot(QT))
             ip_Minv_B = deflated_solver.linear_system.get_ip_Minv_B()
 
             def _apply_F(x):
@@ -671,9 +682,9 @@ def bound_pseudo(
                 for candidate in p_minmax_candidates:
                     if pseudo_intervals.contains(candidate):
                         candidates.append(candidate)
-                all_candidates = numpy.r_[
-                    pseudo_intervals.get_endpoints(), numpy.array(candidates)
-                ]
+                all_candidates = numpy.hstack(
+                    [pseudo_intervals.get_endpoints(), numpy.array(candidates)]
+                )
 
                 # evaluate polynomial
                 polymax = numpy.max(numpy.abs(p(all_candidates)))
@@ -767,9 +778,9 @@ class Ritz(object):
             B = B_[:n, :]
 
             # build block matrices
-            M = numpy.bmat([[H + B.dot(EinvC), B], [C, E]])
+            M = numpy.block([[H + B.dot(EinvC), B], [C, E]])
             F = utils.inner(projection.AU, projection.MAU, ip_B=linear_system.ip_B)
-            S = numpy.bmat(
+            S = numpy.block(
                 [
                     [I(n_), B_, O((n_, m))],
                     [B_.T.conj(), F, E],
@@ -784,8 +795,8 @@ class Ritz(object):
             if mode == "ritz":
                 self.values, self.coeffs = eig(M)
             elif mode == "harmonic":
-                L = numpy.bmat([[H_, O((n_, m))], [EinvC, I(m)]])
-                K = numpy.bmat([[I(n_), B_], [B_.T.conj(), F]])
+                L = numpy.block([[H_, O((n_, m))], [EinvC, I(m)]])
+                K = numpy.block([[I(n_), B_], [B_.T.conj(), F]])
                 sigmas, self.coeffs = eig(M.T.conj(), L.T.conj().dot(K.dot(L)))
                 self.values = numpy.zeros(m + n, dtype=sigmas.dtype)
                 zero = numpy.abs(sigmas) < numpy.finfo(float).eps
@@ -807,7 +818,7 @@ class Ritz(object):
             for i in range(n + m):
                 mu = self.values[i]
                 y = self.coeffs[:, [i]]
-                G = numpy.bmat(
+                G = numpy.block(
                     [
                         [H_ - mu * I(n_, n), O((n_, m))],
                         [EinvC, I(m)],
@@ -831,9 +842,9 @@ class Ritz(object):
         H_ = self._deflated_solver.H
         (n_, n) = H_.shape
         coeffs = self.coeffs if indices is None else self.coeffs[:, indices]
-        return numpy.c_[
-            self._deflated_solver.V[:, :n], self._deflated_solver.projection.U
-        ].dot(coeffs)
+        return numpy.column_stack(
+            [self._deflated_solver.V[:, :n], self._deflated_solver.projection.U]
+        ).dot(coeffs)
 
     def get_explicit_residual(self, indices=None):
         """Explicitly computes the Ritz residual."""

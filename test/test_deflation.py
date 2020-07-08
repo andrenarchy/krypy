@@ -77,7 +77,7 @@ def check_Ritz(solver, ls):
     m = solver.projection.U.shape[1]
 
     # compute Ritz pairs 'by hand'
-    Z = numpy.c_[solver.V[:, :n], solver.projection.U]
+    Z = numpy.column_stack([solver.V[:, :n], solver.projection.U])
     MMlAMrZ = ls.M * (ls.MlAMr * Z)
 
     inner_left = krypy.utils.inner(Z, MMlAMrZ, ip_B=ls.get_ip_Minv_B())
@@ -137,7 +137,7 @@ def check_Ritz(solver, ls):
 
 
 def generate_Arnoldifyer_cases():
-    vs = [numpy.ones((10, 1)), numpy.r_[numpy.ones((3, 1)), numpy.zeros((7, 1))]]
+    vs = [numpy.ones((10, 1)), numpy.vstack([numpy.ones((3, 1)), numpy.zeros((7, 1))])]
     for matrix in test_utils.get_matrices():
         A_norm = numpy.linalg.norm(matrix, 2)
         numpy.random.seed(0)
@@ -208,7 +208,7 @@ def test_Arnoldifyer(args):
     N = ls.N
     d = deflated_solver.projection.U.shape[1]
 
-    VU = numpy.c_[deflated_solver.V[:, :n], deflated_solver.projection.U]
+    VU = numpy.column_stack([deflated_solver.V[:, :n], deflated_solver.projection.U])
     W = VU.dot(Wt)
     PW = krypy.utils.Projection(ls.MlAMr * W, W).operator_complement()
     At = ls.M * (PW * ls.MlAMr)

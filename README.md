@@ -1,6 +1,7 @@
 # KryPy
 
-[![Build Status](https://travis-ci.org/andrenarchy/krypy.png?branch=master)](https://travis-ci.org/andrenarchy/krypy)
+[![gh-actions](https://img.shields.io/github/workflow/status/andrenarchy/krypy/ci)](https://github.com/andrenarchy/krypy/actions?query=workflow%3Aci)
+[![codecov](https://img.shields.io/codecov/c/github/andrenarchy/krypy.svg)](https://codecov.io/gh/andrenarchy/krypy)
 [![Documentation Status](https://readthedocs.org/projects/krypy/badge/?version=latest)](http://krypy.readthedocs.org/en/latest/?badge=latest)
 [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10283.png)](https://zenodo.org/record/10283)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square)](https://github.com/psf/black)
@@ -29,7 +30,7 @@ The documentation is hosted at
 [krypy.readthedocs.org](http://krypy.readthedocs.org).
 
 ### Example
-![](https://raw.githubusercontent.com/nschloe/krypy/master/example.png)
+![](https://raw.githubusercontent.com/andrenarchy/krypy/master/example.png)
 
 The above convergence history is obtained with the following example where the
 [Gmres](http://krypy.readthedocs.org/en/latest/krypy.linsys.html#krypy.linsys.Gmres)
