@@ -1258,8 +1258,8 @@ def ritz(H, V=None, hermitian=False, type="ritz"):
         for i in range(n):
             U[:, i] /= numpy.linalg.norm(U[:, i], 2)
             resi = numpy.dot(H, U[:, i])
-            if resi.dtype != numpy.complex and theta.dtype == numpy.complex:
-                resi = numpy.array(resi, dtype=numpy.complex)
+            if resi.dtype != complex and theta.dtype == complex:
+                resi = numpy.array(resi, dtype=complex)
             resi[:n] -= theta[i] * U[:, i]
             resnorm.append(numpy.linalg.norm(resi, 2))
         resnorm = numpy.array(resnorm)
@@ -1890,7 +1890,7 @@ class BoundCG(object):
             raise AssumptionError("non-real eigenvalues not allowed")
 
         # sort
-        evals = numpy.sort(numpy.array(evals, dtype=numpy.float))
+        evals = numpy.sort(numpy.array(evals, dtype=float))
 
         # normalize
         evals /= evals[-1]
@@ -1977,7 +1977,7 @@ class BoundMinres(object):
             raise AssumptionError("non-real eigenvalues not allowed")
 
         # sort
-        evals = numpy.sort(numpy.array(evals, dtype=numpy.float))
+        evals = numpy.sort(numpy.array(evals, dtype=float))
 
         # normalize and categorize evals
         evals /= numpy.max(numpy.abs(evals))
@@ -2086,7 +2086,7 @@ class NormalizedRootsPolynomial(object):
         # values
         for j in range(vals.shape[1]):
             sort_tmp = numpy.argsort(numpy.abs(vals[:, j]))
-            sort = numpy.zeros((n,), dtype=numpy.int)
+            sort = numpy.zeros((n,), dtype=int)
             mid = int(numpy.ceil(float(n) / 2))
             sort[::2] = sort_tmp[:mid]
             sort[1::2] = sort_tmp[mid:][::-1]
