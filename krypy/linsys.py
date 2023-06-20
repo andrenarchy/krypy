@@ -71,7 +71,7 @@ class LinearSystem(object):
           ``exact_solution.shape == (N,1)``. Then error norms can be computed
           (for debugging or research purposes). Defaults to ``None``.
         """
-        self.N = N = b.shape[0]
+        self.N = N = len(b)
         """Dimension :math:`N` of the space :math:`\\mathbb{C}^N` where the
         linear system is defined."""
         shape = (N, N)
