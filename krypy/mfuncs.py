@@ -2,17 +2,18 @@ from . import utils
 import numpy
 import scipy.linalg
 import scipy.sparse
-import numbers
+from collections import deque
+
 
 __all__ = [
     "MatrixFunction",
     "MatrixExponential",
     "MatrixInverse",
     "MatrixFunctionSystem",
-    "MatrixFunctionUpdate"
+    "RankOneUpdate"
 ]
 
-# Sparse matrix??
+
 class MatrixFunction:
     """DOCSTRING?"""
     def __init__(
@@ -33,10 +34,10 @@ class MatrixFunction:
             raise NotImplementedError("Unknown implementation:"
                                       + " {}".format(self.implementation))
 
-    def _evaluate_hermitian(self, A, is_positive_semidefinite=False):
+    def _evaluate_hermitian(self, A, is_pos_semidefinite=False):
         """From scipy notes*** NEED TO CITE"""
         w, v = scipy.linalg.eigh(A, check_finite=True)
-        if is_positive_semidefinite:
+        if is_pos_semidefinite:
             w = numpy.maximum(w, 0)
         w = self.f(w)
         return (v * w) @ v.conj().T
@@ -45,17 +46,17 @@ class MatrixFunction:
         raise NotImplementedError("Unknown sparse implementation:"
                                   + " {}".format(self.implementation))
 
-    def _evaluate_hermitian_sparse(self, A_sp, is_positive_semidefinite=False):
+    def _evaluate_hermitian_sparse(self, A_sp, is_pos_semidefinite=False):
         raise NotImplementedError("Unknown sparse implementation:"
                                   + " {}".format(self.implementation))
 
-    def __call__(self, A, is_hermitian=False, is_positive_semidefinite=False):
+    def __call__(self, A, is_hermitian=False, is_pos_semidefinite=False):
         """Compute matrix function of current matrix with defined method"""
         is_sparse = scipy.sparse.issparse(A)
         if is_hermitian and is_sparse:
-            return self._evaluate_hermitian_sparse(A, is_positive_semidefinite)
+            return self._evaluate_hermitian_sparse(A, is_pos_semidefinite)
         elif is_hermitian and not is_sparse:
-            return self._evaluate_hermitian(A, is_positive_semidefinite)
+            return self._evaluate_hermitian(A, is_pos_semidefinite)
         elif not is_hermitian and is_sparse:
             return self._evaluate_general_sparse(A)
         else:
@@ -87,12 +88,12 @@ class MatrixExponential(MatrixFunction):
             raise NotImplementedError("Unknown evaluation algorithm:"
                                       + " {}".format(self.implementation))
 
-    def _evaluate_hermitian(self, A, is_positive_semidefinite=False):
+    def _evaluate_hermitian(self, A, is_pos_semidefinite=False):
         """From scipy notes*** NEED TO CITE"""
         if self.implementation == "scipy":
             return scipy.linalg.expm(A)
         elif self.implementation == "diagonalizable":
-            super()._evaluate_hermitian(A, is_positive_semidefinite)
+            super()._evaluate_hermitian(A, is_pos_semidefinite)
         else:
             raise NotImplementedError("Unknown evaluation algorithm:"
                                       + " {}".format(self.implementation))
@@ -100,7 +101,7 @@ class MatrixExponential(MatrixFunction):
     def _evaluate_general_sparse(self, A_sp):
         return scipy.sparse.linalg.expm(A_sp)
 
-    def _evaluate_hermitian_sparse(self, A_sp, is_positive_semidefinite=False):
+    def _evaluate_hermitian_sparse(self, A_sp, is_pos_semidefinite=False):
         raise NotImplementedError("Unknown sparse implementation:"
                                   + " {}".format(self.implementation))
 
@@ -120,20 +121,195 @@ class MatrixInverse(MatrixFunction):
             raise NotImplementedError("Unknown evaluation algorithm:"
                                       + " {}".format(self.implementation))
 
-    def _evaluate_hermitian(self, A, is_positive_semidefinite=False):
+    def _evaluate_hermitian(self, A, is_pos_semidefinite=False):
         """From scipy notes*** NEED TO CITE"""
         if self.implementation == "scipy":
             return scipy.linalg.inv(A)
         elif self.implementation == "diagonalizable":
-            super()._evaluate_hermitian(A, is_positive_semidefinite)
+            super()._evaluate_hermitian(A, is_pos_semidefinite)
         else:
             raise NotImplementedError("Unknown evaluation algorithm:"
                                       + " {}".format(self.implementation))
 
+    def _evaluate_general_sparse(self, A_sp):
+        return scipy.sparse.linalg.inv(A_sp)
+
+    def _evaluate_hermitian_sparse(self, A_sp, is_pos_semidefinite=False):
+        raise NotImplementedError("Unknown evaluation algorithm:"
+                                  + " {}".format(self.implementation))
+
 
 class MatrixFunctionSystem:
-    pass
+
+    def __init__(self,
+                 A,
+                 mfunc,
+                 fA=None,
+                 diag_only=None,
+                 normal=False,
+                 hermitian=False,
+                 pos_semidefinite=False):
+        self.is_sparse = scipy.sparse.issparse(A)
+        self.A = A
+        self.mfunc = mfunc
+        self.fA = fA if fA else mfunc(A,  # *args for MatrixFunction?
+                                      is_hermitian=hermitian,
+                                      is_pos_semidefinite=pos_semidefinite)
+        if diag_only and len(self.fA.shape) > 1:
+            self.fA = (numpy.diag(self.fA) if (not self.is_sparse)
+                       else numpy.diag(self.fA.toarray()))
+
+        self.normal = True if hermitian or normal else False
+        self.hermitian = hermitian
+        self.pos_semidefinite = pos_semidefinite
+
+    def get_mat(self):
+        return self.A
+
+    def get_mfunc(self):
+        return self.mfunc
+
+    def get_computed_mfunc(self):
+        return self.fA
+
+    def summarize(self):
+        pass
+
+    def __str__(self):
+        pass
+
+    def __repr__(self):
+        pass
 
 
-class MatrixFunctionUpdate:
-    pass
+class RankOneUpdate:
+
+    def __init__(self,
+                 mfunc_system,
+                 b,
+                 c=None,
+                 sign=1,
+                 maxiter=None,
+                 rel_tol=1e-5,
+                 d=2,
+                 ortho="dmgs",
+                 explicit_soln=None,
+                 dropping_tol=None,
+                 store_res=True):
+        #  Clean params, initialize system
+        self.N = N = b.shape[0]
+        if not isinstance(mfunc_system, RankOneUpdate):
+            raise TypeError("Unrecognized type {}".format(type(mfunc_system)))
+        self.mfunc_system = mfunc_system
+        self.A = mfunc_system.get_mat()
+        self.fA = mfunc_system.get_computed_mfunc()
+        self.mfunc = mfunc_system.get_mfunc()
+        self.diag_only = mfunc_system.diag_only
+        self.b = b
+        self.c = c if c else b
+        self.sign = sign
+        self.maxiter = maxiter if maxiter else N - 1
+        self.rel_tol = rel_tol
+        self.d = d
+        self.explicit_soln = explicit_soln
+        self.dropping_tol = dropping_tol
+        self.ortho = ortho
+
+        #  Construct important properties
+        self.hermitian = min([numpy.all(b == c), mfunc_system.hermitian])
+        self.l_arnoldi = utils.Arnoldi(self.A,
+                                       self.b,
+                                       self.maxiter,
+                                       self.ortho)
+        if not self.hermitian:
+            self.r_arnoldi = utils.Arnoldi(self.A.conj().T,
+                                           self.sign * self.c,
+                                           self.maxiter,
+                                           self.ortho)
+        else:
+            self.r_arnoldi = self.l_arnoldi
+        self.res = numpy.zeros(N) if store_res else None
+        self.Xkf = None
+        self.oldXkfs = deque()
+
+    def advance(self):
+        self.l_arnoldi.advance()
+
+        k = self.l_arnoldi.iter
+        if k > 1 and len(self.oldXkfs) < self.d:
+            self.oldXkfs.append(self.Xkf)
+        elif k > 1 and len(self.oldXkfs) >= self.d:
+            self.oldXkfs.popleft(0)
+            self.oldXkfs.append(self.Xkf)
+
+        if self.hermitian:
+            self.Xkf = self._compute_Xkf_hermitian()
+        else:
+            self.r_arnoldi.advance()
+            self.Xkf = self._compute_Xkf_nonhermitian()
+
+        self.res[k-1] = self._estimate_residual()
+
+    def _compute_Xkf_hermitian(self):
+        k = self.l_arnoldi.iter
+        U, G = self.l_arnoldi.get()
+        size_b = numpy.linalg.norm(self.b, 2)
+        e1 = numpy.zeros((k, 1))
+        e1[0, 0] = 1
+        M1 = self.mfunc(G[:k, :k] + (self.sign * size_b**2 * e1) @ e1.conj().T)
+        M2 = self.mfunc(G[:k, :k])
+        Xkf = M1 - M2
+        return Xkf
+
+    def _compute_Xkf_nonhermitian(self):
+        k = self.l_arnoldi.iter
+        U, G = self.l_arnoldi.get()
+        V, H = self.r_arnoldi.get()
+
+        size_b = numpy.linalg.norm(self.b, 2)
+        size_c = numpy.linalg.norm(self.c, 2)
+        e1 = numpy.zeros((self.N, 1))
+        e1[0, 0] = 1
+        M1 = G[:k, :k]
+        M2 = (size_b * size_c * e1) @ e1.conj().T
+        M3 = numpy.zeros((k, k))
+        M4 = H[:k, :k] + (size_c * (V.conj().T @ self.b)) @ e1.conj().T
+
+        F = self.mfunc(numpy.block(
+            [[M1, M2],
+             [M3, M4]]
+        ))
+        Xkf = F[:k, k:2*k]
+        return Xkf
+
+    def _estimate_residual(self):
+        if not self.Xkf:
+            return float("inf")
+        elif len(self.oldXkfs) < self.d:
+            return numpy.linalg.norm(self.Xkf)
+        else:
+            k_plus_d = self.Xkf.shape[0]
+            k = k_plus_d - self.d
+            d = self.d
+            R = self.Xkf
+            R = R - numpy.block([[self.oldXkfs[0],     numpy.zeros((k, d))],
+                                 [numpy.zeros((d, k)), numpy.zeros((d, d))]])
+            return numpy.linalg.norm(R, 2)
+
+    def get_update(self):
+        pass
+
+    def get_updated_matrix(self):
+        return self.A + (self.sign * self.b) @ self.c.conj().T
+
+    def get_new_system(self):
+        pass
+
+    def get_k(self):
+        return self.l_arnoldi.iter
+
+    def get_arnoldi(self):
+        if self.hermitian:
+            return self.l_arnoldi.get()
+        else:
+            return self.l_arnoldi.get(), self.r_arnoldi.get()
