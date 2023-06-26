@@ -1,4 +1,4 @@
-from . import utils
+from .utils import Arnoldi, ArgumentError
 import numpy
 import scipy.linalg
 import scipy.sparse
@@ -20,7 +20,8 @@ class MatrixFunction:
             self,
             f,
             f_description=None,
-            implementation="scipy"
+            implementation="scipy",
+            dropping_tol=1e-14  # How to implement? 
     ):
         """DOCSTRING?"""
         self.f = numpy.vectorize(f)
@@ -77,7 +78,6 @@ class MatrixExponential(MatrixFunction):
     f = numpy.exp
 
     def __init__(self,
-                 display_error_estimate=False,
                  implementation="scipy"):
         self.implementation = implementation
 
@@ -145,7 +145,7 @@ class MatrixFunctionSystem:
                  A,
                  mfunc,
                  fA=None,
-                 diag_only=None,
+                 diag_only=False,
                  normal=False,
                  hermitian=False,
                  pos_semidefinite=False):
@@ -155,6 +155,7 @@ class MatrixFunctionSystem:
         self.fA = fA if fA else mfunc(A,  # *args for MatrixFunction?
                                       is_hermitian=hermitian,
                                       is_pos_semidefinite=pos_semidefinite)
+        self.diag_only = diag_only
         if diag_only and len(self.fA.shape) > 1:
             self.fA = (numpy.diag(self.fA) if (not self.is_sparse)
                        else numpy.diag(self.fA.toarray()))
@@ -172,14 +173,21 @@ class MatrixFunctionSystem:
     def get_computed_mfunc(self):
         return self.fA
 
-    def summarize(self):
-        pass
-
-    def __str__(self):
-        pass
-
     def __repr__(self):
-        pass
+        s = "MatrixFunctionSystem object\n"
+        num_nonzero = (self.A.nnz if self.is_sparse 
+                       else sum(sum(self.A == numpy.zeros(self.A.shape))))
+        s += "    A: has dimensions {} and {} non-zero elements\n".format(
+            self.A.shape,
+            num_nonzero
+            )
+        s += "    f: {}\n".format(self.mfunc.f_description)
+        s += ("    f(A) storage: " + self.diag_only * "diagonal elements\n"
+              + (not self.diag_only) * "all elements\n")
+        s += "    Normal: " + str(self.normal) + "\n"
+        s += "    Hermitian:" + str(self.hermitian) + "\n"
+        s += "    Positive-semidefinite: " + str(self.pos_semidefinite)
+        return s
 
 
 class RankOneUpdate:
@@ -198,8 +206,9 @@ class RankOneUpdate:
                  store_res=True):
         #  Clean params, initialize system
         self.N = N = b.shape[0]
-        if not isinstance(mfunc_system, RankOneUpdate):
-            raise TypeError("Unrecognized type {}".format(type(mfunc_system)))
+        if not isinstance(mfunc_system, MatrixFunctionSystem):
+            raise TypeError("Unrecognized type {}. ".format(type(mfunc_system))
+                            + "Should be a MatrixFunctionSystem.")
         self.mfunc_system = mfunc_system
         self.A = mfunc_system.get_mat()
         self.fA = mfunc_system.get_computed_mfunc()
@@ -217,12 +226,12 @@ class RankOneUpdate:
 
         #  Construct important properties
         self.hermitian = min([numpy.all(b == c), mfunc_system.hermitian])
-        self.l_arnoldi = utils.Arnoldi(self.A,
+        self.l_arnoldi = Arnoldi(self.A,
                                        self.b,
                                        self.maxiter,
                                        self.ortho)
         if not self.hermitian:
-            self.r_arnoldi = utils.Arnoldi(self.A.conj().T,
+            self.r_arnoldi = Arnoldi(self.A.conj().T,
                                            self.sign * self.c,
                                            self.maxiter,
                                            self.ortho)
@@ -251,20 +260,21 @@ class RankOneUpdate:
         self.res[k-1] = self._estimate_residual()
 
     def _compute_Xkf_hermitian(self):
-        k = self.l_arnoldi.iter
-        U, G = self.l_arnoldi.get()
+        iter = self.get_iter()
+        U, G, V, H = self.get_arnoldi()
         size_b = numpy.linalg.norm(self.b, 2)
-        e1 = numpy.zeros((k, 1))
+        e1 = numpy.zeros((iter, 1))
         e1[0, 0] = 1
-        M1 = self.mfunc(G[:k, :k] + (self.sign * size_b**2 * e1) @ e1.conj().T)
-        M2 = self.mfunc(G[:k, :k])
+        M1 = self.mfunc(
+            G[:iter, :iter] + (self.sign * size_b**2 * e1) @ e1.conj().T
+            )
+        M2 = self.mfunc(G[:iter, :iter])
         Xkf = M1 - M2
         return Xkf
 
     def _compute_Xkf_nonhermitian(self):
-        k = self.l_arnoldi.iter
-        U, G = self.l_arnoldi.get()
-        V, H = self.r_arnoldi.get()
+        k = self.get_iter()
+        U, G, V, H = self.get_arnoldi()
 
         size_b = numpy.linalg.norm(self.b, 2)
         size_c = numpy.linalg.norm(self.c, 2)
@@ -296,20 +306,46 @@ class RankOneUpdate:
                                  [numpy.zeros((d, k)), numpy.zeros((d, d))]])
             return numpy.linalg.norm(R, 2)
 
+    def _diagonal_update(self):
+        raise NotImplementedError("No diagonal update defined yet.")
+
+    def _full_update(self):
+        U, G, V, H = self.get_arnoldi()
+        return U @ self.Xkf @ V.conj().T
+
+
+
     def get_update(self):
-        pass
+        if not self.Xkf:
+            raise ArgumentError("No iterations for"
+                                      + " low-rank update performed yet")
+        
+        if self.diag_only:
+            return self._diagonal_update()
+        else:
+            return self._full_update()
+
 
     def get_updated_matrix(self):
         return self.A + (self.sign * self.b) @ self.c.conj().T
 
-    def get_new_system(self):
-        pass
+    def get_new_system(self, maintains_psd=False, maintains_normality=False):
+        return MatrixFunctionSystem(self.get_updated_matrix(),
+                                    self.mfunc,
+                                    self.fA + self.get_update(),
+                                    self.diag_only,
+                                    maintains_normality,
+                                    self.hermitian,
+                                    maintains_psd)
 
-    def get_k(self):
+    def get_iter(self):
         return self.l_arnoldi.iter
 
     def get_arnoldi(self):
         if self.hermitian:
-            return self.l_arnoldi.get()
+            U, G = self.l_arnoldi.get()
+            V, H = U, G
         else:
-            return self.l_arnoldi.get(), self.r_arnoldi.get()
+            U, G = self.l_arnoldi.get()
+            V, H = self.r_arnoldi.get()
+        return U, G, V, H
