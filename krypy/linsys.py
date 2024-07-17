@@ -285,6 +285,7 @@ class _KrylovSolver(object):
         maxiter=None,
         explicit_residual=False,
         store_arnoldi=False,
+        store_all_xk = False,
         dtype=None,
     ):
         r"""Init standard attributes and perform checks.
@@ -351,6 +352,7 @@ class _KrylovSolver(object):
         self.flat_vecs, (self.x0,) = utils.shape_vecs(x0)
         self.explicit_residual = explicit_residual
         self.store_arnoldi = store_arnoldi
+        self.store_all_xk = store_all_xk
 
         # get initial guess
         self.x0 = self._get_initial_guess(self.x0)
@@ -364,6 +366,7 @@ class _KrylovSolver(object):
         self.tol = tol
 
         self.xk = None
+        self.xk_all = [self.x0]
         """Approximate solution."""
 
         # find common dtype
@@ -653,6 +656,8 @@ class Cg(_KrylovSolver):
 
             # update solution
             yk += alpha * p
+            if self.store_all_xk:
+                self.xk_all.append(self._get_xk(yk))
 
             # update residual
             self.Mlrk -= alpha * Ap
@@ -846,6 +851,9 @@ class Minres(_KrylovSolver):
             yk = yk + y[0] * z
             y = [y[1], 0]
 
+            if self.store_all_xk:
+                self.xk_all.append(self._get_xk(yk))
+
             self._finalize_iteration(yk, numpy.abs(y[0]))
 
         # compute solution if not yet done
@@ -989,6 +997,9 @@ class Gmres(_KrylovSolver):
             G.append(utils.Givens(self.R[k : k + 2, [k]]))
             self.R[k : k + 2, k] = G[k].apply(self.R[k : k + 2, k])
             y[k : k + 2] = G[k].apply(y[k : k + 2])
+
+            if self.store_all_xk:
+                self.xk_all.append(self._get_xk(y[: k + 1]))
 
             self._finalize_iteration(y[: k + 1], abs(y[k + 1, 0]))
 
