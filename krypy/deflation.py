@@ -213,9 +213,7 @@ class _DeflationMixin(object):
             "M": ndefl,
             "Ml": ndefl,
             "Mr": ndefl,
-            "ip_B": (
-                ndefl * (ndefl + 1) / 2 + ndefl ** 2 + 2 * ndefl * solver_ops["Ml"]
-            ),
+            "ip_B": (ndefl * (ndefl + 1) / 2 + ndefl**2 + 2 * ndefl * solver_ops["Ml"]),
             "axpy": (
                 ndefl * (ndefl + 1) / 2
                 + ndefl * ndefl
@@ -670,7 +668,7 @@ def bound_pseudo(
         )[0:-1]
 
         def compute_pseudo(delta_log):
-            delta = 10 ** delta_log
+            delta = 10**delta_log
             if ls_small.self_adjoint:
                 # pseudospectrum are intervals
                 pseudo_intervals = utils.Intervals(
@@ -701,7 +699,7 @@ def bound_pseudo(
                 if pseudolen > 0:
                     polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
                 else:
-                    polymax = numpy.Inf
+                    polymax = numpy.inf
 
             # compute THE bound
             return (
@@ -801,7 +799,7 @@ class Ritz(object):
                 self.values = numpy.zeros(m + n, dtype=sigmas.dtype)
                 zero = numpy.abs(sigmas) < numpy.finfo(float).eps
                 self.values[~zero] = 1.0 / sigmas[~zero]
-                self.values[zero] = numpy.Inf
+                self.values[zero] = numpy.inf
             else:
                 raise utils.ArgumentError(
                     f"Invalid value  '{mode}' for 'mode'. "

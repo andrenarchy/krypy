@@ -504,7 +504,7 @@ def assert_arnoldi(
     arnoldi_res = MAV - numpy.dot(V, H)
     arnoldi_resn = krypy.utils.norm(arnoldi_res, ip_B=ip_B)
     # inequality (2.3) in [1]
-    arnoldi_tol = arnoldi_const * k * (N ** 1.5) * eps * An
+    arnoldi_tol = arnoldi_const * k * (N**1.5) * eps * An
     assert arnoldi_resn <= arnoldi_tol
 
     # check orthogonality by measuring \| I - <V,V> \|_2
@@ -514,7 +514,7 @@ def assert_arnoldi(
         ortho_res = numpy.eye(V.shape[1]) - krypy.utils.inner(V, V, ip_B=ip_B)
     ortho_resn = numpy.linalg.norm(ortho_res, 2)
     if ortho == "house":
-        ortho_tol = ortho_const * (k ** 1.5) * N * eps  # inequality (2.4) in [1]
+        ortho_tol = ortho_const * (k**1.5) * N * eps  # inequality (2.4) in [1]
     else:
         vAV_singvals = scipy.linalg.svd(
             numpy.column_stack([V[:, [0]], (MAV[:, :-1] if invariant else MAV)]),
@@ -525,7 +525,7 @@ def assert_arnoldi(
         else:
             # inequality (2.5) in [1]
             ortho_tol = (
-                ortho_const * (k ** 2) * N * eps * vAV_singvals[0] / vAV_singvals[-1]
+                ortho_const * (k**2) * N * eps * vAV_singvals[0] / vAV_singvals[-1]
             )
     # mgs or lanczos is not able to detect an invariant subspace reliably
     if (ortho != "mgs" or N != k) and ortho != "lanczos":

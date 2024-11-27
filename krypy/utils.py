@@ -15,9 +15,6 @@ import scipy.linalg
 import scipy.linalg.blas as blas
 from scipy.sparse import isspmatrix
 
-# from scipy.sparse.linalg import LinearOperator, aslinearoperator
-from scipy.sparse.sputils import isintlike
-
 __all__ = [
     "ArgumentError",
     "AssumptionError",
@@ -143,6 +140,13 @@ def shape_vecs(*args):
     return flat_vecs, ret_args
 
 
+def isint(x):
+    try:
+        return int(x) == x
+    except Exception:
+        return False
+
+
 def ip_euclid(X, Y):
     """Euclidean inner product.
 
@@ -233,7 +237,7 @@ def norm(x, y=None, ip_B=None):
         raise InnerProductError(
             "inner product defined by ip_B not positive "
             "definite? ||diag(ip).imag||/||diag(ip)||="
-            f"{nrm_diag_imag/nrm_diag}"
+            f"{nrm_diag_imag / nrm_diag}"
         )
     return numpy.sqrt(numpy.linalg.norm(ip, 2))
 
@@ -355,7 +359,7 @@ class House:
             alpha = 1 if gamma == 0 else gamma / xnorm
         else:
             sigma = numpy.linalg.norm(v[1:], 2)
-            xnorm = numpy.sqrt(numpy.abs(gamma) ** 2 + sigma ** 2)
+            xnorm = numpy.sqrt(numpy.abs(gamma) ** 2 + sigma**2)
 
             # is x the multiple of first unit vector?
             if sigma == 0:
@@ -372,7 +376,7 @@ class House:
                     alpha = -gamma / numpy.abs(gamma)
 
         self.xnorm = xnorm
-        self.v = v / numpy.sqrt(numpy.abs(v[0]) ** 2 + sigma ** 2)
+        self.v = v / numpy.sqrt(numpy.abs(v[0]) ** 2 + sigma**2)
         self.alpha = alpha
         self.beta = beta
 
@@ -767,7 +771,7 @@ def angles(F, G, ip_B=None, compute_vectors=False):
     else:
         Y, s, Z = scipy.linalg.svd(inner(QF, QG, ip_B=ip_B))
         Vcos = numpy.dot(QG, Z.T.conj())
-        n_large = numpy.flatnonzero((s ** 2) < 0.5).shape[0]
+        n_large = numpy.flatnonzero((s**2) < 0.5).shape[0]
         n_small = s.shape[0] - n_large
         theta = numpy.hstack(
             [
@@ -1369,7 +1373,7 @@ class LinearOperator(object):
     """
 
     def __init__(self, shape, dtype, dot=None, dot_adj=None):
-        if len(shape) != 2 or not isintlike(shape[0]) or not isintlike(shape[1]):
+        if len(shape) != 2 or not isint(shape[0]) or not isint(shape[1]):
             raise LinearOperatorError("shape must be (m,n) with m and n " "integer")
         self.shape = shape
         self.dtype = numpy.dtype(dtype)  # defaults to float64
@@ -1525,7 +1529,7 @@ class _PowerLinearOperator(LinearOperator):
             raise LinearOperatorError("LinearOperator expected as A")
         if A.shape[0] != A.shape[1]:
             raise LinearOperatorError("square LinearOperator expected as A")
-        if not isintlike(p):
+        if not isint(p):
             raise LinearOperatorError("integer expected as p")
         self.args = (A, p)
         super(_PowerLinearOperator, self).__init__(
@@ -1699,7 +1703,7 @@ def gap(lamda, sigma, mode="individual"):
         # is a sigma value in lamda interval?
         if not numpy.all(sigma_lo + sigma_hi):
             return None
-        delta = numpy.Infinity
+        delta = numpy.inf
         if numpy.any(sigma_lo):
             delta = lamda_min - numpy.max(sigma[sigma_lo])
         if numpy.any(sigma_hi):
@@ -1909,7 +1913,7 @@ class BoundCG(object):
 
     def eval_step(self, step):
         """Evaluate bound for given step."""
-        return 2 * self.base ** step
+        return 2 * self.base**step
 
     def get_step(self, tol):
         """Return step at which bound falls below tolerance."""
@@ -1999,7 +2003,7 @@ class BoundMinres(object):
         return 2 * self.base ** numpy.floor(step / 2.0)
 
     def get_step(self, tol):
-        """Return step at which bound falls below tolerance. """
+        """Return step at which bound falls below tolerance."""
         return 2 * numpy.log(tol / 2.0) / numpy.log(self.base)
 
 

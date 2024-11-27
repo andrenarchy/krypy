@@ -13,7 +13,7 @@ class _RitzSubsetsGenerator(object):
 class RitzSmall(_RitzSubsetsGenerator):
     """Successively returns the Ritz value of smallest magnitude."""
 
-    def __init__(self, max_vectors=numpy.Inf):
+    def __init__(self, max_vectors=numpy.inf):
         self.max_vectors = max_vectors
 
     def generate(self, ritz, remaining_subset):
@@ -34,7 +34,7 @@ class RitzExtremal(_RitzSubsetsGenerator):
     smallest and largest magnitude are returned.
     """
 
-    def __init__(self, max_vectors=numpy.Inf):
+    def __init__(self, max_vectors=numpy.inf):
         self.max_vectors = max_vectors
 
     def generate(self, ritz, remaining_subset):

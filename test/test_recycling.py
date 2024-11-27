@@ -55,7 +55,7 @@ def test_RitzFactorySimple(Solver, which):
 #     ],
 # )
 # @pytest.mark.parametrize("self_adjoint", [True])
-# @pytest.mark.parametrize("max_vectors", [numpy.Inf, 2])
+# @pytest.mark.parametrize("max_vectors", [numpy.inf, 2])
 # def test_SmallRitzGenerator(A, self_adjoint, max_vectors):
 #     ritz = _get_ritz(A, self_adjoint)
 #     small = krypy.recycling.generators.SmallRitz(max_vectors=max_vectors)
