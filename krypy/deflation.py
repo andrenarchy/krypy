@@ -701,7 +701,7 @@ def bound_pseudo(
                 if pseudolen > 0:
                     polymax = numpy.max(numpy.abs(p(pseudo_path.vertices())))
                 else:
-                    polymax = numpy.Inf
+                    polymax = numpy.inf
 
             # compute THE bound
             return (
@@ -801,7 +801,7 @@ class Ritz(object):
                 self.values = numpy.zeros(m + n, dtype=sigmas.dtype)
                 zero = numpy.abs(sigmas) < numpy.finfo(float).eps
                 self.values[~zero] = 1.0 / sigmas[~zero]
-                self.values[zero] = numpy.Inf
+                self.values[zero] = numpy.inf
             else:
                 raise utils.ArgumentError(
                     f"Invalid value  '{mode}' for 'mode'. "

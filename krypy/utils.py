@@ -143,7 +143,7 @@ def shape_vecs(*args):
 def isint(x):
     try:
         return int(x) == x
-    except:
+    except Exception:
         return False
 
 
@@ -237,7 +237,7 @@ def norm(x, y=None, ip_B=None):
         raise InnerProductError(
             "inner product defined by ip_B not positive "
             "definite? ||diag(ip).imag||/||diag(ip)||="
-            f"{nrm_diag_imag/nrm_diag}"
+            f"{nrm_diag_imag / nrm_diag}"
         )
     return numpy.sqrt(numpy.linalg.norm(ip, 2))
 
@@ -1703,7 +1703,7 @@ def gap(lamda, sigma, mode="individual"):
         # is a sigma value in lamda interval?
         if not numpy.all(sigma_lo + sigma_hi):
             return None
-        delta = numpy.Infinity
+        delta = numpy.inf
         if numpy.any(sigma_lo):
             delta = lamda_min - numpy.max(sigma[sigma_lo])
         if numpy.any(sigma_hi):
