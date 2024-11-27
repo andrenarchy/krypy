@@ -359,7 +359,7 @@ class House:
             alpha = 1 if gamma == 0 else gamma / xnorm
         else:
             sigma = numpy.linalg.norm(v[1:], 2)
-            xnorm = numpy.sqrt(numpy.abs(gamma) ** 2 + sigma ** 2)
+            xnorm = numpy.sqrt(numpy.abs(gamma) ** 2 + sigma**2)
 
             # is x the multiple of first unit vector?
             if sigma == 0:
@@ -376,7 +376,7 @@ class House:
                     alpha = -gamma / numpy.abs(gamma)
 
         self.xnorm = xnorm
-        self.v = v / numpy.sqrt(numpy.abs(v[0]) ** 2 + sigma ** 2)
+        self.v = v / numpy.sqrt(numpy.abs(v[0]) ** 2 + sigma**2)
         self.alpha = alpha
         self.beta = beta
 
@@ -771,7 +771,7 @@ def angles(F, G, ip_B=None, compute_vectors=False):
     else:
         Y, s, Z = scipy.linalg.svd(inner(QF, QG, ip_B=ip_B))
         Vcos = numpy.dot(QG, Z.T.conj())
-        n_large = numpy.flatnonzero((s ** 2) < 0.5).shape[0]
+        n_large = numpy.flatnonzero((s**2) < 0.5).shape[0]
         n_small = s.shape[0] - n_large
         theta = numpy.hstack(
             [
@@ -1913,7 +1913,7 @@ class BoundCG(object):
 
     def eval_step(self, step):
         """Evaluate bound for given step."""
-        return 2 * self.base ** step
+        return 2 * self.base**step
 
     def get_step(self, tol):
         """Return step at which bound falls below tolerance."""
@@ -2003,7 +2003,7 @@ class BoundMinres(object):
         return 2 * self.base ** numpy.floor(step / 2.0)
 
     def get_step(self, tol):
-        """Return step at which bound falls below tolerance. """
+        """Return step at which bound falls below tolerance."""
         return 2 * numpy.log(tol / 2.0) / numpy.log(self.base)
 
 

@@ -213,9 +213,7 @@ class _DeflationMixin(object):
             "M": ndefl,
             "Ml": ndefl,
             "Mr": ndefl,
-            "ip_B": (
-                ndefl * (ndefl + 1) / 2 + ndefl ** 2 + 2 * ndefl * solver_ops["Ml"]
-            ),
+            "ip_B": (ndefl * (ndefl + 1) / 2 + ndefl**2 + 2 * ndefl * solver_ops["Ml"]),
             "axpy": (
                 ndefl * (ndefl + 1) / 2
                 + ndefl * ndefl
@@ -670,7 +668,7 @@ def bound_pseudo(
         )[0:-1]
 
         def compute_pseudo(delta_log):
-            delta = 10 ** delta_log
+            delta = 10**delta_log
             if ls_small.self_adjoint:
                 # pseudospectrum are intervals
                 pseudo_intervals = utils.Intervals(

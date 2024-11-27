@@ -510,8 +510,7 @@ class _KrylovSolver(object):
         )
 
     def _solve(self):
-        """Abstract method that solves the linear system.
-        """
+        """Abstract method that solves the linear system."""
         raise NotImplementedError(
             "_solve has to be overridden by " "the derived solver class."
         )
@@ -597,7 +596,7 @@ class Cg(_KrylovSolver):
         yk = numpy.zeros((N, 1), dtype=self.dtype)
 
         # square of the old residual norm
-        self.rhos = rhos = [self.MMlr0_norm ** 2]
+        self.rhos = rhos = [self.MMlr0_norm**2]
 
         # will be updated by _compute_rkn if explicit_residual is True
         self.Mlrk = self.Mlr0.copy()
@@ -662,7 +661,7 @@ class Cg(_KrylovSolver):
 
             # compute norm and rho_new
             MMlrk_norm = utils.norm(self.Mlrk, self.MMlrk, ip_B=self.linear_system.ip_B)
-            rhos.append(MMlrk_norm ** 2)
+            rhos.append(MMlrk_norm**2)
 
             # compute Lanczos vector + new subdiagonal element
             if self.store_arnoldi:
@@ -680,7 +679,7 @@ class Cg(_KrylovSolver):
             # update rho_new if it was updated in _compute_norms
             if rkn is not None:
                 # new rho
-                rhos[-1] = rkn ** 2
+                rhos[-1] = rkn**2
 
             self.iter += 1
 
