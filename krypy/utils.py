@@ -15,9 +15,6 @@ import scipy.linalg
 import scipy.linalg.blas as blas
 from scipy.sparse import isspmatrix
 
-# from scipy.sparse.linalg import LinearOperator, aslinearoperator
-from scipy.sparse.sputils import isintlike
-
 __all__ = [
     "ArgumentError",
     "AssumptionError",
@@ -141,6 +138,13 @@ def shape_vecs(*args):
                 flat_vecs = False
         ret_args.append(arg)
     return flat_vecs, ret_args
+
+
+def isint(x):
+    try:
+        return int(x) == x
+    except:
+        return False
 
 
 def ip_euclid(X, Y):
@@ -1369,7 +1373,7 @@ class LinearOperator(object):
     """
 
     def __init__(self, shape, dtype, dot=None, dot_adj=None):
-        if len(shape) != 2 or not isintlike(shape[0]) or not isintlike(shape[1]):
+        if len(shape) != 2 or not isint(shape[0]) or not isint(shape[1]):
             raise LinearOperatorError("shape must be (m,n) with m and n " "integer")
         self.shape = shape
         self.dtype = numpy.dtype(dtype)  # defaults to float64
@@ -1525,7 +1529,7 @@ class _PowerLinearOperator(LinearOperator):
             raise LinearOperatorError("LinearOperator expected as A")
         if A.shape[0] != A.shape[1]:
             raise LinearOperatorError("square LinearOperator expected as A")
-        if not isintlike(p):
+        if not isint(p):
             raise LinearOperatorError("integer expected as p")
         self.args = (A, p)
         super(_PowerLinearOperator, self).__init__(
