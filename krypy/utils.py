@@ -16,7 +16,7 @@ import scipy.linalg.blas as blas
 from scipy.sparse import isspmatrix
 
 # from scipy.sparse.linalg import LinearOperator, aslinearoperator
-from scipy.sparse.sputils import isintlike
+# from scipy.sparse.sputils import isintlike
 
 __all__ = [
     "ArgumentError",
@@ -1258,8 +1258,8 @@ def ritz(H, V=None, hermitian=False, type="ritz"):
         for i in range(n):
             U[:, i] /= numpy.linalg.norm(U[:, i], 2)
             resi = numpy.dot(H, U[:, i])
-            if resi.dtype != numpy.complex and theta.dtype == numpy.complex:
-                resi = numpy.array(resi, dtype=numpy.complex)
+            if resi.dtype != numpy.complex128 and theta.dtype == numpy.complex128:
+                resi = numpy.array(resi, dtype=numpy.complex128)
             resi[:n] -= theta[i] * U[:, i]
             resnorm.append(numpy.linalg.norm(resi, 2))
         resnorm = numpy.array(resnorm)
@@ -1369,7 +1369,9 @@ class LinearOperator(object):
     """
 
     def __init__(self, shape, dtype, dot=None, dot_adj=None):
-        if len(shape) != 2 or not isintlike(shape[0]) or not isintlike(shape[1]):
+        # if len(shape) != 2 or not isintlike(shape[0]) or not isintlike(shape[1]):
+        if len(shape) != 2 or int(shape[0]) != shape[0] or \
+                int(shape[1]) != shape[1]:
             raise LinearOperatorError("shape must be (m,n) with m and n " "integer")
         self.shape = shape
         self.dtype = numpy.dtype(dtype)  # defaults to float64
@@ -1525,7 +1527,8 @@ class _PowerLinearOperator(LinearOperator):
             raise LinearOperatorError("LinearOperator expected as A")
         if A.shape[0] != A.shape[1]:
             raise LinearOperatorError("square LinearOperator expected as A")
-        if not isintlike(p):
+        # if not isintlike(p):
+        if int(p) != p:
             raise LinearOperatorError("integer expected as p")
         self.args = (A, p)
         super(_PowerLinearOperator, self).__init__(
@@ -1890,7 +1893,7 @@ class BoundCG(object):
             raise AssumptionError("non-real eigenvalues not allowed")
 
         # sort
-        evals = numpy.sort(numpy.array(evals, dtype=numpy.float))
+        evals = numpy.sort(numpy.array(evals, dtype=numpy.double))
 
         # normalize
         evals /= evals[-1]
@@ -1977,7 +1980,7 @@ class BoundMinres(object):
             raise AssumptionError("non-real eigenvalues not allowed")
 
         # sort
-        evals = numpy.sort(numpy.array(evals, dtype=numpy.float))
+        evals = numpy.sort(numpy.array(evals, dtype=numpy.double))
 
         # normalize and categorize evals
         evals /= numpy.max(numpy.abs(evals))
@@ -2086,7 +2089,7 @@ class NormalizedRootsPolynomial(object):
         # values
         for j in range(vals.shape[1]):
             sort_tmp = numpy.argsort(numpy.abs(vals[:, j]))
-            sort = numpy.zeros((n,), dtype=numpy.int)
+            sort = numpy.zeros((n,), dtype=numpy.int16)
             mid = int(numpy.ceil(float(n) / 2))
             sort[::2] = sort_tmp[:mid]
             sort[1::2] = sort_tmp[mid:][::-1]

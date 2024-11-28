@@ -18,7 +18,7 @@ def get_matrix_spd():
 
 
 def get_matrix_hpd():
-    a = numpy.array(numpy.linspace(1, 2, 10), dtype=numpy.complex)
+    a = numpy.array(numpy.linspace(1, 2, 10), dtype=numpy.complex128)
     a[0] = 5
     a[-1] = 1e-1
     A = numpy.diag(a)
@@ -34,7 +34,7 @@ def get_matrix_symm_indef():
 
 
 def get_matrix_herm_indef():
-    a = numpy.array(numpy.linspace(1, 2, 10), dtype=numpy.complex)
+    a = numpy.array(numpy.linspace(1, 2, 10), dtype=numpy.complex128)
     a[-1] = 1e-3
     A = numpy.diag(a)
     A[-1, 0] = 10j
@@ -43,7 +43,7 @@ def get_matrix_herm_indef():
 
 
 def get_matrix_nonsymm():
-    a = numpy.array(range(1, 11), dtype=numpy.float)
+    a = numpy.array(range(1, 11), dtype=numpy.double)
     a[-1] = -1e1
     A = numpy.diag(a)
     A[0, -1] = 1e1
@@ -51,7 +51,7 @@ def get_matrix_nonsymm():
 
 
 def get_matrix_comp_nonsymm():
-    a = numpy.array(range(1, 11), dtype=numpy.complex)
+    a = numpy.array(range(1, 11), dtype=numpy.complex128)
     a[-1] = -1e1
     A = numpy.diag(a)
     A[0, -1] = 1.0e1j
